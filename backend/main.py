@@ -333,3 +333,260 @@ async def get_seasons():
         ORDER BY season_year DESC
     """
     return await database.fetch_all(query=query)
+
+
+@app.get("/api/teams/{team_id}/espn_data")
+async def get_team_espn_data(team_id: int):
+    """Fetch the team's next scheduled game, records, and standing summary directly from ESPN."""
+    import httpx
+    url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return {}
+                
+            data = resp.json()
+            team_data = data.get('team', {})
+            
+            # 1. Standing Summary
+            standing_summary = team_data.get('standingSummary', '')
+            
+            # 2. Records
+            record_data = team_data.get('record', {})
+            records = record_data.get('items', []) if isinstance(record_data, dict) else []
+            
+            # 3. Next Game
+            next_events = team_data.get('nextEvent', [])
+            next_game_dict = None
+            if next_events:
+                game = next_events[0]
+                comp = game.get('competitions', [{}])[0]
+                
+                opponent = None
+                is_home = False
+                for t in comp.get('competitors', []):
+                    if str(t.get('id')) != str(team_id):
+                        opponent = t.get('team', {})
+                    else:
+                        is_home = t.get('homeAway') == 'home'
+                        
+                if opponent:
+                    next_game_dict = {
+                        "event_id": game.get('id'),
+                        "date": game.get('date'),
+                        "name": game.get('name'),
+                        "short_name": game.get('shortName'),
+                        "season_type": game.get('seasonType', {}).get('name'),
+                        "opponent_id": opponent.get('id'),
+                        "opponent_name": opponent.get('displayName'),
+                        "opponent_abbreviation": opponent.get('abbreviation'),
+                        "opponent_logo": f"https://a.espncdn.com/i/teamlogos/mlb/500/{opponent.get('abbreviation', 'mlb').lower()}.png",
+                        "is_home": is_home,
+                        "venue_name": comp.get('venue', {}).get('fullName')
+                    }
+                    
+            return {
+                "next_game": next_game_dict,
+                "standingSummary": standing_summary,
+                "records": records
+            }
+        except Exception as e:
+            print(f"Error fetching espn data: {e}")
+            return {}
+
+
+@app.get("/api/teams/{team_id}/depthchart")
+async def get_team_depthchart(team_id: int):
+    """Fetch the team's current depth chart to populate the Diamond Architecture."""
+    import httpx
+    
+    # We query the current UTC year to ensure we get the live depth chart
+    from datetime import datetime, timezone
+    year = datetime.now(timezone.utc).year
+    
+    url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year}/teams/{team_id}/depthcharts"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                # Fallback to the previous year if the current year depth chart hasn't been published yet (e.g. early Spring Training)
+                url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year-1}/teams/{team_id}/depthcharts"
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    return {}
+                
+            data = resp.json()
+            if not data.get('items'):
+                return {}
+                
+            positions_data = data['items'][0].get('positions', {})
+            
+            diamond = {}
+            
+            # Map ESPN's position keys to the specific players who are rank 1 (Starters)
+            for pos_key, pos_info in positions_data.items():
+                athletes = pos_info.get('athletes', [])
+                if not athletes:
+                    continue
+                    
+                # We only want the starter (rank = 1)
+                starter = next((a for a in athletes if a.get('rank') == 1), athletes[0])
+                
+                athlete_ref = starter.get('athlete', {}).get('$ref', '')
+                if not athlete_ref:
+                    continue
+                    
+                athlete_id = athlete_ref.split('/athletes/')[1].split('?')[0]
+                
+                # Fetch the athlete's name from our own DB so we don't have to hit 9 ESPN endpoints sequentially!
+                athlete_query = "SELECT full_name, display_name FROM athletes WHERE athlete_id = :id"
+                athlete_record = await database.fetch_one(query=athlete_query, values={"id": int(athlete_id)})
+                
+                name = athlete_record['display_name'] if athlete_record else "Unknown Player"
+                
+                diamond[pos_info.get('position', {}).get('abbreviation')] = {
+                    "athlete_id": athlete_id,
+                    "name": name,
+                    "headshot": f"https://a.espncdn.com/i/headshots/mlb/players/full/{athlete_id}.png"
+                }
+                
+            return diamond
+        except Exception as e:
+            print(f"Error fetching depth chart: {e}")
+            return {}
+
+
+@app.get("/api/teams/{team_id}/leaders")
+async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "Regular Season"):
+    """Fetch official team leaders directly from ESPN and map to our database."""
+    import httpx
+    
+    # Map our readable string back to ESPN's internal type IDs
+    type_id = "2"
+    if season_type == "Preseason": type_id = "1"
+    elif season_type == "Postseason": type_id = "3"
+    
+    url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year}/types/{type_id}/teams/{team_id}/leaders"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return []
+                
+            data = resp.json()
+            
+            # We want to pull specific categories to make a clean dashboard:
+            # e.g. Batting Average, Home Runs, ERA, Strikeouts
+            desired_categories = ['battingAverage', 'homeRuns', 'runsBattedIn', 'earnedRunAverage', 'strikeouts']
+            
+            final_leaders = []
+            
+            for category in data.get('categories', []):
+                cat_name = category.get('name')
+                if cat_name not in desired_categories:
+                    continue
+                    
+                leaders_list = category.get('leaders', [])
+                if not leaders_list:
+                    continue
+                
+                # We only take the #1 leader for each category for a clean UI
+                top_leader = leaders_list[0]
+                athlete_ref = top_leader.get('athlete', {}).get('$ref', '')
+                if not athlete_ref:
+                    continue
+                    
+                athlete_id = int(athlete_ref.split('/athletes/')[1].split('?')[0])
+                
+                # Get their name from our DB
+                athlete_query = "SELECT display_name, position_id FROM athletes WHERE athlete_id = :id"
+                athlete_record = await database.fetch_one(query=athlete_query, values={"id": athlete_id})
+                
+                pos_abbrev = "UN"
+                if athlete_record and athlete_record['position_id']:
+                    pos_query = "SELECT abbreviation FROM positions WHERE position_id = :pid"
+                    pos_record = await database.fetch_one(query=pos_query, values={"pid": athlete_record['position_id']})
+                    if pos_record:
+                        pos_abbrev = pos_record['abbreviation']
+                
+                final_leaders.append({
+                    "category": category.get('displayName'),
+                    "short_category": category.get('abbreviation'),
+                    "athlete_id": athlete_id,
+                    "name": athlete_record['display_name'] if athlete_record else "Unknown",
+                    "position": pos_abbrev,
+                    "value": top_leader.get('displayValue'),
+                    "headshot": f"https://a.espncdn.com/i/headshots/mlb/players/full/{athlete_id}.png"
+                })
+                
+            return final_leaders
+        except Exception as e:
+            print(f"Error fetching team leaders: {e}")
+            return []
+
+
+@app.get("/api/teams/{team_id}/standing")
+async def get_team_standing(team_id: int, year: int = 2024):
+    """Fetch the team's official win/loss record and division rank using the Core API."""
+    import httpx
+    
+    # First, we need to look up the team's Division ID and Name from our DB
+    group_query = """
+        SELECT st.group_id, g.name as division_name 
+        FROM season_teams st
+        JOIN groups g ON st.group_id = g.group_id AND st.season_year = g.season_year
+        WHERE st.team_id = :team_id AND st.season_year = :year
+    """
+    team_record = await database.fetch_one(query=group_query, values={"team_id": team_id, "year": year})
+    
+    if not team_record or not team_record['group_id']:
+        return None
+        
+    group_id = team_record['group_id']
+    division_name = team_record['division_name']
+    
+    # We query the exact division standings endpoint
+    url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year}/types/2/groups/{group_id}/standings/0?lang=en&region=us"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return None
+                
+            data = resp.json()
+            
+            # The teams in the division are sorted by rank in the standings array!
+            for idx, team_standing in enumerate(data.get('standings', [])):
+                # ESPN links the team as a $ref, e.g. ".../teams/10?lang=en&region=us"
+                t_ref = team_standing.get('team', {}).get('$ref', '')
+                if not t_ref: continue
+                
+                t_id = t_ref.split('/teams/')[1].split('?')[0]
+                
+                if str(t_id) == str(team_id):
+                    # We found our team! Now find their "overall" record block
+                    for record in team_standing.get('records', []):
+                        if record.get('name') == 'overall':
+                            stats = {s['name']: s['displayValue'] for s in record.get('stats', [])}
+                            
+                            return {
+                                "wins": stats.get('wins', '0'),
+                                "losses": stats.get('losses', '0'),
+                                "win_percent": stats.get('winPercent', '.000'),
+                                "division_rank": idx + 1, # The index in the array is their rank!
+                                "division_name": division_name,
+                                "games_behind": stats.get('gamesBehind', '0'),
+                                "streak": stats.get('streak', 'None')
+                            }
+            return None
+        except Exception as e:
+            print(f"Error fetching core standings: {e}")
+            return None
+        except Exception as e:
+            print(f"Error fetching standings: {e}")
+            return None

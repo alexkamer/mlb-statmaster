@@ -39,3 +39,27 @@ export async function fetchTeamPitchingStats(teamId: number, year = 2024, season
   const response = await fetch(`${API_URL}/teams/${teamId}/roster/pitching?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
   return response.json();
 }
+export async function fetchTeamEspnData(teamId: number) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/espn_data`);
+  if (!response.ok) return {};
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+export async function fetchTeamDepthChart(teamId: number) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/depthchart`);
+  if (!response.ok) return {};
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+export async function fetchTeamLeaders(teamId: number, year = 2024, seasonType = "All") {
+  const response = await fetch(`${API_URL}/teams/${teamId}/leaders?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
+  if (!response.ok) return [];
+  const text = await response.text();
+  return text ? JSON.parse(text) : [];
+}
+export async function fetchTeamStanding(teamId: number, year = 2024) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/standing?year=${year}`);
+  if (!response.ok) return null;
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}

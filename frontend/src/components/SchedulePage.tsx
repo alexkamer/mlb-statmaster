@@ -140,8 +140,8 @@ export const SchedulePage = () => {
                 return (
                   <tr key={game.event_id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-primary">{dateObj.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                      <p className="text-[10px] font-medium text-slate-500">{dateObj.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })} UTC</p>
+                      <p className="text-sm font-bold text-primary">{dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="text-[10px] font-medium text-slate-500">{dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} {new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).format(dateObj).split(' ')[1]}</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-primary hover:text-secondary cursor-pointer transition-colors">

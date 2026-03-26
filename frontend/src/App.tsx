@@ -7,12 +7,12 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 
 import { PlayerModal } from './components/PlayerModal';
-import { BattingLeaders } from './components/BattingLeaders';
+import { BattingLeaders as TeamLeaders } from './components/BattingLeaders';
 import { LiveRoster } from './components/LiveRoster';
 import { TeamTabs } from './components/TeamTabs';
 import { TeamsPage } from './components/TeamsPage';
 import { SchedulePage } from './components/SchedulePage';
-import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster } from './api';
+import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
 import { 
   LayoutDashboard, 
   Trophy, 
@@ -139,19 +139,10 @@ const UPCOMING_GAMES: UpcomingGame[] = [
   }
 ];
 
-const FIELD_PLAYERS = [
-  { pos: 'LF', name: 'M. Brantley', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA_dEDB7nOo7H4mLTGWIGJxdpWeMf9lNICMAjtgKcZSQyjZKbA8gOaWDTBj-Qw0X8YNWL25P69VVWyRlcbxYXcZFrwbvfu7MrFYz-Lf8-J_58I-20qLd2cEAMNrEE6rsLx5juiENksUzN1AWtLDra4wtq8jh2K1jr_VhF_4pAy-SFy038vlFEeqUcJTDAepWeokd56knkazunY3e03OwoQNqNCv66HV5ZYiq-4DiPtyPX6DuCSHUU1mT4ixstJgW2Kr4hlNOekJFIVC', grid: 'col-start-1 row-start-1' },
-  { pos: 'CF', name: 'H. Bader', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAEyFm9jZ4DHWCje97-_T7TbQf3juNALDqc7zr_mbgLa-st7V-OGTCtT6l2GhlCl5POnRt0D4a4u2tsdm0NFyys_kM1SYokaTK0DzhfegqHlrOmfW46CTUhi2eos5avMVFcTH9B9qPmt5Y30MI-gx1ElomIHQmjNBqv5YB5tAq2kzjhI0CIpKkS0322SSUXi6OAvza--TMELpN6fvmeSjFv-2ZC554kGYogjkCG7-OCyEMXnYPBLiCSD_OeyATpUT8RN3YBECaNhmQj', grid: 'col-start-3 row-start-1' },
-  { pos: 'RF', name: 'J. Thorne', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDX4AZxkuAqwpPyfftgG6APO5M0zPBXE0zPrCtSQhIx8ItmDoIRw5yDXMy-T4yUcge3YXRKe_NmqSwPsOkeVO2Iq16jfUduiPlvmg31T8fzfJ91FSfICA7EdMjT2FQpernk2i25Tm2lRB-gVa3knAIkzK29h7b3ULhSUBDpcP8PIidz9cs0qaSzrB9aYhqS_2FUeCdq-mYJTmw1PNkmBf2c5m8A9xKziz0cE5kAzx42peD6bHUF5wsChi5VvokteNr_AFufFamNSXS0', grid: 'col-start-5 row-start-1' },
-  { pos: 'SS', name: 'M. Vance', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCZ69OaQdss4yF1xKSBOQIq1tBhFgaxGtHusEPuDq7f81GDu5Hiqek7C85uvNiyp6uTUyFEj5GIpZKksP9vpfh4Oot-UGIAvgFfe8Dl0Xg7tmzWfBuIhpfzKfq-UxHA86BmsFSGtwQBQ8Hta_UdHxAdHgdWs7IRR178n2_zH9dAk-mNhrqDK637T913ZW2LGfFDk9ERBhAarAyHaZXjKDUdw7jvR4sA-Uo3n1Jvgfe5qbyo1eBNWYnebd9ys__rtSag7TZLNlT6fEuj', grid: 'col-start-2 row-start-2' },
-  { pos: '2B', name: 'G. Torres', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDYO_lcH-Rq05jZ2phROHr7qwAlyRJ8NhOyYHlZdLkHrJSHCPDCFcTrnVvGs1Y_tWabf7JpZxlHVnXN_sD5kqR_jGjagWBTH7Nlb7BoqFeo1V25ZPjWwlWix6yBAzhs4EYHHeFn1ivNOrLp4vUNWH701y56tsb0ifWqdaSOBK4Ag_DRtjUPAkdgoEzf-detUG-2BA7xnNpPvBxp7JIueZZhzNzbdeaUJYQPNv0loFf9YKaOqzrqyClfJJP61RoRQAqOXFI_9m6edWl9', grid: 'col-start-4 row-start-2' },
-  { pos: 'P', name: 'G. Cole', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBzI3boJJyliXaTb0WgUsroFcy2xCbzLNVRALVIVHjTgc0wpRizvhgiGeiTfRw2hwxm_RAwhq3rZRt_pmdMw_FOGu1NIESnF1i8q-mU1rjILU_52g3lF94-XL4Xqj-W17VXfxswShw6KfUeQ1HXYuOWOObuoqaMydvKVmsGo4uDL1HyABVNepkOkUMpwjW0hmc4ShMUm2VEZtlWO6pkBZcEKRs86AlVdyHto6R53M6wii029w1zaTKf67M5Octu8Ixne5sb8ozK6Tkm', grid: 'col-start-3 row-start-3', featured: true },
-  { pos: 'C', name: 'A. Wells', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCpuH0jG0Srlk0QAp5Ng6ZCWZNSw33qDIoLrAdWnivXWLOctCbL6lX789o4uTSmzn2Bi9w5iWb50rXTWd6ahRPl3lBBZiAwhWGA7ORiIQDQbwb3gMe0WSOe4kGR-D8gPyoMSgwIaPvD94XYkBmgB7svBIQY0i2uGlid1uBJN2yNLhrWV2uhUu_wQ-f_oS8A8-JdjxwDG1ah4HthROITh0tuC98dM2bWBeOjPRWwqQ-G_eSlsgfVdDOoUo2d0Jy68l8fNOZDmMOtxL3b', grid: 'col-start-3 row-start-4' },
-];
 
 // --- Components ---
 
-const Header = ({ teams, selectedTeamId, onSelectTeam }: { teams: any[], selectedTeamId: number | null, onSelectTeam: (id: number) => void }) => {
+const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
   const navigate = useNavigate();
   return (
   <header className="bg-primary flex justify-between items-center w-full px-6 h-16 fixed top-0 z-50 shadow-xl">
@@ -176,15 +167,7 @@ const Header = ({ teams, selectedTeamId, onSelectTeam }: { teams: any[], selecte
         />
         <Search className="absolute right-3 top-2 w-4 h-4 text-slate-400" />
       </div>
-      <select 
-        className="bg-[#002d62] text-white text-xs px-3 py-2 rounded-lg outline-none font-bold cursor-pointer border border-white/10"
-        value={selectedTeamId || ''}
-        onChange={(e) => onSelectTeam(Number(e.target.value))}
-      >
-        {teams.map(t => (
-          <option key={t.team_id} value={t.team_id}>{t.display_name}</option>
-        ))}
-      </select>
+
       <button className="text-white hover:bg-[#002d62] p-2 rounded-full transition-all duration-200">
         <User className="w-6 h-6" />
       </button>
@@ -220,12 +203,22 @@ const Sidebar = ({ isVisible }: { isVisible: boolean }) => { if (!isVisible) ret
   </aside>
 );}
 
-const HeroSection = ({ team, seasons, selectedYear, onYearChange }: { team: any, seasons: any[], selectedYear: number, onYearChange: (y: number) => void }) => (
+const HeroSection = ({ team, standing, seasons, selectedYear, onYearChange }: { team: any, standing: any, seasons: any[], selectedYear: number, onYearChange: (y: number) => void }) => {
+  const getRankSuffix = (rank: number) => {
+    if (!rank) return '';
+    const j = rank % 10, k = rank % 100;
+    if (j == 1 && k != 11) return "ST";
+    if (j == 2 && k != 12) return "ND";
+    if (j == 3 && k != 13) return "RD";
+    return "TH";
+  };
+
+  return (
   <section className="max-w-7xl mx-auto mb-16 relative overflow-hidden rounded-xl p-8 md:p-12 text-white" style={{ backgroundColor: `#${team.color || '00193c'}` }}>
     <div className="absolute inset-0 opacity-20">
-      <div className="absolute inset-0 bg-gradient-to-r from-primary to-transparent"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent"></div>
       <img 
-        className="w-full h-full object-cover grayscale" 
+        className="w-full h-full object-cover grayscale mix-blend-multiply" 
         src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdO7Pyv58VNhyTxUenv1Agv-9QnA4eckzwFpe1EOdOtpaGJy7Y3kZcJvlAFnG3foorWjUZbl6M18vdwj71UHZUKmvH2blkWiVkLU2Dk0v57rUU4Nkgj-VnWFhDElYChGAUeEDK46cGLMgje-PTik6vD3zRAvWIYkaAELBw4j9ZFS30hgO4NbvEhadMacsxOlWn11B9nPGvcHa6AJiPT4ZK05h6uxH_WnOEHS-YRhJced_nUPlWIw2hCfUTe3y2E5VgZgAMcXMuxe2q" 
         alt="Stadium"
         referrerPolicy="no-referrer"
@@ -233,12 +226,36 @@ const HeroSection = ({ team, seasons, selectedYear, onYearChange }: { team: any,
     </div>
     <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
       <div>
-        <span className="inline-block bg-secondary px-3 py-1 text-[10px] font-black tracking-widest uppercase mb-4">AMERICAN LEAGUE EAST</span>
-        <h1 className="text-5xl md:text-7xl font-headline font-black tracking-tighter uppercase leading-none mt-2">
+        <span className="inline-block bg-black/30 px-3 py-1 text-[10px] font-black tracking-widest uppercase mb-4 border border-white/20">
+          {standing?.division_name || 'MLB FRANCHISE'}
+        </span>
+        <h1 className="text-5xl md:text-7xl font-headline font-black tracking-tighter uppercase leading-none mt-2 drop-shadow-lg">
           {team.location} <br/><span style={{ color: `#${team.alternate_color || 'ffffff'}` }}>{team.name}</span>
         </h1>
+        
+        <div className="mt-8 flex gap-10">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest opacity-70">Season Record</p>
+            <p className="text-3xl font-headline font-black tabular-nums">{standing ? `${standing.wins} — ${standing.losses}` : '0 — 0'}</p>
+          </div>
+          {standing?.division_rank && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest opacity-70">League Rank</p>
+              <p className="text-3xl font-headline font-black">{standing.division_rank}<span className="text-sm align-top">{getRankSuffix(standing.division_rank)}</span></p>
+            </div>
+          )}
+          {standing?.streak && standing.streak !== 'None' && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest opacity-70">Streak</p>
+              <p className={`text-3xl font-headline font-black ${standing.streak.includes('W') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {standing.streak}
+              </p>
+            </div>
+          )}
+        </div>
+
         {seasons && seasons.length > 0 && (
-          <div className="mt-4">
+          <div className="mt-8">
             <select 
               className="bg-black/20 text-white border border-white/20 px-4 py-2 rounded-lg outline-none font-bold cursor-pointer hover:bg-black/40 transition-colors"
               value={selectedYear}
@@ -250,56 +267,16 @@ const HeroSection = ({ team, seasons, selectedYear, onYearChange }: { team: any,
             </select>
           </div>
         )}
-        <div className="mt-6 flex gap-8">
-          <div>
-            <p className="text-[10px] uppercase tracking-widest opacity-70">Season Record</p>
-            <p className="text-3xl font-headline font-bold">92 — 48</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-widest opacity-70">Division Rank</p>
-            <p className="text-3xl font-headline font-bold">1<span className="text-sm align-top">ST</span></p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-widest opacity-70">Streak</p>
-            <p className="text-3xl font-headline font-bold text-emerald-400">W6</p>
-          </div>
-        </div>
       </div>
       <div className="hidden xl:block">
-        <div className="flex -space-x-8">
-          <motion.div 
-            whileHover={{ y: -16 }}
-            className="relative group"
-          >
-            <img 
-              className="w-48 h-64 object-cover rounded-xl border-4 border-primary shadow-2xl" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNVn1N18cy7WcnbdmbXe8RX4mynb0PreWqmG928ZftTalCA7p4diFGdMXGvsLPYS5-P2hsCwakT_6hGZSL7A6zyQRzsKsHeQaa3pCtwq82UBdw4qsKi9wBFMa-E1xIddwOoz9RlFgbra3fNVBE9S2fNJUo8PLpBEgscoukUSP0_055bAQNn_0bu96p2ymHZrwbdCi4-Eod2uksZod_nTn-g5GzUKSsO7bJ9u4f-yZ4YKUdSkMuF7NnboIV8EkwTdt7oySscSlWCNy7" 
-              alt="MVP Candidate"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute bottom-4 left-4">
-              <span className="bg-secondary text-[10px] font-bold px-2 py-0.5">MVP LEAD</span>
-            </div>
-          </motion.div>
-          <motion.div 
-            whileHover={{ y: -16 }}
-            className="relative group mt-8"
-          >
-            <img 
-              className="w-48 h-64 object-cover rounded-xl border-4 border-primary shadow-2xl" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDItrQP-r-d3CaPxBVaNKouFa4fA44x7GOWBCRT-jaM5ao_gHYoR32bTTQULfb1UM7WdufN_GYjMK-2Q29l4jUS2iE9Wp3YO7U9maFjD51PFDQej0oxvLwbD2_7MHxSLQtxqW6bixVGLgtqCgjmwpwO-q7cd-lgWt0WdFm8DJjPQ9-06cHptEvq1oR2bVoMdjRTcf1sIB9XBhLPipPLzZyA2wf-37nFBiYxAUjQBH6nB3bfOnia-xIsLXDtFsGc3fQ9n_Ya6RDTwPWR" 
-              alt="Cy Young Candidate"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute bottom-4 left-4">
-              <span className="bg-[#002d62] text-[10px] font-bold px-2 py-0.5">CY YOUNG FR</span>
-            </div>
-          </motion.div>
+        <div className="w-72 h-72 opacity-50 drop-shadow-2xl mix-blend-screen -mr-8">
+            <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`} className="w-full h-full object-contain" alt="logo" />
         </div>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const StatsGrid = ({ stats }: { stats: any }) => (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -317,6 +294,20 @@ const StatsGrid = ({ stats }: { stats: any }) => (
     ))}
   </div>
 );
+
+const TeamRecords = ({ espnRecords }: { espnRecords: any }) => {
+  if (!espnRecords || !espnRecords.records || espnRecords.records.length === 0) return null;
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {espnRecords.records.map((r: any) => (
+        <div key={r.type} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{r.description}</span>
+           <span className="text-3xl font-headline font-black text-primary">{r.summary}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { battingRoster: any[], pitchingRoster: any[], onPlayerClick: (p: any) => void }) => {
   const [view, setView] = useState<'batting' | 'pitching'>('batting');
@@ -474,9 +465,9 @@ const RecentForm = ({ games = [], teamId, page, meta, onPageChange, isFullPage =
         const dateString = game.date.endsWith('Z') ? game.date : `${game.date}Z`;
         const dateObj = new Date(dateString);
         
-        // Use full UTC formatting so April 1st doesn't accidentally become March 31st depending on the user's timezone!
-        const fullDate = dateObj.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
-        const timeStr = dateObj.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' });
+        // Use local timezone formatting to match the Upcoming game logic
+        const fullDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         
         const seasonType = (game.season_type_name || '').replace(' Season', '');
         
@@ -547,62 +538,162 @@ const RecentForm = ({ games = [], teamId, page, meta, onPageChange, isFullPage =
   </div>
 );
 
-const UpcomingSeries = () => (
-  <div className="bg-[#002d62] rounded-xl p-6 text-white overflow-hidden relative">
-    <div className="absolute top-0 right-0 p-4 opacity-10">
-      <CalendarIcon className="w-16 h-16" />
-    </div>
-    <h3 className="font-headline font-black uppercase tracking-wider text-xs mb-6 text-slate-300">Upcoming Series</h3>
-    <div className="space-y-6">
-      {UPCOMING_GAMES.map((game, idx) => (
-        <div key={game.id} className={idx === 0 ? "border-b border-white/10 pb-4" : ""}>
-          {idx === 0 && <p className="text-[10px] uppercase font-bold text-secondary mb-2">Next Up: Tomorrow</p>}
-          {game.dateRange && <p className="text-[10px] uppercase font-bold opacity-60 mb-2">{game.dateRange}</p>}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <img className="w-8 h-8 opacity-80" src={game.logo} alt={game.opponent} referrerPolicy="no-referrer" />
-              <div>
-                <p className="text-sm font-bold">{game.opponent}</p>
-                <p className="text-[10px] opacity-60">{game.location} | {game.time}</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 opacity-60" />
-          </div>
+const UpcomingSeries = ({ nextGame }: { nextGame: any }) => {
+  if (!nextGame) {
+    return (
+      <div className="bg-[#002d62] rounded-xl p-6 text-white overflow-hidden relative h-32 flex items-center justify-center opacity-80">
+        <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center">
+          <CalendarIcon className="w-8 h-8 opacity-50 mb-2" />
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-300">No Scheduled Games</p>
         </div>
-      ))}
-    </div>
-  </div>
-);
+      </div>
+    );
+  }
 
-const DiamondArchitecture = () => (
-  <section className="max-w-7xl mx-auto mt-16">
-    <div className="mb-8">
-      <h2 className="text-3xl font-headline font-black text-primary uppercase tracking-tighter">Diamond Architecture</h2>
-      <p className="text-slate-500 font-medium">The starting lineup and positional hierarchy.</p>
-    </div>
-    <div className="relative w-full aspect-[16/9] bg-slate-200 rounded-3xl overflow-hidden border border-slate-300 p-8 shadow-inner">
-      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_120%,#003623,transparent)]"></div>
-      <div className="relative h-full grid grid-cols-5 grid-rows-4 gap-4">
-        {FIELD_PLAYERS.map((player) => (
-          <div key={player.pos} className={`${player.grid} flex flex-col items-center`}>
-            <motion.div 
-              whileHover={{ scale: 1.1 }}
-              className={`rounded-full bg-white border-4 p-1 shadow-lg cursor-pointer ${player.featured ? 'w-20 h-20 border-secondary' : 'w-16 h-16 border-primary'}`}
-            >
-              <img src={player.img} alt={player.name} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
-            </motion.div>
-            <p className={`mt-2 text-[10px] font-black px-2 py-0.5 rounded shadow-sm ${player.featured ? 'bg-secondary text-white' : 'bg-white text-primary'}`}>
-              {player.pos}
-            </p>
-            <p className={`text-[10px] ${player.featured ? 'font-bold text-primary' : 'font-medium text-slate-500'}`}>
-              {player.name}
+  const dateObj = new Date(nextGame.date.endsWith('Z') ? nextGame.date : `${nextGame.date}Z`);
+  // Use the browser's local timezone for the Upcoming Game so fans know when to watch!
+  const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const locationPrefix = nextGame.is_home ? 'vs' : '@';
+
+  return (
+    <div className="bg-[#002d62] rounded-xl p-6 text-white overflow-hidden relative shadow-lg">
+      <div className="absolute -top-4 -right-4 p-4 opacity-10">
+        <CalendarIcon className="w-32 h-32" />
+      </div>
+      <h3 className="font-headline font-black uppercase tracking-wider text-xs mb-6 text-slate-300">Up Next</h3>
+      
+      <div className="relative z-10">
+        <p className="text-[10px] uppercase font-bold text-secondary mb-2">{dateStr}</p>
+        
+        <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 mt-4 group cursor-pointer hover:bg-white/10 transition-colors">
+          <div className="w-12 h-12 shrink-0 bg-white rounded-full p-2">
+            <img 
+              className="w-full h-full object-contain" 
+              src={nextGame.opponent_logo} 
+              alt={nextGame.opponent_abbreviation} 
+              referrerPolicy="no-referrer" 
+            />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-300">{locationPrefix} {nextGame.opponent_abbreviation}</p>
+            <p className="text-lg font-black font-headline tracking-tight">{nextGame.opponent_name}</p>
+            <p className="text-[10px] opacity-70 mt-1 font-medium tracking-wider">
+              {timeStr} {new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).format(dateObj).split(' ')[1]} • {nextGame.venue_name || 'TBD Stadium'}
             </p>
           </div>
-        ))}
+          <ChevronRight className="w-5 h-5 ml-auto text-slate-400 group-hover:text-white transition-colors" />
+        </div>
       </div>
     </div>
-  </section>
-);
+  );
+};
+
+const DiamondArchitecture = ({ depthChart, teamColor, onPlayerClick }: { depthChart: any, teamColor: string, onPlayerClick?: (p: any) => void }) => {
+  // We grab the starters safely
+  const lf = depthChart['LF'];
+  const cf = depthChart['CF'];
+  const rf = depthChart['RF'];
+  const ss = depthChart['SS'];
+  const second = depthChart['2B'];
+  const third = depthChart['3B'];
+  const first = depthChart['1B'];
+  const p = depthChart['P'] || depthChart['SP'] || depthChart['RP'];
+  const c = depthChart['C'];
+
+  const PlayerPin = ({ player, pos, top, left, right, bottom, featured = false }: any) => {
+    if (!player) return null;
+    
+    // Convert right/bottom props to proper CSS if they exist
+    const style: any = { top };
+    if (left) style.left = left;
+    if (right) style.right = right;
+    if (bottom) {
+        delete style.top;
+        style.bottom = bottom;
+    }
+
+    return (
+      <div className="absolute flex flex-col items-center z-10 -translate-x-1/2 -translate-y-1/2 pointer-events-auto" style={style}>
+        <div 
+          onClick={() => onPlayerClick && onPlayerClick({ ...player, full_name: player.name })}
+          className={`rounded-full bg-white border-4 p-1 shadow-lg group hover:scale-110 transition-transform cursor-pointer ${featured ? 'w-20 h-20' : 'w-16 h-16'}`}
+          style={{ borderColor: `#${teamColor || 'b80a2e'}` }}
+        >
+          <img 
+            src={player.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} 
+            alt={player.name} 
+            className="w-full h-full rounded-full object-contain bg-white" 
+            referrerPolicy="no-referrer"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://a.espncdn.com/i/headshots/nophoto.png'; }}
+          />
+        </div>
+        <p className="mt-2 text-[10px] font-black text-white px-2 py-0.5 rounded shadow-sm" style={{ backgroundColor: `#${teamColor || 'b80a2e'}` }}>
+          {pos}
+        </p>
+        <p className={`text-[10px] bg-white/80 px-2 py-0.5 rounded-full mt-1 ${featured ? 'font-bold text-primary' : 'font-medium text-slate-700'}`}>
+          {player.name}
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <section className="max-w-7xl mx-auto mt-16">
+      <div className="mb-8">
+        <h2 className="text-3xl font-headline font-black text-primary uppercase tracking-tighter">Diamond Architecture</h2>
+        <p className="text-slate-500 font-medium">The official starting depth chart for the current season.</p>
+      </div>
+      <div className="relative w-full aspect-[16/10] rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50">
+        {/* The Field */}
+        <div className="absolute inset-0 w-full h-full flex items-center justify-center p-8">
+          <svg className="w-full h-full drop-shadow-sm" preserveAspectRatio="xMidYMid meet" viewBox="0 0 800 500">
+            {/* Outfield Grass */}
+            <path d="M 100,205 C 200,-20 600,-20 700,205 L 400,430 Z" fill="#e2f1e6" stroke="#c0d7c5" strokeWidth="2"></path>
+            {/* Dirt Paths */}
+            <path d="M 400,130 L 600,280 L 400,430 L 200,280 Z" fill="none" stroke="#dcc5a1" strokeLinejoin="round" strokeWidth="24"></path>
+            {/* Infield Grass */}
+            <path d="M 400,155 L 565,280 L 400,405 L 235,280 Z" fill="#d4e7d8" stroke="#b0c7b5" strokeWidth="1"></path>
+            {/* Bases */}
+            <rect fill="white" height="16" stroke="#ccc" transform="rotate(45 400 130)" width="16" x="392" y="122"></rect> 
+            <rect fill="white" height="16" stroke="#ccc" transform="rotate(45 600 280)" width="16" x="592" y="272"></rect> 
+            <rect fill="white" height="16" stroke="#ccc" transform="rotate(45 200 280)" width="16" x="192" y="272"></rect> 
+            {/* Home Plate Area */}
+            <circle cx="400" cy="430" fill="#dcc5a1" r="24"></circle> 
+            {/* Home Plate */}
+            <path d="M 392,422 L 408,422 L 408,432 L 400,440 L 392,432 Z" fill="white"></path> 
+            {/* Pitcher's Mound */}
+            <circle cx="400" cy="290" fill="#dcc5a1" r="22"></circle>
+            <rect fill="white" height="4" width="24" x="388" y="288"></rect>
+          </svg>
+        </div>
+
+        {/* Players Overlay */}
+        <div className="absolute inset-0 w-full h-full pointer-events-none p-8 flex justify-center">
+          {/* Lock overlay to a wider max-width to allow the fielders to stretch into standard depths */}
+          <div className="relative w-full max-w-[1000px] h-full">
+            {/* Outfielders: Deeper and wider */}
+            <PlayerPin player={lf} pos="LF" top="28%" left="18%" />
+            <PlayerPin player={cf} pos="CF" top="18%" left="50%" />
+            <PlayerPin player={rf} pos="RF" top="28%" left="82%" />
+            
+            {/* Middle Infielders: Pushed back into the actual dirt path */}
+            <PlayerPin player={ss} pos="SS" top="42%" left="37%" />
+            <PlayerPin player={second} pos="2B" top="42%" left="63%" />
+            
+            {/* Corner Infielders: Placed directly over the white bases */}
+            <PlayerPin player={third} pos="3B" top="62%" left="22%" />
+            <PlayerPin player={first} pos="1B" top="62%" left="78%" />
+            
+            {/* Battery: Pitcher directly over the mound, catcher over the plate */}
+            <PlayerPin player={p} pos="P" top="60%" left="50%" featured={true} />
+            <PlayerPin player={c} pos="C" top="93%" left="50%" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const Footer = () => (
   <footer className="bg-surface w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-200 mt-16">
@@ -644,6 +735,11 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [gamesMeta, setGamesMeta] = useState<any>(null);
   const [liveRoster, setLiveRoster] = useState<any[]>([]);
+  const [nextGame, setNextGame] = useState<any>(null);
+  const [espnRecords, setEspnRecords] = useState<any>(null);
+  const [depthChart, setDepthChart] = useState<any>({});
+  const [teamLeaders, setTeamLeaders] = useState<any[]>([]);
+  const [teamStanding, setTeamStanding] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [seasons, setSeasons] = useState<any[]>([]);
@@ -684,12 +780,16 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
       if (!selectedTeamId) return;
       setLoading(true);
       try {
-        const [stats, batData, pitchData, gamesResponse, liveRosterData] = await Promise.all([
+        const [stats, batData, pitchData, gamesResponse, liveRosterData, espnData, depthData, leadersData, standingData] = await Promise.all([
           fetchTeamStats(selectedTeamId, selectedYear, selectedSeasonType),
           fetchTeamRoster(selectedTeamId, selectedYear, selectedSeasonType),
           fetchTeamPitchingStats(selectedTeamId, selectedYear, selectedSeasonType),
           fetchPaginatedTeamGames(selectedTeamId, selectedYear, gamesPage, 200, selectedSeasonType),
-          fetchLiveTeamRoster(selectedTeamId) 
+          fetchLiveTeamRoster(selectedTeamId),
+          fetchTeamEspnData(selectedTeamId),
+          fetchTeamDepthChart(selectedTeamId),
+          fetchTeamLeaders(selectedTeamId, selectedYear, selectedSeasonType),
+          fetchTeamStanding(selectedTeamId, selectedYear)
         ]);
         setTeamStats(stats);
         setBattingRoster(batData);
@@ -697,6 +797,11 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
         setRecentGames(gamesResponse.data);
         setGamesMeta(gamesResponse.meta);
         setLiveRoster(liveRosterData);
+        setNextGame(espnData.next_game);
+        setEspnRecords(espnData);
+        setDepthChart(depthData);
+        setTeamLeaders(leadersData);
+        setTeamStanding(standingData);
       } catch (e) {
         console.error(e);
       }
@@ -711,29 +816,29 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   
   return (
     <>
-      <Header teams={teams} selectedTeamId={selectedTeamId} onSelectTeam={(id) => navigate(`/teams/${id}`)} />
+      <Header selectedTeamId={selectedTeamId} />
       <Sidebar isVisible={true} />
       <main className="lg:ml-64 pt-24 px-6 pb-12 transition-all">
-        <HeroSection team={selectedTeam} seasons={seasons} selectedYear={selectedYear} onYearChange={setSelectedYear} />
-        
+        <HeroSection team={selectedTeam} standing={teamStanding} seasons={seasons} selectedYear={selectedYear} onYearChange={setSelectedYear} espnRecords={espnRecords} />
+
         <div className="max-w-7xl mx-auto">
           <TeamTabs activeTab={activeTab} onTabChange={setActiveTab} />
-          
+
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
               <div className="lg:col-span-2 space-y-8">
+                <TeamRecords espnRecords={espnRecords} />
                 <StatsGrid stats={teamStats} />
-                <BattingLeaders roster={battingRoster} />
+                <TeamLeaders leaders={teamLeaders} onPlayerClick={setSelectedPlayer} />
               </div>
               <div className="space-y-8 flex flex-col">
                 <div className="h-[400px]">
                   <RecentForm games={activeTab === 'overview' ? recentGames.slice(0, 5) : recentGames} teamId={selectedTeamId} page={gamesPage} meta={gamesMeta} onPageChange={setGamesPage} />
                 </div>
-                <UpcomingSeries />
+                <UpcomingSeries nextGame={nextGame} />
               </div>
             </div>
           )}
-
           {activeTab === 'roster' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
               <div className="lg:col-span-2">
@@ -775,7 +880,7 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
           )}
         </div>
         
-        {activeTab === 'overview' && <DiamondArchitecture />}
+        {activeTab === 'overview' && <DiamondArchitecture depthChart={depthChart} teamColor={selectedTeam?.color} onPlayerClick={setSelectedPlayer} />}
       </main>
       <Footer />
       <PlayerModal isOpen={!!selectedPlayer} player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
@@ -818,7 +923,7 @@ const AppContent = () => {
         } />
         <Route path="/teams" element={
           <>
-            <Header teams={teams} selectedTeamId={null} onSelectTeam={() => {}} />
+            <Header selectedTeamId={null} />
             <main className="pt-24 px-6 pb-12">
               <TeamsPage teams={teams} onSelectTeam={(id) => navigate(`/teams/${id}`)} />
             </main>
@@ -828,7 +933,7 @@ const AppContent = () => {
         <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} />} />
         <Route path="/schedule" element={
           <>
-            <Header teams={teams} selectedTeamId={null} onSelectTeam={() => {}} />
+            <Header selectedTeamId={null} />
             <main className="pt-24 px-6 pb-12">
               <SchedulePage />
             </main>
