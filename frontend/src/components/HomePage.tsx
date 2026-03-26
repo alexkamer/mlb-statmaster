@@ -164,7 +164,7 @@ const LatestNews = () => {
 };
               export const HomePage = () => {
               return (
-              <div className="w-full">      <div className="p-8 space-y-12 max-w-7xl mx-auto">
+              <div className="w-full">      <div className="p-8 space-y-12 mx-auto max-w-[1600px]">
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1 space-y-12">
             {/* Hero Section: Bento Grid */}
