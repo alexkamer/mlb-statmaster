@@ -60,7 +60,8 @@ export const DailyScoreboard = () => {
       era: era,
       record: recordStr,
       deepStats: deepStats,
-      teamId: a.team?.id || pitcher.team?.id
+      teamId: a.team?.id || pitcher.team?.id,
+      teamAbbrev: a.team?.abbreviation || pitcher.team?.abbreviation || ''
     };
   };
 
@@ -306,8 +307,8 @@ export const DailyScoreboard = () => {
                                 <span className="hidden xl:inline">{p.label}</span>
                               </span>
                               <div className="relative w-8 h-8 xl:w-10 xl:h-10 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200 flex items-center justify-center">
-                                {p.data.teamId && (
-                                  <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${p.data.teamId}.png`} className="absolute w-[80%] h-[80%] object-contain opacity-30 mix-blend-multiply" alt="Team Logo" />
+                                {p.data.teamAbbrev && (
+                                  <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${p.data.teamAbbrev.toLowerCase()}.png`} className="absolute w-[80%] h-[80%] object-contain opacity-30 mix-blend-multiply" alt="Team Logo" />
                                 )}
                                 <img src={p.data.headshot} className="relative z-10 w-full h-full object-cover mix-blend-multiply" alt={p.data.name} />
                               </div>
@@ -349,10 +350,12 @@ export const DailyScoreboard = () => {
                             <div className="flex flex-col gap-1.5 group">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1 mb-1">Pitching</span>
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                                  <img src={comp.situation?.pitcher?.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="w-full h-full object-cover" alt="Pitcher" />
-                                </div>
-                                <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate flex-1">
+                                <div className="relative w-8 h-8 xl:w-10 xl:h-10 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200 flex items-center justify-center">
+                                  {comp.situation?.pitcher?.athlete?.team?.id && (
+                                    <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${comp.situation.pitcher.athlete.team.id}.png`} className="absolute w-[80%] h-[80%] object-contain opacity-30 mix-blend-multiply" alt="Team Logo" />
+                                  )}
+                                  <img src={comp.situation?.pitcher?.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="relative z-10 w-full h-full object-cover mix-blend-multiply" alt="Pitcher" />
+                                </div>                                <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate flex-1">
                                   {comp.situation?.pitcher?.athlete?.shortName || 'Unknown'}
                                 </span>
                               </div>
@@ -362,10 +365,12 @@ export const DailyScoreboard = () => {
                             <div className="flex flex-col gap-1.5 group">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1 mb-1">Batting</span>
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                                  <img src={comp.situation?.batter?.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="w-full h-full object-cover" alt="Batter" />
-                                </div>
-                                <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate flex-1">
+                                <div className="relative w-8 h-8 xl:w-10 xl:h-10 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200 flex items-center justify-center">
+                                  {comp.situation?.batter?.athlete?.team?.id && (
+                                    <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${comp.situation.batter.athlete.team.id}.png`} className="absolute w-[80%] h-[80%] object-contain opacity-30 mix-blend-multiply" alt="Team Logo" />
+                                  )}
+                                  <img src={comp.situation?.batter?.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="relative z-10 w-full h-full object-cover mix-blend-multiply" alt="Batter" />
+                                </div>                                <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate flex-1">
                                    {comp.situation?.batter?.athlete?.shortName || 'Unknown'}
                                 </span>
                               </div>
@@ -379,8 +384,11 @@ export const DailyScoreboard = () => {
                               {comp.situation.dueUp.slice(0, 3).map((batter: any, idx: number) => (
                                 <div key={idx} className="flex items-center justify-between group">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 xl:w-8 xl:h-8 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                                      <img src={batter.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="w-full h-full object-cover" alt={batter.athlete?.shortName || 'Batter'} />
+                                    <div className="relative w-6 h-6 xl:w-8 xl:h-8 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200 flex items-center justify-center">
+                                      {batter.athlete?.team?.id && (
+                                        <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${batter.athlete.team.id}.png`} className="absolute w-[80%] h-[80%] object-contain opacity-30 mix-blend-multiply" alt="Team Logo" />
+                                      )}
+                                      <img src={batter.athlete?.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} className="relative z-10 w-full h-full object-cover mix-blend-multiply" alt={batter.athlete?.shortName || 'Batter'} />
                                     </div>
                                     <div className="flex flex-col flex-1 min-w-0">
                                       <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate">{batter.athlete?.shortName || 'Unknown'}</span>
