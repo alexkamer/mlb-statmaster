@@ -1,38 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
+import { useScoreboard } from '../context/ScoreboardContext';
 
 export const LiveTicker = () => {
-  const [events, setEvents] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchScores = async () => {
-      try {
-        // Construct YYYYMMDD for the current date
-        const today = new Date();
-        const dateString = today.toISOString().split('T')[0].replace(/-/g, '');
-        
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`);
-        const data = await response.json();
-        if (data && data.events) {
-          setEvents(data.events);
-        }
-      } catch (err) {
-        console.error("Error fetching live scores:", err);
-      }
-    };
-
-    fetchScores();
-    const intervalId = setInterval(fetchScores, 15000); // 15 seconds
-    return () => clearInterval(intervalId);
-  }, []);
+  const { events } = useScoreboard();
 
   if (events.length === 0) return null;
 
   return (
     <div className="flex-1 h-full flex items-center overflow-x-auto hide-scrollbar mx-6 relative">
       <div className="flex flex-nowrap items-center divide-x divide-white/10 h-full py-2">
-        {events.map((event) => {
+        {events.map((event: any) => {
           const comp = event.competitions[0];
           const status = event.status.type;
           const isLive = status.state === 'in';
