@@ -179,7 +179,7 @@ const Header = ({ selectedTeamId, toggleSidebar }: { selectedTeamId: number | nu
 const Sidebar = ({ isVisible }: { isVisible: boolean }) => {
   const navigate = useNavigate();
   return (
-    <aside className={`bg-surface h-screen border-r-0 fixed left-0 top-20 h-[calc(100vh-5rem)] hidden lg:flex flex-col p-4 z-40 transition-all duration-300 ${isVisible ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden px-0'}`}>
+    <aside className={`bg-surface h-screen border-r-0 fixed left-0 top-20 h-[calc(100vh-5rem)] hidden lg:flex flex-col p-4 z-[60] transition-all duration-300 ${isVisible ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden px-0'}`}>
       <div className="mb-8 px-4 whitespace-nowrap">
         <h2 className="text-primary text-lg font-bold font-headline">The Archive</h2>
         <p className="text-slate-500 text-xs font-medium">Season 2024</p>
