@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, Calendar as CalendarIcon, TrendingUp, BarChart2 } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, TrendingUp, BarChart2, Play, Ticket } from 'lucide-react';
 import { LiveTicker } from './LiveTicker';
 
 const LeagueLeaders = () => {
@@ -268,23 +268,43 @@ const DailyScoreboardShell = () => {
                   </p>
                   <p className="text-[11px] text-[#0066cc] font-bold cursor-pointer hover:underline">Play-by-Play</p>
                 </div>
-              </div>            {/* Section 3: Placeholder */}
-            <div className="col-span-4 p-6 flex items-center justify-center bg-slate-50/50">              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section 3 Placeholder</span>
-            </div>
-          </div>
-          <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
-            <div className="flex gap-4">
-              <div className="text-[10px] font-medium text-slate-500 uppercase tracking-widest"><span className="font-black text-primary">P:</span> Cole (98)</div>
-              <div className="text-[10px] font-medium text-slate-500 uppercase tracking-widest"><span className="font-black text-primary">AB:</span> Devers</div>
-            </div>
-            <div className="flex gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-secondary"></div>
-              <div className="w-1.5 h-1.5 rounded-full bg-secondary"></div>
-              <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-            </div>
-          </div>
-        </div>
-        {/* Placeholder Card 2: Final */}
+                </div>            {/* Section 3: Active Players & Actions */}
+                <div className="col-span-4 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="flex-1 flex flex-col justify-center min-w-0">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5 group">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1 mb-1">Pitching</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                          <img src="https://a.espncdn.com/i/headshots/mlb/players/full/31260.png" className="w-full h-full object-cover" alt="Cole" />
+                        </div>
+                        <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer truncate">G. Cole (98)</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-medium ml-8">6.2 IP, 2 ER, 5 H, 1 BB</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 group">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1 mb-1">Batting</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                          <img src="https://a.espncdn.com/i/headshots/mlb/players/full/33859.png" className="w-full h-full object-cover" alt="Devers" />
+                        </div>
+                        <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer truncate">R. Devers</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-medium ml-8">0-3, 2 K</span>
+                    </div>
+                  </div>                </div>
+                <div className="flex items-center">
+                  <button className="bg-slate-100 hover:bg-slate-200 text-primary text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded transition-colors shrink-0">
+                    Boxscore
+                  </button>
+                </div>
+                </div>
+                </div>
+                <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attendance: 45,123</span>
+                </div>
+                </div>        {/* Placeholder Card 2: Final */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 relative">
           <div className="grid grid-cols-12 min-h-[140px]">            {/* Section 1: Teams & Score */}
             <div className="col-span-5 p-6 border-r border-slate-100 flex flex-col justify-between">
@@ -331,21 +351,74 @@ const DailyScoreboardShell = () => {
               </div>
             </div>
 
-            {/* Section 2: Placeholder */}
-            <div className="col-span-3 p-6 border-r border-slate-100 flex items-center justify-center bg-slate-50/50">              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section 2 Placeholder</span>
+            {/* Section 2: Highlights Thumbnail */}
+            <div className="col-span-3 p-4 border-r border-slate-100 flex items-center justify-center">
+              <div className="relative w-full h-full rounded-lg overflow-hidden bg-slate-100 group cursor-pointer border border-slate-200 shadow-sm flex items-center justify-center min-h-[90px]">
+                {/* Placeholder for real video thumbnail */}
+                <img src="https://a.espncdn.com/i/teamlogos/mlb/500/nym.png" className="absolute inset-0 w-full h-full object-cover opacity-20 grayscale" alt="Highlights" />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                <div className="relative z-10 w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Play className="w-3.5 h-3.5 text-primary ml-0.5" fill="currentColor" />
+                </div>
+                <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 text-white text-[9px] font-bold rounded">1:42</span>
+              </div>
             </div>
 
-            {/* Section 3: Placeholder */}
-            <div className="col-span-4 p-6 flex items-center justify-center bg-slate-50/50">              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section 3 Placeholder</span>
-            </div>
-          </div>
-          <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-widest"><span className="font-black text-primary">W:</span> Senga (2-1)</div>
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-widest"><span className="font-black text-primary">L:</span> Yamamoto (4-2)</div>
-          </div>
-        </div>
-
-        {/* Placeholder Card 3: Upcoming */}
+            {/* Section 3: Pitching & Actions */}
+            <div className="col-span-4 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div className="flex-1 flex flex-col justify-center min-w-0">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1 group">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 w-4 xl:w-8">
+                        <span className="xl:hidden">W</span>
+                        <span className="hidden xl:inline">WIN</span>
+                      </span>
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                        <img src="https://a.espncdn.com/i/headshots/mlb/players/full/35032.png" className="w-full h-full object-cover" alt="Senga" />
+                      </div>
+                      <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer truncate">K. Senga (2-1)</span>
+                    </div>
+                    <span className="text-[9px] text-slate-500 font-medium ml-8 xl:ml-12">7.0 IP, 1 ER, 4 H, 8 K</span>
+                  </div>
+                  <div className="flex flex-col gap-1 group">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 w-4 xl:w-8">
+                        <span className="xl:hidden">L</span>
+                        <span className="hidden xl:inline">LOSS</span>
+                      </span>
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                        <img src="https://a.espncdn.com/i/headshots/mlb/players/full/4872587.png" className="w-full h-full object-cover" alt="Yamamoto" />
+                      </div>
+                      <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer truncate">Y. Yamamoto (4-2)</span>
+                    </div>
+                    <span className="text-[9px] text-slate-500 font-medium ml-8 xl:ml-12">5.1 IP, 4 ER, 6 H, 5 K</span>
+                  </div>
+                  <div className="flex flex-col gap-1 group">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 w-4 xl:w-8">
+                        <span className="xl:hidden">SV</span>
+                        <span className="hidden xl:inline">SAVE</span>
+                      </span>
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                        <img src="https://a.espncdn.com/i/headshots/mlb/players/full/33754.png" className="w-full h-full object-cover" alt="Diaz" />
+                      </div>
+                      <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer truncate">E. Diaz (14)</span>
+                    </div>
+                    <span className="text-[9px] text-slate-500 font-medium ml-8 xl:ml-12">1.0 IP, 0 ER, 0 H, 2 K</span>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                <button className="bg-slate-100 hover:bg-slate-200 text-primary text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded transition-colors shrink-0">
+                  Boxscore
+                </button>
+                </div>
+                </div>
+                </div>
+                <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attendance: 41,204</span>
+                </div>
+                </div>        {/* Placeholder Card 3: Upcoming */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 hidden md:block relative">
           <div className="grid grid-cols-12 min-h-[140px]">
             {/* Section 1: Teams & Score */}
@@ -380,28 +453,69 @@ const DailyScoreboardShell = () => {
                 </div>
                 </div>
 
-                {/* Section 2: Placeholder */}
-                <div className="col-span-3 p-6 border-r border-slate-100 flex items-center justify-center bg-slate-50/50">              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section 2 Placeholder</span>
-            </div>
-
-            {/* Section 3: Placeholder */}
-            <div className="col-span-4 p-6 flex items-center justify-center bg-slate-50/50">              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section 3 Placeholder</span>
-            </div>
-          </div>
-          <div className="bg-slate-50 px-6 py-3 flex justify-between items-center border-t border-slate-100">
-            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-widest"><span className="font-black text-primary">Probables:</span> Wheeler vs Sale</div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-  );
-};
-
-export const HomePage = () => {
-  return (
-    <div className="w-full">
-      <div className="p-8 space-y-12 max-w-7xl mx-auto">
+                {/* Section 2: Location & Odds */}
+                <div className="col-span-3 p-6 border-r border-slate-100 flex flex-col justify-center space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-700">Citizens Bank Park</p>
+                    <p className="text-[11px] text-slate-500">Philadelphia, Pennsylvania</p>
+                  </div>
+                  <div className="h-px w-full bg-slate-100" />
+                  <div className="flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-[#0066cc]" />
+                    <a href="#" className="text-xs font-medium text-[#0066cc] hover:underline">Tickets as low as $35</a>
+                  </div>
+                  <div className="h-px w-full bg-slate-100" />
+                  <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 text-center">
+                    <span className="text-[11px] font-bold text-slate-500 mr-2">ML:</span>
+                    <span className="text-xs font-black text-slate-800">ATL +110 <span className="text-slate-400 font-medium mx-1">@</span> PHI -130</span>
+                  </div>
+                </div>
+            {/* Section 3: Probable Pitchers */}
+            <div className="col-span-4 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div className="flex-1 flex flex-col justify-center min-w-0">                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Probable Pitchers</span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                        <img src="https://a.espncdn.com/i/headshots/mlb/players/full/35241.png" className="w-full h-full object-cover" alt="Wheeler" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer leading-none">Z. Wheeler</span>
+                        <span className="text-[9px] text-slate-500 font-medium">RHP • 14-6, 2.57 ERA</span>
+                      </div>
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-[#003278] flex items-center justify-center text-white text-[8px] font-bold shrink-0 opacity-50">PHI</div>
+                  </div>
+                  <div className="flex items-center justify-between group">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                        <img src="https://a.espncdn.com/i/headshots/mlb/players/full/30948.png" className="w-full h-full object-cover" alt="Sale" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-primary group-hover:text-secondary cursor-pointer leading-none">C. Sale</span>
+                        <span className="text-[9px] text-slate-500 font-medium">LHP • 18-3, 2.38 ERA</span>
+                      </div>
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-[#ce1141] flex items-center justify-center text-white text-[8px] font-bold shrink-0 opacity-50">ATL</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <button className="bg-slate-100 hover:bg-slate-200 text-primary text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded transition-colors shrink-0">
+                  Preview
+                </button>
+              </div>
+              </div>
+              </div>
+              </div>
+              </div>
+              </div>
+              </section>
+              );
+              };
+              export const HomePage = () => {
+              return (
+              <div className="w-full">      <div className="p-8 space-y-12 max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1 space-y-12">
             {/* Hero Section: Bento Grid */}
