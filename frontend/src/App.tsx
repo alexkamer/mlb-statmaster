@@ -13,6 +13,7 @@ import { TeamTabs } from './components/TeamTabs';
 import { TeamsPage } from './components/TeamsPage';
 import { SchedulePage } from './components/SchedulePage';
 import { HomePage } from './components/HomePage';
+import { LiveTicker } from './components/LiveTicker';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
 import { 
   LayoutDashboard, 
@@ -147,23 +148,17 @@ const UPCOMING_GAMES: UpcomingGame[] = [
 const Header = ({ selectedTeamId, toggleSidebar }: { selectedTeamId: number | null, toggleSidebar: () => void }) => {
   const navigate = useNavigate();
   return (
-  <header className="bg-primary flex justify-between items-center w-full px-6 h-16 fixed top-0 z-50 shadow-xl">
-    <div className="flex items-center gap-6">
+  <header className="fixed top-0 z-50 w-full shadow-xl flex bg-primary items-center px-6 h-20">
+    <div className="flex items-center gap-6 shrink-0">
       <button onClick={toggleSidebar} className="text-white hover:bg-[#002d62] p-2 rounded transition-colors hidden lg:block">
         <Menu className="w-6 h-6" />
       </button>
       <button onClick={() => navigate('/')} className="text-2xl font-black text-white tracking-tighter font-headline hover:text-secondary transition-colors">Statmaster</button>
-      <nav className="hidden md:flex gap-6 items-center h-full ml-4">
-        <button 
-          onClick={() => navigate('/teams')}
-          className={`font-headline font-black tracking-tight uppercase transition-colors text-sm ${!selectedTeamId && location.pathname.includes('/teams') ? 'text-white border-b-2 border-secondary pb-1' : 'text-slate-300 hover:text-white'}`}
-        >
-          Teams
-        </button>
-
-      </nav>
     </div>
-    <div className="flex items-center gap-4">
+    
+    <LiveTicker />
+
+    <div className="flex items-center gap-4 shrink-0">
       <div className="relative hidden sm:block">
         <input 
           className="bg-[#002d62] border-none text-white text-xs px-4 py-2 rounded-lg w-64 focus:ring-1 focus:ring-secondary transition-all outline-none" 
@@ -182,13 +177,21 @@ const Header = ({ selectedTeamId, toggleSidebar }: { selectedTeamId: number | nu
 };
 
 const Sidebar = ({ isVisible }: { isVisible: boolean }) => {
+  const navigate = useNavigate();
   return (
-    <aside className={`bg-surface h-screen border-r-0 fixed left-0 top-16 h-[calc(100vh-4rem)] hidden lg:flex flex-col p-4 z-40 transition-all duration-300 ${isVisible ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden px-0'}`}>
+    <aside className={`bg-surface h-screen border-r-0 fixed left-0 top-20 h-[calc(100vh-5rem)] hidden lg:flex flex-col p-4 z-40 transition-all duration-300 ${isVisible ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden px-0'}`}>
       <div className="mb-8 px-4 whitespace-nowrap">
         <h2 className="text-primary text-lg font-bold font-headline">The Archive</h2>
         <p className="text-slate-500 text-xs font-medium">Season 2024</p>
       </div>
       <nav className="flex flex-col gap-1 whitespace-nowrap min-w-[224px]">
+        <button 
+          onClick={() => navigate('/teams')}
+          className={`flex items-center gap-3 px-4 py-3 transition-all font-medium text-sm rounded-l-lg ${location.pathname.includes('/teams') ? 'text-primary font-bold bg-white' : 'text-slate-500 hover:text-primary hover:translate-x-1'}`}
+        >
+          <Activity className={`w-5 h-5 shrink-0 ${location.pathname.includes('/teams') ? 'fill-primary/10' : ''}`} />
+          <span>Teams</span>
+        </button>
         {[
           { label: 'Live Scores', icon: Activity, active: true },
           { label: 'League Leaders', icon: Trophy, active: false },
@@ -825,8 +828,7 @@ const TeamDashboard = ({ teams, sidebarOpen, toggleSidebar }: { teams: any[], si
     <>
       <Header selectedTeamId={selectedTeamId} toggleSidebar={toggleSidebar} />
       <Sidebar isVisible={sidebarOpen} />
-      <main className={`pt-24 px-6 pb-12 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-        <HeroSection team={selectedTeam} standing={teamStanding} seasons={seasons} selectedYear={selectedYear} onYearChange={setSelectedYear} espnRecords={espnRecords} />
+      <main className={`pt-24 px-6 pb-12 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>        <HeroSection team={selectedTeam} standing={teamStanding} seasons={seasons} selectedYear={selectedYear} onYearChange={setSelectedYear} espnRecords={espnRecords} />
 
         <div className="max-w-7xl mx-auto">
           <TeamTabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -925,7 +927,7 @@ const AppContent = () => {
           <>
             <Header selectedTeamId={null} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
             <Sidebar isVisible={sidebarOpen} />
-            <main className={`pt-16 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+            <main className={`pt-24 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
               <HomePage />
             </main>
             <Footer />
