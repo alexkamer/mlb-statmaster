@@ -12,6 +12,7 @@ import { LiveRoster } from './components/LiveRoster';
 import { TeamTabs } from './components/TeamTabs';
 import { TeamsPage } from './components/TeamsPage';
 import { SchedulePage } from './components/SchedulePage';
+import { HomePage } from './components/HomePage';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
 import { 
   LayoutDashboard, 
@@ -26,7 +27,8 @@ import {
   Calendar as CalendarIcon,
   TrendingUp,
   Award,
-  ShieldCheck
+  ShieldCheck,
+  Menu
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -142,16 +144,19 @@ const UPCOMING_GAMES: UpcomingGame[] = [
 
 // --- Components ---
 
-const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
+const Header = ({ selectedTeamId, toggleSidebar }: { selectedTeamId: number | null, toggleSidebar: () => void }) => {
   const navigate = useNavigate();
   return (
   <header className="bg-primary flex justify-between items-center w-full px-6 h-16 fixed top-0 z-50 shadow-xl">
-    <div className="flex items-center gap-8">
-      <button onClick={() => navigate('/teams')} className="text-2xl font-black text-white tracking-tighter font-headline hover:text-secondary transition-colors">Statmaster</button>
-      <nav className="hidden md:flex gap-6 items-center h-full">
+    <div className="flex items-center gap-6">
+      <button onClick={toggleSidebar} className="text-white hover:bg-[#002d62] p-2 rounded transition-colors hidden lg:block">
+        <Menu className="w-6 h-6" />
+      </button>
+      <button onClick={() => navigate('/')} className="text-2xl font-black text-white tracking-tighter font-headline hover:text-secondary transition-colors">Statmaster</button>
+      <nav className="hidden md:flex gap-6 items-center h-full ml-4">
         <button 
           onClick={() => navigate('/teams')}
-          className={`font-headline font-black tracking-tight uppercase transition-colors text-sm ${!selectedTeamId ? 'text-white border-b-2 border-secondary pb-1' : 'text-slate-300 hover:text-white'}`}
+          className={`font-headline font-black tracking-tight uppercase transition-colors text-sm ${!selectedTeamId && location.pathname.includes('/teams') ? 'text-white border-b-2 border-secondary pb-1' : 'text-slate-300 hover:text-white'}`}
         >
           Teams
         </button>
@@ -176,32 +181,34 @@ const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
   );
 };
 
-const Sidebar = ({ isVisible }: { isVisible: boolean }) => { if (!isVisible) return null; return (
-  <aside className="bg-surface h-screen w-64 border-r-0 fixed left-0 top-16 h-[calc(100vh-4rem)] hidden lg:flex flex-col p-4 z-40">
-    <div className="mb-8 px-4">
-      <h2 className="text-primary text-lg font-bold font-headline">The Archive</h2>
-      <p className="text-slate-500 text-xs font-medium">Season 2024</p>
-    </div>
-    <nav className="flex flex-col gap-1">
-      {[
-        { label: 'Live Scores', icon: Activity, active: false },
-        { label: 'League Leaders', icon: Trophy, active: true },
-        { label: 'Transactions', icon: ArrowLeftRight, active: false },
-        { label: 'Injury Report', icon: Activity, active: false },
-        { label: 'Archive', icon: Archive, active: false },
-      ].map((item) => (
-        <a 
-          key={item.label}
-          className={`flex items-center gap-3 px-4 py-3 transition-all font-medium text-sm rounded-l-lg ${item.active ? 'text-primary font-bold bg-white' : 'text-slate-500 hover:text-primary hover:translate-x-1'}`} 
-          href="#"
-        >
-          <item.icon className={`w-5 h-5 ${item.active ? 'fill-primary/10' : ''}`} />
-          <span>{item.label}</span>
-        </a>
-      ))}
-    </nav>
-  </aside>
-);}
+const Sidebar = ({ isVisible }: { isVisible: boolean }) => {
+  return (
+    <aside className={`bg-surface h-screen border-r-0 fixed left-0 top-16 h-[calc(100vh-4rem)] hidden lg:flex flex-col p-4 z-40 transition-all duration-300 ${isVisible ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden px-0'}`}>
+      <div className="mb-8 px-4 whitespace-nowrap">
+        <h2 className="text-primary text-lg font-bold font-headline">The Archive</h2>
+        <p className="text-slate-500 text-xs font-medium">Season 2024</p>
+      </div>
+      <nav className="flex flex-col gap-1 whitespace-nowrap min-w-[224px]">
+        {[
+          { label: 'Live Scores', icon: Activity, active: true },
+          { label: 'League Leaders', icon: Trophy, active: false },
+          { label: 'Transactions', icon: ArrowLeftRight, active: false },
+          { label: 'Injury Report', icon: Activity, active: false },
+          { label: 'Archive', icon: Archive, active: false },
+        ].map((item) => (
+          <a 
+            key={item.label}
+            className={`flex items-center gap-3 px-4 py-3 transition-all font-medium text-sm rounded-l-lg ${item.active ? 'text-primary font-bold bg-white' : 'text-slate-500 hover:text-primary hover:translate-x-1'}`} 
+            href="#"
+          >
+            <item.icon className={`w-5 h-5 shrink-0 ${item.active ? 'fill-primary/10' : ''}`} />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </nav>
+    </aside>
+  );
+};
 
 const HeroSection = ({ team, standing, seasons, selectedYear, onYearChange }: { team: any, standing: any, seasons: any[], selectedYear: number, onYearChange: (y: number) => void }) => {
   const getRankSuffix = (rank: number) => {
@@ -721,7 +728,7 @@ const Footer = () => (
 
 import { fetchSeasons } from './api';
 
-const TeamDashboard = ({ teams }: { teams: any[] }) => {
+const TeamDashboard = ({ teams, sidebarOpen, toggleSidebar }: { teams: any[], sidebarOpen: boolean, toggleSidebar: () => void }) => {
   const { teamId } = useParams();
   const navigate = useNavigate();
   const selectedTeamId = Number(teamId);
@@ -816,9 +823,9 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   
   return (
     <>
-      <Header selectedTeamId={selectedTeamId} />
-      <Sidebar isVisible={true} />
-      <main className="lg:ml-64 pt-24 px-6 pb-12 transition-all">
+      <Header selectedTeamId={selectedTeamId} toggleSidebar={toggleSidebar} />
+      <Sidebar isVisible={sidebarOpen} />
+      <main className={`pt-24 px-6 pb-12 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
         <HeroSection team={selectedTeam} standing={teamStanding} seasons={seasons} selectedYear={selectedYear} onYearChange={setSelectedYear} espnRecords={espnRecords} />
 
         <div className="max-w-7xl mx-auto">
@@ -893,6 +900,7 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
 const AppContent = () => {
   const [teams, setTeams] = useState<any[]>([]);
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     async function init() {
@@ -914,27 +922,31 @@ const AppContent = () => {
     <div className="min-h-screen">
       <Routes>
         <Route path="/" element={
-          <div className="pt-24 px-6 pb-12 min-h-screen flex items-center justify-center">
-             <div className="text-center">
-               <h1 className="text-6xl font-headline font-black text-primary mb-4">STATMASTER</h1>
-               <button onClick={() => navigate('/teams')} className="bg-secondary text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-[#910724] transition-colors">View All Teams</button>
-             </div>
-          </div>
+          <>
+            <Header selectedTeamId={null} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+            <Sidebar isVisible={sidebarOpen} />
+            <main className={`pt-16 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+              <HomePage />
+            </main>
+            <Footer />
+          </>
         } />
         <Route path="/teams" element={
           <>
-            <Header selectedTeamId={null} />
-            <main className="pt-24 px-6 pb-12">
+            <Header selectedTeamId={null} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+            <Sidebar isVisible={sidebarOpen} />
+            <main className={`pt-24 px-6 pb-12 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
               <TeamsPage teams={teams} onSelectTeam={(id) => navigate(`/teams/${id}`)} />
             </main>
             <Footer />
           </>
         } />
-        <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} />} />
+        <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} sidebarOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />} />
         <Route path="/schedule" element={
           <>
-            <Header selectedTeamId={null} />
-            <main className="pt-24 px-6 pb-12">
+            <Header selectedTeamId={null} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+            <Sidebar isVisible={sidebarOpen} />
+            <main className={`pt-24 px-6 pb-12 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
               <SchedulePage />
             </main>
             <Footer />
