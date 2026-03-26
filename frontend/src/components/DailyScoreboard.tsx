@@ -141,8 +141,9 @@ export const DailyScoreboard = () => {
                           <img src={awayLogo} className="w-6 h-6 object-contain" alt={awayTeam?.team?.abbreviation} />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none truncate">{awayTeam?.team?.location}</span>
-                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight truncate">{awayTeam?.team?.name}</span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none hidden xl:block truncate">{awayTeam?.team?.location}</span>
+                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight hidden xl:block truncate">{awayTeam?.team?.name}</span>
+                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight block xl:hidden truncate">{awayTeam?.team?.abbreviation}</span>
                         </div>
                       </div>
                       {(isLive || isFinal) ? (
@@ -161,8 +162,9 @@ export const DailyScoreboard = () => {
                           <img src={homeLogo} className="w-6 h-6 object-contain" alt={homeTeam?.team?.abbreviation} />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none truncate">{homeTeam?.team?.location}</span>
-                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight truncate">{homeTeam?.team?.name}</span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none hidden xl:block truncate">{homeTeam?.team?.location}</span>
+                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight hidden xl:block truncate">{homeTeam?.team?.name}</span>
+                          <span className="font-headline font-black text-primary text-lg uppercase tracking-tight leading-tight block xl:hidden truncate">{homeTeam?.team?.abbreviation}</span>
                         </div>
                       </div>
                       {(isLive || isFinal) ? (
@@ -184,7 +186,7 @@ export const DailyScoreboard = () => {
 
                 {/* SECTION 2: Dynamic */}
                 {isLive && (
-                  <div className="col-span-3 p-6 border-r border-slate-100 flex flex-col justify-between">
+                  <div className="col-span-4 p-6 border-r border-slate-100 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                       <div className="relative w-12 h-12 mt-1">
                         <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 ${comp.situation?.onSecond ? 'bg-[#0066cc]' : 'bg-slate-300'}`} />
@@ -229,20 +231,43 @@ export const DailyScoreboard = () => {
                 )}
                 
                 {isFinal && (
-                  <div className="col-span-3 p-4 border-r border-slate-100 flex items-center justify-center">
-                    <div className="relative w-full h-full rounded-lg overflow-hidden bg-slate-100 group cursor-pointer border border-slate-200 shadow-sm flex items-center justify-center min-h-[90px]">
-                      <img src={homeLogo} className="absolute inset-0 w-full h-full object-cover opacity-20 grayscale" alt="Highlights" />
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
-                      <div className="relative z-10 w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Play className="w-3.5 h-3.5 text-primary ml-0.5" fill="currentColor" />
+                  <div className="col-span-4 border-r border-slate-100 flex items-center justify-center p-0">
+                    {comp.highlights?.[0] ? (
+                      <div className="relative w-full h-full overflow-hidden bg-black group cursor-pointer flex items-center justify-center min-h-[90px]">
+                        <video 
+                          className="w-full h-full object-contain" 
+                          controls
+                          poster={comp.highlights[0].thumbnail}
+                        >
+                          {comp.highlights[0].links?.source?.mezzanine?.href && (
+                            <source src={comp.highlights[0].links.source.mezzanine.href} type="video/mp4" />
+                          )}
+                          {comp.highlights[0].links?.mobile?.source?.href && (
+                            <source src={comp.highlights[0].links.mobile.source.href} type="video/mp4" />
+                          )}
+                          Your browser does not support the video tag.
+                        </video>
+                        <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 text-white text-[9px] font-bold rounded truncate max-w-[calc(100%-1rem)] pointer-events-none group-hover:opacity-0 transition-opacity">
+                           {comp.highlights[0].headline || 'Highlights'}
+                        </span>
                       </div>
-                      <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 text-white text-[9px] font-bold rounded">Highlights</span>
-                    </div>
+                    ) : comp.headlines?.[0] ? (
+                      <div className="relative w-full h-full flex flex-col justify-center gap-1.5 px-4">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-1">{comp.headlines[0].type || 'Recap'}</span>
+                        <p className="text-xs font-bold text-primary leading-tight line-clamp-2">{comp.headlines[0].shortLinkText}</p>
+                        <p className="text-[10px] text-slate-500 font-medium leading-tight line-clamp-2">{comp.headlines[0].description}</p>
+                      </div>
+                    ) : (
+                      <div className="relative w-full h-full rounded-lg overflow-hidden bg-slate-50 border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[90px] opacity-60">
+                        <img src={homeLogo} className="w-8 h-8 object-contain mb-2 grayscale opacity-30" alt="No Highlights" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No Highlights</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {isScheduled && (
-                  <div className="col-span-3 p-6 border-r border-slate-100 flex flex-col justify-center space-y-4">
+                  <div className="col-span-4 p-6 border-r border-slate-100 flex flex-col justify-center space-y-4">
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-slate-700">{comp.venue?.fullName}</p>
                       <p className="text-[11px] text-slate-500">{comp.venue?.address?.city}, {comp.venue?.address?.state}</p>
@@ -263,7 +288,7 @@ export const DailyScoreboard = () => {
                 )}
 
                 {/* SECTION 3: Pitching / Actions */}
-                <div className="col-span-5 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="col-span-4 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                   <div className="flex-1 flex flex-col justify-center min-w-0">
                     
                     {isFinal && (
