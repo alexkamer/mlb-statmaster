@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/.venv/
+*.log
+backend.pid
+backend.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.DS_Store
+frontend/.env
+frontend/.env.local
+
+# Mac
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+statmaster.zip
