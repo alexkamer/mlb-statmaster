@@ -31,7 +31,7 @@ async def shutdown():
 async def get_teams(year: int = 2024):
     """Get all teams active in a specific year."""
     query = """
-        SELECT team_id, location, name, display_name, abbreviation, color, alternate_color
+        SELECT team_id, location, name, display_name, abbreviation, color, alternate_color, group_id
         FROM season_teams
         WHERE season_year = :year
         ORDER BY location

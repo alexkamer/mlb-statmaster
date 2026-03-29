@@ -58,6 +58,10 @@ export const TeamsPage = ({ teams, onSelectTeam }: { teams: any[], onSelectTeam:
         leagues[l][d].sort((a: any, b: any) => a.location.localeCompare(b.location));
       });
     });
+    // Strip Other if it's empty
+    if (leagues["Other"]["Uncategorized"].length === 0) {
+        delete leagues["Other"];
+    }
     return leagues;
   }, [filteredTeams]);
 
@@ -137,5 +141,8 @@ export const TeamsPage = ({ teams, onSelectTeam }: { teams: any[], onSelectTeam:
               </div>
             </div>
           );
-        })}  );
+        })}
+      </div>
+    </div>
+  );
 };
