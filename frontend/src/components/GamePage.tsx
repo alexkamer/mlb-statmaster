@@ -137,7 +137,7 @@ export const GamePage = () => {
                                                   <tr className="border-b border-slate-200 text-[10px] uppercase tracking-widest text-slate-400 font-black">
                                                       <th className="px-4 py-2 w-32">Player</th>
                                                       {battingStats.labels.map((lbl: string, i: number) => (
-                                                          <th key={i} className="px-2 py-2 text-right">{lbl}</th>
+                                                          lbl !== "#P" ? <th key={i} className="px-2 py-2 text-right">{lbl}</th> : null
                                                       ))}
                                                   </tr>
                                               </thead>
@@ -156,7 +156,7 @@ export const GamePage = () => {
                                                   <tr className="bg-slate-50 font-bold border-t-2 border-slate-200 text-primary">
                                                       <td className="px-4 py-2">TOTALS</td>
                                                       {battingStats.totals?.map((tot: string, j: number) => (
-                                                          <td key={j} className="px-2 py-2 text-right">{tot}</td>
+                                                          battingStats.labels[j] !== "#P" ? <td key={j} className="px-2 py-2 text-right">{tot}</td> : null
                                                       ))}
                                                   </tr>
                                               </tbody>
