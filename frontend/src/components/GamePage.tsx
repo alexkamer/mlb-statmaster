@@ -142,17 +142,23 @@ export const GamePage = () => {
                                                   </tr>
                                               </thead>
                                               <tbody className="text-xs font-medium text-slate-700">
-                                                  {battingStats.athletes?.map((ath: any, i: number) => (
+                                                  {battingStats.athletes?.map((ath: any, i: number) => {
+                                                      const isStarter = ath.starter;
+                                                      return (
                                                       <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                                                          <td className="px-4 py-2 font-bold text-primary whitespace-nowrap">
-                                                              <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
-                                                              <span className="text-[10px] text-slate-400 ml-1 font-normal">{ath.athlete?.position?.abbreviation}</span>
+                                                          <td className="px-4 py-2 whitespace-nowrap flex items-center gap-2">
+                                                              <span className="w-4 text-right text-xs font-black text-slate-300 shrink-0">{isStarter ? ath.batOrder : ""}</span>
+                                                              <div className={`${isStarter ? "font-bold text-primary" : "font-medium text-slate-500 ml-4"}`}>
+                                                                  <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
+                                                                  <span className="text-[10px] text-slate-400 ml-1 font-normal">{ath.athlete?.position?.abbreviation || ath.position?.abbreviation}</span>
+                                                              </div>
                                                           </td>
                                                           {ath.stats?.map((stat: string, j: number) => (
                                                               battingStats.labels[j] !== "#P" ? <td key={j} className="px-2 py-2 text-right">{stat}</td> : null
                                                           ))}
                                                       </tr>
-                                                  ))}
+                                                      );
+                                                  })}
                                                   <tr className="bg-slate-50 font-bold border-t-2 border-slate-200 text-primary">
                                                       <td className="px-4 py-2">TOTALS</td>
                                                       {battingStats.totals?.map((tot: string, j: number) => (
