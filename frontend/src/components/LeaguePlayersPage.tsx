@@ -43,8 +43,8 @@ export const LeaguePlayersPage = () => {
 
   // Sort the actual data locally before rendering
   const sortedStats = [...stats].sort((a, b) => {
-      let aVal = a[sortCol] || 0;
-      let bVal = b[sortCol] || 0;
+      let aVal = Number(a[sortCol]) || 0;
+      let bVal = Number(b[sortCol]) || 0;
       
       // Force empty ABs to bottom for ratios
       if (view === "batting" && ["avg", "obp", "slg", "ops"].includes(sortCol)) {
