@@ -13,6 +13,7 @@ import { TeamTabs } from './components/TeamTabs';
 import { TeamsPage } from './components/TeamsPage';
 import { SchedulePage } from './components/SchedulePage';
 import { PlayerPage } from './components/PlayerPage';
+import { LeagueLeadersPage } from './components/LeagueLeadersPage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
@@ -158,21 +159,24 @@ const TopNav = () => {
         Teams
       </button>
       {[
-        { label: 'Live Scores', icon: Activity, active: location.pathname === '/' },
-        { label: 'League Leaders', icon: Trophy, active: false },
-        { label: 'Transactions', icon: ArrowLeftRight, active: false },
-        { label: 'Injury Report', icon: Activity, active: false },
-        { label: 'Archive', icon: Archive, active: false },
-      ].map((item) => (
-        <a 
-          key={item.label}
-          href={item.active ? '/' : '#'}
-          className={`flex items-center gap-2 font-bold text-sm hover:text-secondary transition-colors whitespace-nowrap ${item.active ? 'text-white border-b-2 border-secondary h-full' : 'text-slate-300'}`}
-        >
-          <item.icon className="w-4 h-4" />
-          {item.label}
-        </a>
-      ))}
+        { label: 'Live Scores', icon: Activity, path: '/' },
+        { label: 'League Leaders', icon: Trophy, path: '/leaders' },
+        { label: 'Transactions', icon: ArrowLeftRight, path: '#' },
+        { label: 'Injury Report', icon: Activity, path: '#' },
+        { label: 'Archive', icon: Archive, path: '#' },
+      ].map((item) => {
+        const isActive = location.pathname === item.path;
+        return (
+          <button 
+            key={item.label}
+            onClick={() => { if(item.path !== '#') navigate(item.path); }}
+            className={`flex items-center gap-2 font-bold text-sm hover:text-secondary transition-colors whitespace-nowrap ${isActive ? 'text-white border-b-2 border-secondary h-full' : 'text-slate-300'}`}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 };
@@ -948,6 +952,15 @@ const AppContent = () => {
             <Header selectedTeamId={null} />
             <main className="pt-36 px-6 pb-12 transition-all duration-300">
               <PlayerPage />
+            </main>
+            <Footer />
+          </>
+        } />
+        <Route path="/leaders" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 px-6 pb-12 transition-all duration-300">
+              <LeagueLeadersPage />
             </main>
             <Footer />
           </>
