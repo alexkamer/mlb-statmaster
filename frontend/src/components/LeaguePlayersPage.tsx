@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { fetchLeagueAggregatedStats } from '../api';
+import { fetchLiveEspnLeaders } from '../api';
 
 export const LeaguePlayersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,13 +11,14 @@ export const LeaguePlayersPage = () => {
   const [loading, setLoading] = useState(true);
 
   // Sorting state
-  const [sortCol, setSortCol] = useState<string>(view === "batting" ? "ops" : "era");
+  const [sortCol, setSortCol] = useState<string>(view === "batting" ? "OPS" : "ERA");
   const [sortDesc, setSortDesc] = useState<boolean>(view === "batting" ? true : false); // ERA sorts asc by default
 
   useEffect(() => {
     async function loadStats() {
       setLoading(true);
-      const data = await fetchLeagueAggregatedStats(year, view, seasonType, 2000);
+      let category = sortCol;
+      const data = await fetchLiveEspnLeaders(year, category, 100);
       setStats(data);
       setLoading(false);
     }
@@ -28,7 +29,7 @@ export const LeaguePlayersPage = () => {
     if (year !== new Date().getFullYear()) params.year = year.toString();
     if (seasonType !== "Regular Season") params.type = seasonType;
     setSearchParams(params, { replace: true });
-  }, [year, view, seasonType, setSearchParams]);
+  }, [year, view, seasonType, sortCol, setSearchParams]);
 
   // Handle click to sort
   const handleSort = (col: string) => {
@@ -41,66 +42,43 @@ export const LeaguePlayersPage = () => {
       }
   };
 
-  // Sort the actual data locally before rendering
-  const sortedStats = [...stats].sort((a, b) => {
-      let aVal = Number(a[sortCol]) || 0;
-      let bVal = Number(b[sortCol]) || 0;
-      
-      // Force empty ABs to bottom for ratios
-      if (view === "batting" && ["avg", "obp", "slg", "ops"].includes(sortCol)) {
-          if (a.ab < 10 && b.ab >= 10) return 1;
-          if (b.ab < 10 && a.ab >= 10) return -1;
-      }
-      if (view === "pitching" && ["era", "whip"].includes(sortCol)) {
-          if (a.ip < 5 && b.ip >= 5) return 1;
-          if (b.ip < 5 && a.ip >= 5) return -1;
-      }
-
-      if (aVal < bVal) return sortDesc ? 1 : -1;
-      if (aVal > bVal) return sortDesc ? -1 : 1;
-      return 0;
-  });
+  // ESPN natively returns the pre-sorted top 100 leaders! We just use the array directly.
+  // If the user clicked to reverse the sort, we just reverse the array locally.
+  const sortedStats = sortDesc === (["era", "whip"].includes(sortCol) ? false : true) ? [...stats] : [...stats].reverse();
 
   const formatStat = (key: string, val: any) => {
       if (val === null || val === undefined) return "0";
-      if (["avg", "obp", "slg", "ops"].includes(key)) {
+      if (["avg", "onBasePct", "slugAvg", "OPS", "opponentAvg"].includes(key)) {
           return Number(val).toFixed(3).replace(/^0+/, "");
       }
-      if (["era", "whip"].includes(key)) {
+      if (["ERA", "WHIP"].includes(key)) {
           return Number(val).toFixed(2);
       }
       return val;
   };
 
   const battingCols = [
-      { key: "g", label: "G" },
-      { key: "ab", label: "AB" },
-      { key: "r", label: "R" },
-      { key: "h", label: "H" },
-      { key: "hr", label: "HR" },
-      { key: "rbi", label: "RBI" },
-      { key: "bb", label: "BB" },
-      { key: "k", label: "K" },
-      { key: "sb", label: "SB" },
+      { key: "runs", label: "R" },
+      { key: "hits", label: "H" },
+      { key: "homeRuns", label: "HR" },
+      { key: "RBIs", label: "RBI" },
+      { key: "stolenBases", label: "SB" },
       { key: "avg", label: "AVG" },
-      { key: "obp", label: "OBP" },
-      { key: "slg", label: "SLG" },
-      { key: "ops", label: "OPS" }
+      { key: "onBasePct", label: "OBP" },
+      { key: "slugAvg", label: "SLG" },
+      { key: "OPS", label: "OPS" },
+      { key: "WARBR", label: "WAR" }
   ];
 
   const pitchingCols = [
-      { key: "g", label: "G" },
-      { key: "w", label: "W" },
-      { key: "l", label: "L" },
-      { key: "era", label: "ERA" },
-      { key: "ip", label: "IP" },
-      { key: "h", label: "H" },
-      { key: "r", label: "R" },
-      { key: "er", label: "ER" },
-      { key: "hr", label: "HR" },
-      { key: "bb", label: "BB" },
-      { key: "k", label: "K" },
-      { key: "whip", label: "WHIP" }
+      { key: "wins", label: "W" },
+      { key: "ERA", label: "ERA" },
+      { key: "strikeouts", label: "K" },
+      { key: "WHIP", label: "WHIP" },
+      { key: "saves", label: "SV" },
+      { key: "holds", label: "HLD" },
+      { key: "qualityStarts", label: "QS" },
+      { key: "opponentAvg", label: "OBA" }
   ];
 
   const cols = view === "batting" ? battingCols : pitchingCols;
@@ -137,13 +115,13 @@ export const LeaguePlayersPage = () => {
            
            <div className="flex bg-slate-100 p-1 rounded-lg">
              <button 
-                onClick={() => { setView("batting"); setSortCol("ops"); setSortDesc(true); }}
+                onClick={() => { setView("batting"); setSortCol("OPS"); setSortDesc(true); }}
                 className={`px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-widest transition-all ${view === "batting" ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-primary"}`}
              >
                  Batting
              </button>
              <button 
-                onClick={() => { setView("pitching"); setSortCol("era"); setSortDesc(false); }}
+                onClick={() => { setView("pitching"); setSortCol("ERA"); setSortDesc(false); }}
                 className={`px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-widest transition-all ${view === "pitching" ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-primary"}`}
              >
                  Pitching
@@ -205,13 +183,16 @@ export const LeaguePlayersPage = () => {
                   </td>
                   {cols.map((col) => {
                       const isSortedCol = sortCol === col.key;
+                      // ESPN ONLY returns the value for the actively requested category. All other columns must be blank/dashed!
+                      const displayVal = isSortedCol ? formatStat(col.key, row.value) : "-";
+                      
                       return (
                           <td 
                               key={col.key} 
-                              className={`px-4 py-3 text-right ${isSortedCol ? "font-black bg-slate-50 text-slate-900 group-hover:bg-slate-100" : "font-medium text-slate-600"}`}
+                              className={`px-4 py-3 text-right ${isSortedCol ? "font-black bg-slate-50 text-slate-900 group-hover:bg-slate-100" : "font-medium text-slate-300"}`}
                               style={isSortedCol ? { color: `#${row.team_color}` } : {}}
                           >
-                              {formatStat(col.key, row[col.key])}
+                              {displayVal}
                           </td>
                       );
                   })}

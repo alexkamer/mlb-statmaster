@@ -251,3 +251,73 @@ export async function fetchLeagueLeaders(year: number = new Date().getFullYear()
     return [];
   }
 }
+
+
+export async function fetchLeagueAggregatedStats(year: number, type: "batting" | "pitching", seasonType: string = "Regular Season", limit: number = 100) {
+    const res = await fetch(`${API_URL}/stats/league?year=${year}&type=${type}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`);
+    if (!res.ok) return [];
+    return await res.json();
+}
+
+
+export async function fetchLiveEspnLeaders(year: number = 2026, category: string = "avg", limit: number = 100) {
+    try {
+        const res = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${year}/types/2/leaders?limit=${limit}`);
+        if (!res.ok) return [];
+        
+        const data = await res.json();
+        if (!data.categories) return [];
+        
+        const targetCategory = data.categories.find((c: any) => c.name === category);
+        if (!targetCategory || !targetCategory.leaders) return [];
+        
+        const resolvedLeaders = await Promise.all(targetCategory.leaders.map(async (leader: any) => {
+            let id = "0";
+            let name = "Unknown";
+            let headshot = "https://a.espncdn.com/i/headshots/nophoto.png";
+            let teamId = "mlb";
+            let teamAbbrev = "MLB";
+            let teamColor = "00193c";
+            
+            try {
+                if (leader.athlete && leader.athlete["$ref"]) {
+                    const athRes = await fetch(leader.athlete["$ref"].replace("http://", "https://"));
+                    if (athRes.ok) {
+                        const athData = await athRes.json();
+                        id = athData.id;
+                        name = athData.shortName || athData.displayName || athData.fullName;
+                        headshot = athData.headshot?.href || headshot;
+                    }
+                }
+                
+                if (leader.team && leader.team["$ref"]) {
+                    const teamRes = await fetch(leader.team["$ref"].replace("http://", "https://"));
+                    if (teamRes.ok) {
+                        const teamData = await teamRes.json();
+                        teamId = teamData.id;
+                        teamAbbrev = teamData.abbreviation;
+                        teamColor = teamData.color || teamColor;
+                    }
+                }
+            } catch(e) {
+                console.error("Failed resolving leader detail", e);
+            }
+            
+            return {
+                athlete_id: id,
+                name,
+                headshot,
+                team_id: teamId,
+                team_abbrev: teamAbbrev,
+                team_color: teamColor,
+                displayValue: leader.displayValue,
+                value: leader.value
+            };
+        }));
+        
+        return resolvedLeaders;
+    } catch(e) {
+        console.error(e);
+        return [];
+    }
+}
