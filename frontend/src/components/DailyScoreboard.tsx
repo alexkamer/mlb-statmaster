@@ -124,7 +124,7 @@ export const DailyScoreboard = () => {
               <div className="grid grid-cols-12 min-h-[140px]">
                 
                 {/* SECTION 1: Teams & Score */}
-                <div className="col-span-4 p-6 border-r border-slate-100 flex flex-col justify-between overflow-hidden">
+                <Link to={`/games/${event.id}`} className="col-span-4 p-6 border-r border-slate-100 flex flex-col justify-between overflow-hidden hover:bg-slate-50 transition-colors group cursor-pointer block">
                   <div className="flex justify-between items-center mb-4">
                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-sm shrink-0 ${badgeColor}`}>{badgeText}</span>
                     {(isLive || isFinal) && (
@@ -181,8 +181,9 @@ export const DailyScoreboard = () => {
                   </div>
                   <div className="mt-4 shrink-0 flex justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{tvProvider}</span>
+                    <span className="text-[10px] font-bold text-secondary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">Box Score <span className="material-symbols-outlined text-[12px]">arrow_forward</span></span>
                   </div>
-                </div>
+                </Link>
 
                 {/* SECTION 2: Dynamic */}
                 {isLive && (
