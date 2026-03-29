@@ -115,8 +115,8 @@ export const GamePage = () => {
               <div className="flex flex-col xl:flex-row gap-8">
                   {data.boxscore?.players?.map((teamBox: any, tIdx: number) => {
                       const tInfo = teamBox.team;
-                      const battingStats = teamBox.statistics?.find((s: any) => s.name === "batting");
-                      const pitchingStats = teamBox.statistics?.find((s: any) => s.name === "pitching");
+                      const battingStats = teamBox.statistics?.find((s: any) => s.type === "batting");
+                      const pitchingStats = teamBox.statistics?.find((s: any) => s.type === "pitching");
                       
                       return (
                           <div key={tIdx} className="flex-1 min-w-0 flex flex-col gap-6">
