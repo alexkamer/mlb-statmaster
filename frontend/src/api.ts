@@ -123,9 +123,16 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
             const coreRes = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/athletes/${playerId}?lang=en&region=us`);
             if (coreRes.ok) {
                 const coreData = await coreRes.json();
+                let teamRefs = [];
                 if (coreData.teams && coreData.teams.length > 0) {
+                    teamRefs = coreData.teams;
+                } else if (coreData.team && coreData.team["$ref"]) {
+                    teamRefs = [coreData.team];
+                }
+
+                if (teamRefs.length > 0) {
                     // They might have played for multiple teams. Fetch the abbreviation and ID for each ref.
-                    const teamPromises = coreData.teams.map(async (t: any) => {
+                    const teamPromises = teamRefs.map(async (t: any) => {
                         const tRes = await fetch(t["$ref"].replace("http://", "https://"));
                         if (tRes.ok) {
                             const tData = await tRes.json();

@@ -144,22 +144,58 @@ export const PlayerPage = () => {
 
 
 
-  // Top Level Stats (from statsSummary)
-  const statsSummaryMap = (espnBase.statsSummary?.statistics || []).reduce((acc: any, s: any) => {
-    acc[s.name] = { value: s.displayValue, rank: s.rankDisplayValue, display: s.shortDisplayName };
-    return acc;
-  }, {});
-
-  const statKeys = Object.keys(statsSummaryMap);
-  const card1 = statKeys[0] ? statsSummaryMap[statKeys[0]] : { value: "-", display: "-", rank: "" };
-  const card2 = statKeys[1] ? statsSummaryMap[statKeys[1]] : { value: "-", display: "-", rank: "" };
-  const card3 = statKeys[2] ? statsSummaryMap[statKeys[2]] : { value: "-", display: "-", rank: "" };
-  const card4 = statKeys[3] ? statsSummaryMap[statKeys[3]] : { value: "-", display: "-", rank: "" };
-
   const awards = espnOverview.awards || [];
 
   // Sort seasons descending
   const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
+
+  // Top Level Stats (from statsSummary OR extracted dynamically from the latest splits row)
+  let statsSummaryMap = (espnBase.statsSummary?.statistics || []).reduce((acc: any, s: any) => {
+    acc[s.name] = { value: s.displayValue, rank: s.rankDisplayValue, display: s.shortDisplayName };
+    return acc;
+  }, {});
+
+  // If ESPN's high-level statsSummary is empty (often happens early in the season), we will manually extract the active category's most recent season from our deeply fetched splitsData!
+  if (Object.keys(statsSummaryMap).length === 0 && sortedSeasons.length > 0 && splitsData?.labels) {
+      const latestSeason = sortedSeasons[0];
+      const labels = splitsData.labels;
+      const stats = latestSeason.stats;
+      
+      const findStat = (key: string) => {
+          const idx = labels.indexOf(key);
+          return idx !== -1 ? stats[idx] : "0";
+      };
+
+      const isPitching = activeCategory === "pitching";
+      if (isPitching) {
+          statsSummaryMap = {
+              "ERA": { value: findStat("ERA"), display: "ERA", rank: "" },
+              "WHIP": { value: findStat("WHIP"), display: "WHIP", rank: "" },
+              "SO": { value: findStat("SO"), display: "K", rank: "" },
+              "IP": { value: findStat("IP"), display: "IP", rank: "" }
+          };
+      } else {
+          statsSummaryMap = {
+              "HR": { value: findStat("HR"), display: "HR", rank: "" },
+              "RBI": { value: findStat("RBI"), display: "RBI", rank: "" },
+              "AVG": { value: findStat("AVG"), display: "AVG", rank: "" },
+              "OPS": { value: findStat("OPS"), display: "OPS", rank: "" }
+          };
+      }
+  }
+
+  const statKeys = Object.keys(statsSummaryMap);
+  
+  // If stats are somehow still empty, provide sensible defaults based on their position/category
+  const isPitcher = bio.position_abbreviation === "SP" || bio.position_abbreviation === "RP";
+  const defaults = isPitcher && activeCategory !== "batting" 
+    ? [{display: "ERA"}, {display: "WHIP"}, {display: "K"}, {display: "IP"}] 
+    : [{display: "HR"}, {display: "RBI"}, {display: "AVG"}, {display: "OPS"}];
+
+  const card1 = statKeys[0] ? statsSummaryMap[statKeys[0]] : { value: "0", display: defaults[0].display, rank: "" };
+  const card2 = statKeys[1] ? statsSummaryMap[statKeys[1]] : { value: "0", display: defaults[1].display, rank: "" };
+  const card3 = statKeys[2] ? statsSummaryMap[statKeys[2]] : { value: "0", display: defaults[2].display, rank: "" };
+  const card4 = statKeys[3] ? statsSummaryMap[statKeys[3]] : { value: "0", display: defaults[3].display, rank: "" };
 
   // Calculate background brightness to determine which logo to use
   const getBrightness = (hex: string) => {
@@ -437,6 +473,17 @@ export const PlayerPage = () => {
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <h4 className="font-headline font-black text-xl tracking-tighter uppercase" style={{ color: `#${bio.team_color}` }}>Game Log</h4>
               <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2 mr-2">
+                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Category</label>
+                     <select 
+                        value={activeCategory || "batting"} 
+                        onChange={(e) => setActiveCategory(e.target.value)}
+                        className="border border-slate-300 rounded px-4 py-2 font-bold text-sm text-primary focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer bg-white capitalize"
+                     >
+                        <option value="batting">Batting</option>
+                        <option value="pitching">Pitching</option>
+                     </select>
+                 </div>
                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Season</label>
                  <select 
                     value={activeLogYear} 
