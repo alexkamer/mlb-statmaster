@@ -74,7 +74,7 @@ export const GamePage = () => {
                            <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
                                <th className="px-4 py-3 text-left w-48">Team</th>
                                {awayTeam?.linescores?.map((_: any, i: number) => (
-                                   <th key={i} className="px-3 py-3 text-center">{i + 1}</th>
+                                   <th key={i} className="px-3 py-3 text-center border-l border-slate-200/60">{i + 1}</th>
                                ))}
                                <th className="px-4 py-3 font-black text-primary border-l border-slate-200 w-[6%]">R</th>
                                <th className="px-4 py-3 font-black text-primary w-[6%]">H</th>
@@ -88,7 +88,7 @@ export const GamePage = () => {
                                    {awayTeam?.team?.abbreviation}
                                </td>
                                {awayTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3">{inning.displayValue || "-"}</td>
+                                   <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
                                ))}
                                <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{awayTeam?.score}</td>
                                <td className="px-4 py-3 font-bold">{awayTeam?.hits}</td>
@@ -100,7 +100,7 @@ export const GamePage = () => {
                                    {homeTeam?.team?.abbreviation}
                                </td>
                                {homeTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3">{inning.displayValue || "-"}</td>
+                                   <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
                                ))}
                                <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{homeTeam?.score}</td>
                                <td className="px-4 py-3 font-bold">{homeTeam?.hits}</td>
