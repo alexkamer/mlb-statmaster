@@ -63,3 +63,14 @@ export async function fetchTeamStanding(teamId: number, year = 2024) {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }
+
+
+export async function fetchPlayerProfile(playerId: number) {
+  const response = await fetch(`${API_URL}/players/${playerId}`);
+  if (!response.ok) {
+    if (response.status === 404) throw new Error("Player not found");
+    throw new Error("Failed to fetch player profile");
+  }
+  return response.json();
+}
+

@@ -12,6 +12,7 @@ import { LiveRoster } from './components/LiveRoster';
 import { TeamTabs } from './components/TeamTabs';
 import { TeamsPage } from './components/TeamsPage';
 import { SchedulePage } from './components/SchedulePage';
+import { PlayerPage } from './components/PlayerPage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
@@ -938,6 +939,15 @@ const AppContent = () => {
             <Header selectedTeamId={null} />
             <main className="pt-36 px-6 pb-12 transition-all duration-300">
               <SchedulePage />
+            </main>
+            <Footer />
+          </>
+        } />
+        <Route path="/players/:playerId" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 px-6 pb-12 transition-all duration-300">
+              <PlayerPage />
             </main>
             <Footer />
           </>

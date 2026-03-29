@@ -590,3 +590,102 @@ async def get_team_standing(team_id: int, year: int = 2024):
         except Exception as e:
             print(f"Error fetching standings: {e}")
             return None
+
+
+@app.get("/api/players/{player_id}")
+async def get_player_profile(player_id: int):
+    """Get the player's biographical data, current team, and historical stats."""
+    
+    # 1. Fetch biographical info and current team
+    bio_query = """
+        SELECT 
+            a.athlete_id,
+            a.first_name,
+            a.last_name,
+            a.display_name,
+            a.weight,
+            a.height,
+            a.age,
+            a.bats,
+            a.throws,
+            a.is_active,
+            p.name as position_name,
+            p.abbreviation as position_abbreviation,
+            'https://a.espncdn.com/i/headshots/mlb/players/full/' || a.athlete_id || '.png' as headshot,
+            (
+                SELECT st.display_name
+                FROM season_rosters sr
+                JOIN season_teams st ON sr.season_team_id = st.season_team_id
+                WHERE sr.athlete_id = a.athlete_id
+                ORDER BY sr.season_year DESC
+                LIMIT 1
+            ) as team_name,
+            (
+                SELECT st.abbreviation
+                FROM season_rosters sr
+                JOIN season_teams st ON sr.season_team_id = st.season_team_id
+                WHERE sr.athlete_id = a.athlete_id
+                ORDER BY sr.season_year DESC
+                LIMIT 1
+            ) as team_abbreviation,
+            (
+                SELECT st.color
+                FROM season_rosters sr
+                JOIN season_teams st ON sr.season_team_id = st.season_team_id
+                WHERE sr.athlete_id = a.athlete_id
+                ORDER BY sr.season_year DESC
+                LIMIT 1
+            ) as team_color,
+            (
+                SELECT st.alternate_color
+                FROM season_rosters sr
+                JOIN season_teams st ON sr.season_team_id = st.season_team_id
+                WHERE sr.athlete_id = a.athlete_id
+                ORDER BY sr.season_year DESC
+                LIMIT 1
+            ) as team_alternate_color
+        FROM athletes a
+        LEFT JOIN positions p ON a.position_id = p.position_id
+        WHERE a.athlete_id = :player_id
+    """
+    player_bio = await database.fetch_one(query=bio_query, values={"player_id": player_id})
+    
+    if not player_bio:
+        raise HTTPException(status_code=404, detail="Player not found")
+        
+    # 2. Fetch historical batting stats season-by-season (Regular Season only)
+    stats_query = """
+        SELECT 
+            e.season_year,
+            t.abbreviation as team_abbreviation,
+            COUNT(DISTINCT b.event_id) as g,
+            SUM(b.ab) as ab,
+            SUM(b.r) as r,
+            SUM(b.h) as h,
+            SUM(b.hr) as hr,
+            SUM(b.rbi) as rbi,
+            SUM(b.bb) as bb,
+            SUM(b.k) as k,
+            ROUND(SUM(b.h)::numeric / NULLIF(SUM(b.ab), 0), 3) as avg,
+            ROUND((SUM(b.h) + SUM(b.bb))::numeric / NULLIF(SUM(b.ab) + SUM(b.bb), 0), 3) as obp,
+            ROUND((SUM(b.h) + (SUM(b.hr) * 3))::numeric / NULLIF(SUM(b.ab), 0), 3) as slg,
+            ROUND(
+                ((SUM(b.h) + SUM(b.bb))::numeric / NULLIF(SUM(b.ab) + SUM(b.bb), 0)) + 
+                ((SUM(b.h) + (SUM(b.hr) * 3))::numeric / NULLIF(SUM(b.ab), 0)), 
+            3) as ops
+        FROM event_boxscores_batting b
+        JOIN events e ON b.event_id = e.event_id
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        LEFT JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
+        WHERE b.athlete_id = :player_id AND st.type_id = 2
+        GROUP BY e.season_year, t.abbreviation
+        ORDER BY e.season_year DESC
+    """
+    
+    historical_stats = await database.fetch_all(query=stats_query, values={"player_id": player_id})
+    
+    return {
+        "bio": dict(player_bio),
+        "stats": [dict(s) for s in historical_stats]
+    }
+
