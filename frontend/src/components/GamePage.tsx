@@ -29,7 +29,7 @@ export const GamePage = () => {
   const awayTeam = header?.competitors?.find((c: any) => c.homeAway === "away");
 
   return (
-    <div className="max-w-5xl mx-auto px-6 relative z-30">
+    <div className="max-w-[1400px] mx-auto px-6 relative z-30">
       {/* High-Level Scoreboard */}
       <div className="mb-12 mt-8 flex flex-col md:flex-row items-center justify-between bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         
@@ -112,7 +112,7 @@ export const GamePage = () => {
               </div>
 
               {/* Player Box Scores */}
-              <div className="flex flex-col xl:flex-row gap-8">
+              <div className="flex flex-col gap-12">
                   {data.boxscore?.players?.map((teamBox: any, tIdx: number) => {
                       const tInfo = teamBox.team;
                       const battingStats = teamBox.statistics?.find((s: any) => s.type === "batting");
@@ -144,7 +144,7 @@ export const GamePage = () => {
                                               <tbody className="text-xs font-medium text-slate-700">
                                                   {battingStats.athletes?.map((ath: any, i: number) => (
                                                       <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                                                          <td className="px-4 py-2 font-bold text-primary truncate max-w-[120px]">
+                                                          <td className="px-4 py-2 font-bold text-primary whitespace-nowrap">
                                                               <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
                                                               <span className="text-[10px] text-slate-400 ml-1 font-normal">{ath.athlete?.position?.abbreviation}</span>
                                                           </td>
@@ -184,7 +184,7 @@ export const GamePage = () => {
                                               <tbody className="text-xs font-medium text-slate-700">
                                                   {pitchingStats.athletes?.map((ath: any, i: number) => (
                                                       <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                                                          <td className="px-4 py-2 font-bold text-primary truncate max-w-[120px]">
+                                                          <td className="px-4 py-2 font-bold text-primary whitespace-nowrap">
                                                               <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
                                                           </td>
                                                           {ath.stats?.map((stat: string, j: number) => (
