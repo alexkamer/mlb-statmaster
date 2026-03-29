@@ -256,7 +256,7 @@ export const GamePage = () => {
                   </div>
               )}
           </div>
-      )}</div>
+      )}
     </div>
   );
 };
