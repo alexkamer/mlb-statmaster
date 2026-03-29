@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile } from '../api';
 
 export const PlayerPage = () => {
   const { playerId } = useParams();
@@ -9,8 +10,13 @@ export const PlayerPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // New state for handling the dynamic historical table
+  const [splitsData, setSplitsData] = useState<any>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [loadingSplits, setLoadingSplits] = useState(false);
+
   useEffect(() => {
-    async function loadData() {
+    async function loadBaseData() {
       if (!playerId) return;
       setLoading(true);
       setError(null);
@@ -23,9 +29,30 @@ export const PlayerPage = () => {
         if (!espnOverviewRes.ok) throw new Error("Failed to load player overview");
         const espnOverview = await espnOverviewRes.json();
 
+        let teamHistory: Record<string, string> = {};
+        try {
+            const beData = await fetchBackendProfile(Number(playerId));
+            if (beData && beData.team_history) {
+                teamHistory = beData.team_history;
+            }
+            if (beData && beData.bio && beData.bio.team_abbreviation) {
+                teamHistory["default"] = beData.bio.team_abbreviation;
+            }
+        } catch (e) {
+            console.warn("Backend team mapping unavailable");
+        }
+        
+        console.log("Loaded teamHistory:", teamHistory);
+        
+        // Failsafe: if backend is unreachable, at least use the ESPN base abbreviation
+        if (!teamHistory["default"] && espnBase.athlete.team?.abbreviation) {
+            teamHistory["default"] = espnBase.athlete.team.abbreviation;
+        }
+
         setProfile({
           espnBase: espnBase.athlete,
-          espnOverview: espnOverview
+          espnOverview: espnOverview,
+          teamHistory: teamHistory
         });
       } catch (err: any) {
         setError(err.message);
@@ -33,10 +60,30 @@ export const PlayerPage = () => {
         setLoading(false);
       }
     }
-    loadData();
+    loadBaseData();
   }, [playerId]);
 
-  if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-[#00193c]">LOADING PLAYER...</div>;
+  // Secondary effect to load the multithreaded splits data
+  useEffect(() => {
+    async function loadSplits() {
+      if (!playerId) return;
+      setLoadingSplits(true);
+      try {
+          const splits = await fetchEspnSplits(Number(playerId), activeCategory || undefined);
+          setSplitsData(splits);
+          if (!activeCategory && splits.activeCategory) {
+              setActiveCategory(splits.activeCategory);
+          }
+      } catch (e) {
+          console.error("Failed to load detailed splits", e);
+      } finally {
+          setLoadingSplits(false);
+      }
+    }
+    loadSplits();
+  }, [playerId, activeCategory]);
+
+  if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary">LOADING PLAYER...</div>;
   if (error || !profile) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">{error || "Error loading player"}</div>;
 
   const { espnBase, espnOverview } = profile;
@@ -62,16 +109,17 @@ export const PlayerPage = () => {
 
   // Top Level Stats (from statsSummary)
   const statsSummaryMap = (espnBase.statsSummary?.statistics || []).reduce((acc: any, s: any) => {
-    acc[s.name] = { value: s.displayValue, rank: s.rankDisplayValue };
+    acc[s.name] = { value: s.displayValue, rank: s.rankDisplayValue, display: s.shortDisplayName };
     return acc;
   }, {});
 
-  const hrVal = statsSummaryMap.homeRuns?.value || "0";
-  const hrRank = statsSummaryMap.homeRuns?.rank || "";
-  const rbiVal = statsSummaryMap.RBIs?.value || "0";
-  const rbiRank = statsSummaryMap.RBIs?.rank || "";
-  const avgVal = statsSummaryMap.avg?.value || ".000";
-  const opsVal = statsSummaryMap.OPS?.value || ".000";
+  const statKeys = Object.keys(statsSummaryMap);
+  const card1 = statKeys[0] ? statsSummaryMap[statKeys[0]] : { value: "-", display: "-", rank: "" };
+  const card2 = statKeys[1] ? statsSummaryMap[statKeys[1]] : { value: "-", display: "-", rank: "" };
+  const card3 = statKeys[2] ? statsSummaryMap[statKeys[2]] : { value: "-", display: "-", rank: "" };
+  const card4 = statKeys[3] ? statsSummaryMap[statKeys[3]] : { value: "-", display: "-", rank: "" };
+
+  const awards = espnOverview.awards || [];
 
   // Calculate background brightness to determine which logo to use
   const getBrightness = (hex: string) => {
@@ -79,64 +127,31 @@ export const PlayerPage = () => {
     const r = (rgb >> 16) & 0xff;
     const g = (rgb >>  8) & 0xff;
     const b = (rgb >>  0) & 0xff;
-    return (r * 299 + g * 587 + b * 114) / 1000;
+  
+  // Sort seasons descending
+  const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
+
+  return (r * 299 + g * 587 + b * 114) / 1000;
   };
   const isDarkBackground = getBrightness(bio.team_color) < 128;
 
-  // Select the appropriate logo
+
+
+
   let backgroundLogo = espnBase.team?.logos?.[0]?.href;
   if (espnBase.team?.logos) {
       if (isDarkBackground) {
-          // Look for a dark mode logo (usually white or highly contrasted)
           const darkLogo = espnBase.team.logos.find((l:any) => l.rel?.includes("dark"));
           if (darkLogo) backgroundLogo = darkLogo.href;
       } else {
-          // Look for default/light logo
           const defaultLogo = espnBase.team.logos.find((l:any) => l.rel?.includes("default"));
           if (defaultLogo) backgroundLogo = defaultLogo.href;
       }
   }
 
-  const awards = espnOverview.awards || [];
 
-  // Parse Career Totals from overview endpoint!
-  // It has splits: ["Regular Season", "Projected", "Career"]
-  let careerStats = { g: "0", ab: "0", r: "0", h: "0", hr: "0", rbi: "0", bb: "0", k: "0", avg: ".000", obp: ".000", slg: ".000", ops: ".000" };
-  
-  if (espnOverview.statistics && espnOverview.statistics.splits) {
-      const labels = espnOverview.statistics.labels || [];
-      const careerSplit = espnOverview.statistics.splits.find((s:any) => s.displayName === "Career");
-      
-      if (careerSplit && careerSplit.stats) {
-          const statsArr = careerSplit.stats;
-          // Map array back to labels
-          // Labels usually: ["GP","AB","R","H","2B","3B","HR","RBI","BB","SO"]
-          const getStat = (lbl:string) => {
-              const idx = labels.indexOf(lbl);
-              return idx !== -1 ? statsArr[idx] : "0";
-          };
-          
-          careerStats = {
-              g: getStat("GP"),
-              ab: getStat("AB"),
-              r: getStat("R"),
-              h: getStat("H"),
-              hr: getStat("HR"),
-              rbi: getStat("RBI"),
-              bb: getStat("BB"),
-              k: getStat("SO"),
-              // If AVG/OBP/SLG/OPS arent in the labels (often they arent in the short overview),
-              // we can pull them from espnBase.statsSummary if needed, or leave as "-"
-              avg: avgVal,
-              obp: "-",
-              slg: "-",
-              ops: opsVal
-          };
-      }
-  }
-
-  // We are skipping the backend historical table for now to fix the crash
-  // and ensure we rely solely on ESPN as requested.
+  // Sort seasons descending
+  const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
 
   return (
     <>
@@ -175,8 +190,6 @@ export const PlayerPage = () => {
             )}
           </div>
           
-
-          {/* Player Info */}
           {/* Player Info */}
           <div className="flex-1 mb-2 relative">
             <div className="relative z-10">
@@ -219,68 +232,90 @@ export const PlayerPage = () => {
       <section className="max-w-7xl mx-auto px-8 -mt-8 relative z-30">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-xl shadow-sm border-b-4 transition-all hover:translate-y-[-4px]" style={{ borderColor: `#${bio.team_alternate_color}` }}>
-            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season HR</p>
-            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{hrVal}</p>
-            <p className="text-emerald-700 text-xs font-bold mt-1">{hrRank}</p>
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season {card1.display}</p>
+            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{card1.value}</p>
+            <p className="text-emerald-700 text-xs font-bold mt-1">{card1.rank}</p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border-b-4 transition-all hover:translate-y-[-4px]" style={{ borderColor: `#${bio.team_color}` }}>
-            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season AVG</p>
-            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{avgVal}</p>
-            <p className="text-slate-500 text-xs mt-1">Batting Average</p>
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season {card2.display}</p>
+            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{card2.value}</p>
+            <p className="text-slate-500 text-xs mt-1">{card2.rank}</p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border-b-4 transition-all hover:translate-y-[-4px]" style={{ borderColor: `#${bio.team_color}` }}>
-            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season RBI</p>
-            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{rbiVal}</p>
-            <p className="text-emerald-700 text-xs font-bold mt-1">{rbiRank}</p>
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season {card3.display}</p>
+            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{card3.value}</p>
+            <p className="text-emerald-700 text-xs font-bold mt-1">{card3.rank}</p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border-b-4 transition-all hover:translate-y-[-4px]" style={{ borderColor: `#${bio.team_color}` }}>
-            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season OPS</p>
-            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{opsVal}</p>
-            <p className="text-emerald-700 text-xs font-bold mt-1">OBP + SLG</p>
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Season {card4.display}</p>
+            <p className="font-headline font-black text-4xl" style={{ color: `#${bio.team_color}` }}>{card4.value}</p>
+            <p className="text-emerald-700 text-xs font-bold mt-1">{card4.rank}</p>
           </div>
         </div>
       </section>
 
-      {/* Stats Table Section */}
+      {/* Dynamic Splits Table Section */}
       <section className="max-w-7xl mx-auto p-8 mt-12">
         <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
           <div>
             <h2 className="font-headline font-black text-xs uppercase tracking-[0.2em] mb-2" style={{ color: `#${bio.team_alternate_color}` }}>The Archive</h2>
-            <h3 className="font-headline font-black text-4xl tracking-tighter" style={{ color: `#${bio.team_color}` }}>CAREER TOTALS</h3>
+            <h3 className="font-headline font-black text-4xl tracking-tighter" style={{ color: `#${bio.team_color}` }}>SEASON-BY-SEASON SPLITS</h3>
           </div>
+          
           <div className="flex gap-2">
-            <button className="px-4 py-2 text-white text-xs font-black uppercase tracking-widest rounded-md" style={{ backgroundColor: `#${bio.team_color}` }}>Hitting</button>
+            {splitsData?.availableCategories?.length > 1 && splitsData.availableCategories.map((cat: string) => (
+               <button 
+                 key={cat}
+                 onClick={() => setActiveCategory(cat)}
+                 className="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-md transition-colors" 
+                 style={{ 
+                     backgroundColor: activeCategory === cat ? `#${bio.team_color}` : '#e2e8f0',
+                     color: activeCategory === cat ? '#ffffff' : `#${bio.team_color}`
+                 }}
+               >
+                 {cat}
+               </button>
+            ))}
           </div>
         </div>
 
         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto relative">
+            {loadingSplits && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                    <span className="font-bold text-slate-500 animate-pulse uppercase tracking-widest text-sm">Aggregating History...</span>
+                </div>
+            )}
             <table className="w-full text-left border-collapse tabular-nums">
               <thead>
                 <tr className="text-white font-bold text-[10px] uppercase tracking-widest" style={{ backgroundColor: `#${bio.team_color}` }}>
-                  <th className="px-6 py-4">Span</th>
-                  <th className="px-4 py-4 text-right">G</th>
-                  <th className="px-4 py-4 text-right">AB</th>
-                  <th className="px-4 py-4 text-right">R</th>
-                  <th className="px-4 py-4 text-right">H</th>
-                  <th className="px-4 py-4 text-right">HR</th>
-                  <th className="px-4 py-4 text-right">RBI</th>
-                  <th className="px-4 py-4 text-right">BB</th>
-                  <th className="px-4 py-4 text-right">K</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Year</th>
+                  <th className="px-4 py-4 whitespace-nowrap">Team</th>
+                  {splitsData?.labels?.map((label: string, i: number) => (
+                      <th key={i} className={`px-4 py-4 text-right whitespace-nowrap ${i === splitsData.labels.length - 1 ? "bg-black/20" : ""}`}>{label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="text-slate-800 text-sm">
-                  <tr className="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                    <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>Career</td>
-                    <td className="px-4 py-3 text-right">{careerStats.g}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.ab}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.r}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.h}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: `#${bio.team_alternate_color}` }}>{careerStats.hr}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.rbi}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.bb}</td>
-                    <td className="px-4 py-3 text-right">{careerStats.k}</td>
+                {sortedSeasons.length > 0 ? sortedSeasons.map((row: any, idx: number) => (
+                  <tr key={`${row.season}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                    <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{row.season}</td>
+                    <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
+                        {row.team}
+                    </td>
+                    {row.stats.map((stat: string, i: number) => (
+                        <td key={i} className={`px-4 py-3 text-right whitespace-nowrap ${i === row.stats.length - 1 ? "font-black bg-slate-50" : ""}`} style={i === row.stats.length - 1 ? { color: `#${bio.team_color}` } : {}}>
+                            {stat}
+                        </td>
+                    ))}
                   </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={20} className="px-6 py-8 text-center text-slate-500 font-bold">
+                        {loadingSplits ? "Loading stats..." : "No detailed split statistics available for this category."}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
