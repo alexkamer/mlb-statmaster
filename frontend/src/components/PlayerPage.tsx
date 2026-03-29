@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile } from '../api';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile, fetchPlayerGameLogs } from '../api';
 
 export const PlayerPage = () => {
   const { playerId } = useParams();
@@ -11,9 +11,19 @@ export const PlayerPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   // New state for handling the dynamic historical table
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [splitsData, setSplitsData] = useState<any>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(searchParams.get("category") || null);
   const [loadingSplits, setLoadingSplits] = useState(false);
+  
+  const [gameLogs, setGameLogs] = useState<any>({ batting: [], pitching: [] });
+  const [activeLogYear, setActiveLogYear] = useState<number>(parseInt(searchParams.get("season") || String(new Date().getFullYear())));
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  
+  const _tabParam = searchParams.get("tab");
+  const initialTab = _tabParam === "awards" ? "Awards" : _tabParam === "gamelog" ? "GameLog" : "Stats";
+  const [activeTab, setActiveTab] = useState<"Stats" | "Awards" | "GameLog">(initialTab);
 
   useEffect(() => {
     async function loadBaseData() {
@@ -63,6 +73,23 @@ export const PlayerPage = () => {
     loadBaseData();
   }, [playerId]);
 
+  // Effect to load gamelogs
+  useEffect(() => {
+    async function loadLogs() {
+        if (!playerId || activeTab !== "GameLog") return;
+        setLoadingLogs(true);
+        try {
+            const logs = await fetchPlayerGameLogs(Number(playerId), activeLogYear);
+            setGameLogs(logs);
+        } catch (e) {
+            console.error("Failed to load logs", e);
+        } finally {
+            setLoadingLogs(false);
+        }
+    }
+    loadLogs();
+  }, [playerId, activeTab, activeLogYear]);
+
   // Secondary effect to load the multithreaded splits data
   useEffect(() => {
     async function loadSplits() {
@@ -82,6 +109,14 @@ export const PlayerPage = () => {
     }
     loadSplits();
   }, [playerId, activeCategory]);
+
+  // Synchronize state changes to URL
+  useEffect(() => {
+    const params: Record<string, string> = { tab: activeTab.toLowerCase() };
+    if (activeCategory) params.category = activeCategory;
+    if (activeTab === "GameLog") params.season = activeLogYear.toString();
+    setSearchParams(params, { replace: true });
+  }, [activeTab, activeCategory, activeLogYear, setSearchParams]);
 
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary">LOADING PLAYER...</div>;
   if (error || !profile) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">{error || "Error loading player"}</div>;
@@ -106,6 +141,8 @@ export const PlayerPage = () => {
   };
 
   const draftStr = espnBase.displayDraft ? espnBase.displayDraft : "Undrafted";
+
+
 
   // Top Level Stats (from statsSummary)
   const statsSummaryMap = (espnBase.statsSummary?.statistics || []).reduce((acc: any, s: any) => {
@@ -262,32 +299,58 @@ export const PlayerPage = () => {
         </div>
       </section>
 
-      {/* Dynamic Splits Table Section */}
-      <section className="max-w-7xl mx-auto p-8 mt-12">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-          <div>
-            <h2 className="font-headline font-black text-xs uppercase tracking-[0.2em] mb-2" style={{ color: `#${bio.team_alternate_color}` }}>The Archive</h2>
-            <h3 className="font-headline font-black text-4xl tracking-tighter" style={{ color: `#${bio.team_color}` }}>SEASON-BY-SEASON SPLITS</h3>
+      {/* Tabs & Content Section */}
+      <section className="max-w-7xl mx-auto px-8 pt-12 pb-4">
+        <div className="flex items-end justify-between border-b-2 border-slate-200 mb-8 pb-4">
+          <div className="flex gap-8">
+            <button 
+              onClick={() => setActiveTab("Stats")}
+              className={`font-headline font-black text-3xl md:text-4xl tracking-tighter transition-all ${activeTab === "Stats" ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+              style={{ color: `#${bio.team_color}` }}
+            >
+              STATS
+            </button>
+            <button 
+              onClick={() => setActiveTab("GameLog")}
+              className={`font-headline font-black text-3xl md:text-4xl tracking-tighter transition-all ${activeTab === "GameLog" ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+              style={{ color: `#${bio.team_color}` }}
+            >
+              GAMELOG
+            </button>
+            {awards.length > 0 && (
+              <button 
+                onClick={() => setActiveTab("Awards")}
+                className={`font-headline font-black text-3xl md:text-4xl tracking-tighter transition-all ${activeTab === "Awards" ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+                style={{ color: `#${bio.team_color}` }}
+              >
+                AWARDS
+              </button>
+            )}
           </div>
           
-          <div className="flex gap-2">
-            {splitsData?.availableCategories?.length > 1 && splitsData.availableCategories.map((cat: string) => (
-               <button 
-                 key={cat}
-                 onClick={() => setActiveCategory(cat)}
-                 className="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-md transition-colors" 
-                 style={{ 
-                     backgroundColor: activeCategory === cat ? `#${bio.team_color}` : '#e2e8f0',
-                     color: activeCategory === cat ? '#ffffff' : `#${bio.team_color}`
-                 }}
-               >
-                 {cat}
-               </button>
-            ))}
-          </div>
+          {/* Only show category toggle if looking at Stats */}
+          {activeTab === "Stats" && (
+            <div className="flex gap-2">
+              {splitsData?.availableCategories?.length > 1 && splitsData.availableCategories.map((cat: string) => (
+                 <button 
+                   key={cat}
+                   onClick={() => setActiveCategory(cat)}
+                   className="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-md transition-colors" 
+                   style={{ 
+                       backgroundColor: activeCategory === cat ? `#${bio.team_color}` : '#e2e8f0',
+                       color: activeCategory === cat ? '#ffffff' : `#${bio.team_color}`
+                   }}
+                 >
+                   {cat}
+                 </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+        {/* Tab Content: STATS */}
+        {activeTab === "Stats" && (
+          <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
           <div className="overflow-x-auto relative">
             {loadingSplits && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -328,29 +391,215 @@ export const PlayerPage = () => {
             </table>
           </div>
         </div>
-      </section>
+        )}
 
-      {/* Career Highlights Grid */}
-      {awards.length > 0 && (
-        <section className="max-w-7xl mx-auto p-8 mb-16">
-          <h3 className="font-headline font-black text-2xl tracking-tighter mb-6 uppercase" style={{ color: `#${bio.team_color}` }}>CAREER ACCOLADES</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {awards.slice(0, 8).map((award: any, i: number) => (
+        {/* Tab Content: AWARDS */}
+        {activeTab === "Awards" && awards.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            {awards.map((award: any, i: number) => (
               <div key={i} className="bg-white p-6 border border-slate-200 rounded-xl flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="p-3 rounded-lg flex items-center justify-center" style={{ backgroundColor: `#${bio.team_color}10`, color: `#${bio.team_color}` }}>
                   <span className="text-xl font-black">{award.displayCount}</span>
                 </div>
                 <div>
                   <p className="font-bold leading-tight" style={{ color: `#${bio.team_color}` }}>{award.name}</p>
-                  <p className="text-xs text-slate-500 font-medium mt-1 truncate" title={award.seasons?.join(", ")}>
-                    {award.seasons?.slice(0, 3).join(", ")} {award.seasons?.length > 3 ? "..." : ""}
+                  <p className="text-xs text-slate-500 font-medium mt-1 leading-snug">
+                    {award.seasons?.join(", ")}
                   </p>
                 </div>
               </div>
             ))}
           </div>
-        </section>
-      )}
+        )}
+
+        {/* Tab Content: GAMELOG */}
+        {activeTab === "GameLog" && (
+          <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h4 className="font-headline font-black text-xl tracking-tighter uppercase" style={{ color: `#${bio.team_color}` }}>Game Log</h4>
+              <div className="flex items-center gap-4">
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Season</label>
+                 <select 
+                    value={activeLogYear} 
+                    onChange={(e) => setActiveLogYear(Number(e.target.value))}
+                    className="border border-slate-300 rounded px-4 py-2 font-bold text-sm text-primary focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer bg-white"
+                 >
+                    {/* Render a dropdown for the last 10 years */}
+                    {[...Array(10)].map((_, i) => {
+                        const year = new Date().getFullYear() - i;
+                        return <option key={year} value={year}>{year}</option>;
+                    })}
+                 </select>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto relative">
+              {loadingLogs && (
+                  <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                      <span className="font-bold text-slate-500 animate-pulse uppercase tracking-widest text-sm">Loading Game Log...</span>
+                  </div>
+              )}
+              
+              
+              {/* Batting Log Table Helper */}
+              {activeCategory !== "pitching" && gameLogs.batting && (
+                <>
+                  {(() => {
+                      const post = gameLogs.batting.filter((log: any) => log.season_type === 3);
+                      const reg = gameLogs.batting.filter((log: any) => log.season_type === 2);
+                      
+                      const renderTable = (logs: any[], title: string) => {
+                          if (logs.length === 0) return null;
+                          return (
+                              <div className="mb-8">
+                                <h5 className="px-6 py-3 font-headline font-black text-sm uppercase tracking-widest bg-slate-100 text-slate-500">{title}</h5>
+                                <table className="w-full text-left border-collapse tabular-nums">
+                                  <thead>
+                                    <tr className="text-white font-bold text-[10px] uppercase tracking-widest" style={{ backgroundColor: `#${bio.team_color}` }}>
+                                      <th className="px-6 py-4 whitespace-nowrap">Date</th>
+                                      <th className="px-4 py-4 whitespace-nowrap">Opp</th>
+                                      <th className="px-4 py-4 whitespace-nowrap">Result</th>
+                                      <th className="px-4 py-4 text-right">AB</th>
+                                      <th className="px-4 py-4 text-right">R</th>
+                                      <th className="px-4 py-4 text-right">H</th>
+                                      <th className="px-4 py-4 text-right">HR</th>
+                                      <th className="px-4 py-4 text-right">RBI</th>
+                                      <th className="px-4 py-4 text-right">BB</th>
+                                      <th className="px-4 py-4 text-right">K</th>
+                                      <th className="px-4 py-4 text-right">Pitches</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="text-slate-800 text-sm">
+                                    {logs.map((log: any, idx: number) => {
+                                      const isHome = log.home_away === "home";
+                                      const oppPrefix = isHome ? "vs " : "@ ";
+                                      const resultPrefix = log.is_win ? "W" : "L";
+                                      const scoreStr = log.team_score !== null && log.opponent_score !== null ? `${log.team_score}-${log.opponent_score}` : "";
+                                      const dateObj = new Date(log.date + (log.date.endsWith("Z") ? "" : "Z"));
+                                      const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                                      
+                                      return (
+                                        <tr key={`bat-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                                          <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
+                                          <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">{oppPrefix}{log.opponent_abbrev || "TBD"}</td>
+                                          <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
+                                             <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
+                                             {scoreStr}
+                                          </td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.ab}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.r}</td>
+                                          <td className="px-4 py-3 text-right font-bold text-slate-700">{log.h}</td>
+                                          <td className="px-4 py-3 text-right font-black text-slate-800">{log.hr}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.rbi}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.bb}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.k}</td>
+                                          <td className="px-4 py-3 text-right text-slate-400">{log.pitches_faced}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                          );
+                      };
+
+                      return (
+                          <>
+                              {renderTable(post, "Postseason")}
+                              {renderTable(reg, "Regular Season")}
+                          </>
+                      );
+                  })()}
+                </>
+              )}
+
+
+              {/* Pitching Log Table Helper */}
+              {activeCategory === "pitching" && gameLogs.pitching && (
+                <>
+                  {(() => {
+                      const post = gameLogs.pitching.filter((log: any) => log.season_type === 3);
+                      const reg = gameLogs.pitching.filter((log: any) => log.season_type === 2);
+                      
+                      const renderTable = (logs: any[], title: string) => {
+                          if (logs.length === 0) return null;
+                          return (
+                              <div className="mb-8">
+                                <h5 className="px-6 py-3 font-headline font-black text-sm uppercase tracking-widest bg-slate-100 text-slate-500">{title}</h5>
+                                <table className="w-full text-left border-collapse tabular-nums">
+                                  <thead>
+                                    <tr className="text-white font-bold text-[10px] uppercase tracking-widest" style={{ backgroundColor: `#${bio.team_color}` }}>
+                                      <th className="px-6 py-4 whitespace-nowrap">Date</th>
+                                      <th className="px-4 py-4 whitespace-nowrap">Opp</th>
+                                      <th className="px-4 py-4 whitespace-nowrap">Result</th>
+                                      <th className="px-4 py-4 text-right">IP</th>
+                                      <th className="px-4 py-4 text-right">H</th>
+                                      <th className="px-4 py-4 text-right">R</th>
+                                      <th className="px-4 py-4 text-right">ER</th>
+                                      <th className="px-4 py-4 text-right">HR</th>
+                                      <th className="px-4 py-4 text-right">BB</th>
+                                      <th className="px-4 py-4 text-right">K</th>
+                                      <th className="px-4 py-4 text-right">Pitches</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="text-slate-800 text-sm">
+                                    {logs.map((log: any, idx: number) => {
+                                      const isHome = log.home_away === "home";
+                                      const oppPrefix = isHome ? "vs " : "@ ";
+                                      const resultPrefix = log.is_win ? "W" : "L";
+                                      const scoreStr = log.team_score !== null && log.opponent_score !== null ? `${log.team_score}-${log.opponent_score}` : "";
+                                      const dateObj = new Date(log.date + (log.date.endsWith("Z") ? "" : "Z"));
+                                      const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                                      
+                                      return (
+                                        <tr key={`pitch-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                                          <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
+                                          <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">{oppPrefix}{log.opponent_abbrev || "TBD"}</td>
+                                          <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
+                                             <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
+                                             {scoreStr}
+                                          </td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.ip}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.h}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.r}</td>
+                                          <td className="px-4 py-3 text-right font-bold text-slate-700">{log.er}</td>
+                                          <td className="px-4 py-3 text-right font-medium text-rose-500">{log.hr}</td>
+                                          <td className="px-4 py-3 text-right font-medium">{log.bb}</td>
+                                          <td className="px-4 py-3 text-right font-black" style={{ color: `#${bio.team_color}` }}>{log.k}</td>
+                                          <td className="px-4 py-3 text-right text-slate-400">{log.pitches}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                          );
+                      };
+
+                      return (
+                          <>
+                              {renderTable(post, "Postseason")}
+                              {renderTable(reg, "Regular Season")}
+                          </>
+                      );
+                  })()}
+                </>
+              )}
+              
+              {!loadingLogs && 
+                ((activeCategory !== "pitching" && (!gameLogs.batting || gameLogs.batting.length === 0)) || 
+                 (activeCategory === "pitching" && (!gameLogs.pitching || gameLogs.pitching.length === 0))) && (
+                <div className="p-12 text-center">
+                    <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">event_busy</span>
+                    <p className="text-slate-500 font-bold">No game logs found for this season.</p>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+              </section>
     </>
   );
 };

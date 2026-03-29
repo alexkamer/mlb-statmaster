@@ -717,3 +717,80 @@ async def get_player_profile(player_id: int):
         "team_history": team_history
     }
 
+
+
+@app.get("/api/players/{player_id}/gamelog")
+async def get_player_gamelog(player_id: int, year: int = 2024):
+    """Get a player's game-by-game logs for a specific season."""
+    
+    # We will query both batting and pitching events for the player
+    # Since a player can pitch and hit in the same game, we use an outer join pattern or two queries
+    # For simplicity and performance, we will grab batting and pitching separately and merge them.
+    
+    batting_query = """
+        SELECT 
+            st.type_id as season_type,
+            e.event_id,
+            e.date,
+            e.short_name,
+            b.team_id,
+            b.starter,
+            b.ab,
+            b.r,
+            b.h,
+            b.hr,
+            b.rbi,
+            b.bb,
+            b.k,
+            b.pitches_faced,
+            (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as team_score,
+            (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_score,
+            (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
+            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_abbrev,
+            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away
+        FROM event_boxscores_batting b
+        JOIN events e ON b.event_id = e.event_id
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        WHERE b.athlete_id = :player_id AND e.season_year = :year AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        ORDER BY e.date DESC
+    """
+    
+    pitching_query = """
+        SELECT 
+            st.type_id as season_type,
+            e.event_id,
+            e.date,
+            e.short_name,
+            p.team_id,
+            p.starter,
+            p.ip,
+            p.h,
+            p.r,
+            p.er,
+            p.hr,
+            p.bb,
+            p.k,
+            p.pitches,
+            (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as team_score,
+            (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_score,
+            (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
+            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
+            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away
+        FROM event_boxscores_pitching p
+        JOIN events e ON p.event_id = e.event_id
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        WHERE p.athlete_id = :player_id AND e.season_year = :year AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        ORDER BY e.date DESC
+    """
+    
+    try:
+        batting_logs = await database.fetch_all(query=batting_query, values={"player_id": player_id, "year": year})
+        pitching_logs = await database.fetch_all(query=pitching_query, values={"player_id": player_id, "year": year})
+        
+        return {
+            "batting": [dict(b) for b in batting_logs],
+            "pitching": [dict(p) for p in pitching_logs]
+        }
+    except Exception as e:
+        print(f"Error fetching gamelogs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch game logs")
