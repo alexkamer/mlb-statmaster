@@ -326,7 +326,7 @@ export async function fetchLiveEspnLeaders(year: number = 2026, category: string
 export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory: string = "OPS", sortDirection: "asc" | "desc" = "desc", view: "batting" | "pitching" = "batting", limit: number = 100) {
     try {
         // ESPN uses specific sort keys for this endpoint
-        const sortParam = `${sortCategory}:${sortDirection}`;
+        const sortParam = `${view}.${sortCategory}:${sortDirection}`;
         
         // seasontype=2 is Regular Season. 
         // We will default to Regular Season for this massive table to match ESPN exactly.
