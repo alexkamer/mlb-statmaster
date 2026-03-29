@@ -189,6 +189,7 @@ export const LeaguePlayersPage = () => {
                   </td>
                   {cols.map((col) => {
                       const isSortedCol = sortCol === col.key;
+                      const val = row[view] ? row[view][col.key] : null;
                       
                       return (
                           <td 
@@ -196,7 +197,7 @@ export const LeaguePlayersPage = () => {
                               className={`px-4 py-3 text-right ${isSortedCol ? "font-black bg-slate-50 text-slate-900 group-hover:bg-slate-100" : "font-medium text-slate-600"}`}
                               style={isSortedCol ? { color: `#${row.team_color}` } : {}}
                           >
-                              {formatStat(col.key, row[col.key])}
+                              {formatStat(col.key, val)}
                           </td>
                       );
                   })}

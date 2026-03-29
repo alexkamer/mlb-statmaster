@@ -372,15 +372,15 @@ export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory:
                 team_id: ath.teamId || "mlb",
                 team_abbrev: ath.teamShortName || "MLB",
                 team_color: ath.teamColor || "00193c",
-                ...batStats,
-                ...pitchStats
+                batting: batStats,
+                pitching: pitchStats
             };
         });
         
         // Filter out players who don't have relevant stats based on the view
         return resolvedPlayers.filter((p: any) => {
-            if (view === "batting") return p.atBats !== null && p.atBats !== undefined;
-            return p.innings !== null && p.innings !== undefined;
+            if (view === "batting") return p.batting?.atBats !== null && p.batting?.atBats !== undefined;
+            return p.pitching?.innings !== null && p.pitching?.innings !== undefined;
         });
     } catch(e) {
         console.error("Failed to fetch ESPN aggregate stats", e);
