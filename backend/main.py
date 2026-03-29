@@ -653,6 +653,33 @@ async def get_player_profile(player_id: int):
     if not player_bio:
         raise HTTPException(status_code=404, detail="Player not found")
         
+    # 1.5 Fetch Historical Team Mappings
+    teams_query = """
+        SELECT 
+            season_year,
+            STRING_AGG(DISTINCT team_abbreviation, '/') as team_abbreviation
+        FROM (
+            SELECT DISTINCT
+                e.season_year,
+                t.abbreviation as team_abbreviation
+            FROM event_boxscores_batting b
+            JOIN events e ON b.event_id = e.event_id
+            JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
+            WHERE b.athlete_id = :player_id AND t.abbreviation IS NOT NULL
+            UNION
+            SELECT DISTINCT
+                e.season_year,
+                t.abbreviation as team_abbreviation
+            FROM event_boxscores_pitching p
+            JOIN events e ON p.event_id = e.event_id
+            JOIN season_teams t ON p.team_id = t.team_id AND e.season_year = t.season_year
+            WHERE p.athlete_id = :player_id AND t.abbreviation IS NOT NULL
+        ) as sub
+        GROUP BY season_year
+    """
+    historical_teams = await database.fetch_all(query=teams_query, values={"player_id": player_id})
+    team_history = {row["season_year"]: row["team_abbreviation"] for row in historical_teams}
+        
     # 2. Fetch historical batting stats season-by-season (Regular Season only)
     stats_query = """
         SELECT 
@@ -686,6 +713,7 @@ async def get_player_profile(player_id: int):
     
     return {
         "bio": dict(player_bio),
-        "stats": [dict(s) for s in historical_stats]
+        "stats": [dict(s) for s in historical_stats],
+        "team_history": team_history
     }
 

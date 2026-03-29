@@ -121,19 +121,21 @@ export const PlayerPage = () => {
 
   const awards = espnOverview.awards || [];
 
+  // Sort seasons descending
+  const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
+
   // Calculate background brightness to determine which logo to use
   const getBrightness = (hex: string) => {
     const rgb = parseInt(hex || "00193c", 16);
     const r = (rgb >> 16) & 0xff;
     const g = (rgb >>  8) & 0xff;
     const b = (rgb >>  0) & 0xff;
-  
-  // Sort seasons descending
-  const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
-
-  return (r * 299 + g * 587 + b * 114) / 1000;
+    return (r * 299 + g * 587 + b * 114) / 1000;
   };
+  
   const isDarkBackground = getBrightness(bio.team_color) < 128;
+  const isLightAlternate = getBrightness(bio.team_alternate_color) > 160;
+
 
 
 
@@ -149,9 +151,6 @@ export const PlayerPage = () => {
       }
   }
 
-
-  // Sort seasons descending
-  const sortedSeasons = [...(splitsData?.seasons || [])].sort((a: any, b: any) => Number(b.season) - Number(a.season));
 
   return (
     <>
@@ -184,7 +183,11 @@ export const PlayerPage = () => {
               />
             </div>
             {espnBase.displayJersey && (
-              <div className="absolute -top-4 -right-4 text-white w-16 h-16 rounded-full flex items-center justify-center font-headline font-black text-2xl shadow-lg" style={{ backgroundColor: `#${bio.team_alternate_color}` }}>
+              <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full flex items-center justify-center font-headline font-black text-2xl shadow-lg border-2 border-white/20" 
+                   style={{ 
+                       backgroundColor: `#${bio.team_alternate_color}`,
+                       color: isLightAlternate ? `#${bio.team_color}` : "#ffffff"
+                   }}>
                   {espnBase.displayJersey}
               </div>
             )}
@@ -194,7 +197,12 @@ export const PlayerPage = () => {
           <div className="flex-1 mb-2 relative">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-2">
-                <span className={`px-3 py-1 text-xs font-bold tracking-widest uppercase rounded-full ${bio.is_active ? 'text-white' : 'bg-slate-500 text-white'}`} style={{ backgroundColor: bio.is_active ? `#${bio.team_alternate_color}` : '#64748b' }}>
+                <span className="px-3 py-1 text-xs font-bold tracking-widest uppercase rounded-full" 
+                      style={{ 
+                          backgroundColor: bio.is_active ? `#${bio.team_alternate_color}` : "#64748b",
+                          color: bio.is_active && isLightAlternate ? `#${bio.team_color}` : "#ffffff",
+                          border: bio.is_active && isLightAlternate ? "1px solid rgba(0,0,0,0.1)" : "none"
+                      }}>
                   {bio.is_active ? "Active" : "Inactive"}
                 </span>
                 <span className="text-white/70 text-sm font-medium tracking-wide">Major League Baseball</span>
