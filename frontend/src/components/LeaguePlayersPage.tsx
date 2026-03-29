@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { fetchLiveEspnLeaders } from '../api';
+import { fetchLiveEspnStatistics } from '../api';
 
 export const LeaguePlayersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,8 +17,8 @@ export const LeaguePlayersPage = () => {
   useEffect(() => {
     async function loadStats() {
       setLoading(true);
-      let category = sortCol;
-      const data = await fetchLiveEspnLeaders(year, category, 100);
+      const direction = sortDesc ? "desc" : "asc";
+      const data = await fetchLiveEspnStatistics(year, sortCol, direction, view, 100);
       setStats(data);
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export const LeaguePlayersPage = () => {
 
   // ESPN natively returns the pre-sorted top 100 leaders! We just use the array directly.
   // If the user clicked to reverse the sort, we just reverse the array locally.
-  const sortedStats = sortDesc === (["era", "whip"].includes(sortCol) ? false : true) ? [...stats] : [...stats].reverse();
+  const sortedStats = stats;
 
   const formatStat = (key: string, val: any) => {
       if (val === null || val === undefined) return "0";
@@ -58,27 +58,33 @@ export const LeaguePlayersPage = () => {
   };
 
   const battingCols = [
+      { key: "gamesPlayed", label: "G" },
+      { key: "atBats", label: "AB" },
       { key: "runs", label: "R" },
       { key: "hits", label: "H" },
       { key: "homeRuns", label: "HR" },
       { key: "RBIs", label: "RBI" },
+      { key: "walks", label: "BB" },
+      { key: "strikeouts", label: "K" },
       { key: "stolenBases", label: "SB" },
       { key: "avg", label: "AVG" },
       { key: "onBasePct", label: "OBP" },
       { key: "slugAvg", label: "SLG" },
-      { key: "OPS", label: "OPS" },
-      { key: "WARBR", label: "WAR" }
+      { key: "OPS", label: "OPS" }
   ];
 
   const pitchingCols = [
+      { key: "gamesPlayed", label: "G" },
       { key: "wins", label: "W" },
+      { key: "losses", label: "L" },
       { key: "ERA", label: "ERA" },
+      { key: "innings", label: "IP" },
+      { key: "hits", label: "H" },
+      { key: "earnedRuns", label: "ER" },
+      { key: "homeRuns", label: "HR" },
+      { key: "walks", label: "BB" },
       { key: "strikeouts", label: "K" },
-      { key: "WHIP", label: "WHIP" },
-      { key: "saves", label: "SV" },
-      { key: "holds", label: "HLD" },
-      { key: "qualityStarts", label: "QS" },
-      { key: "opponentAvg", label: "OBA" }
+      { key: "WHIP", label: "WHIP" }
   ];
 
   const cols = view === "batting" ? battingCols : pitchingCols;
@@ -183,16 +189,14 @@ export const LeaguePlayersPage = () => {
                   </td>
                   {cols.map((col) => {
                       const isSortedCol = sortCol === col.key;
-                      // ESPN ONLY returns the value for the actively requested category. All other columns must be blank/dashed!
-                      const displayVal = isSortedCol ? formatStat(col.key, row.value) : "-";
                       
                       return (
                           <td 
                               key={col.key} 
-                              className={`px-4 py-3 text-right ${isSortedCol ? "font-black bg-slate-50 text-slate-900 group-hover:bg-slate-100" : "font-medium text-slate-300"}`}
+                              className={`px-4 py-3 text-right ${isSortedCol ? "font-black bg-slate-50 text-slate-900 group-hover:bg-slate-100" : "font-medium text-slate-600"}`}
                               style={isSortedCol ? { color: `#${row.team_color}` } : {}}
                           >
-                              {displayVal}
+                              {formatStat(col.key, row[col.key])}
                           </td>
                       );
                   })}

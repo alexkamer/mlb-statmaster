@@ -321,3 +321,69 @@ export async function fetchLiveEspnLeaders(year: number = 2026, category: string
         return [];
     }
 }
+
+
+export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory: string = "OPS", sortDirection: "asc" | "desc" = "desc", view: "batting" | "pitching" = "batting", limit: number = 100) {
+    try {
+        // ESPN uses specific sort keys for this endpoint
+        const sortParam = `${sortCategory}:${sortDirection}`;
+        
+        // seasontype=2 is Regular Season. 
+        // We will default to Regular Season for this massive table to match ESPN exactly.
+        const res = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/statistics/byathlete?season=${year}&limit=${limit}&sort=${sortParam}&seasontype=2`);
+        if (!res.ok) return [];
+        
+        const data = await res.json();
+        if (!data.athletes) return [];
+        
+        // Grab the category index structure from the root payload
+        const rootBatting = data.categories?.find((c: any) => c.name === "batting");
+        const rootPitching = data.categories?.find((c: any) => c.name === "pitching");
+        
+        const batNames = rootBatting?.names || [];
+        const pitchNames = rootPitching?.names || [];
+
+        const resolvedPlayers = data.athletes.map((item: any) => {
+            const ath = item.athlete;
+            
+            // Extract the player's stat categories
+            const pBat = item.categories?.find((c: any) => c.name === "batting");
+            const pPitch = item.categories?.find((c: any) => c.name === "pitching");
+            
+            // Zip the arrays into objects
+            const batStats: any = {};
+            if (pBat && pBat.values) {
+                batNames.forEach((name: string, i: number) => {
+                    batStats[name] = pBat.values[i];
+                });
+            }
+            
+            const pitchStats: any = {};
+            if (pPitch && pPitch.values) {
+                pitchNames.forEach((name: string, i: number) => {
+                    pitchStats[name] = pPitch.values[i];
+                });
+            }
+
+            return {
+                athlete_id: ath.id,
+                name: ath.shortName || ath.displayName,
+                headshot: ath.headshot?.href || `https://a.espncdn.com/i/headshots/nophoto.png`,
+                team_id: ath.teamId || "mlb",
+                team_abbrev: ath.teamShortName || "MLB",
+                team_color: ath.teamColor || "00193c",
+                ...batStats,
+                ...pitchStats
+            };
+        });
+        
+        // Filter out players who don't have relevant stats based on the view
+        return resolvedPlayers.filter((p: any) => {
+            if (view === "batting") return p.atBats !== null && p.atBats !== undefined;
+            return p.innings !== null && p.innings !== undefined;
+        });
+    } catch(e) {
+        console.error("Failed to fetch ESPN aggregate stats", e);
+        return [];
+    }
+}
