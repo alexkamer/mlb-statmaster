@@ -70,8 +70,14 @@ export const LeagueLeadersPage = () => {
             
             {/* Hitting Column */}
             <div>
-              <div className="flex items-center gap-3 mb-6 border-b-2 border-slate-200 pb-2">
-                <h2 className="font-headline font-black text-3xl text-primary tracking-tighter uppercase">Hitting</h2>
+              <div className="flex items-center justify-between mb-6 border-b-2 border-slate-200 pb-2">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-3xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>sports_baseball</span>
+                  <h2 className="font-headline font-black text-3xl text-primary tracking-tighter uppercase">Hitting</h2>
+                </div>
+                <Link to={`/leaders/players?view=batting&year=${year}`} className="text-xs font-bold text-secondary uppercase tracking-widest hover:underline flex items-center">
+                  View All Hitting <span className="material-symbols-outlined text-[14px] ml-1">arrow_forward</span>
+                </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {leaders.filter(c => !["ERA", "wins", "strikeouts", "saves", "WHIP", "qualityStarts", "opponentAvg", "holds", "avgGameScore"].includes(c.name)).map((cat: any, idx: number) => (
@@ -103,8 +109,14 @@ export const LeagueLeadersPage = () => {
 
             {/* Pitching Column */}
             <div>
-              <div className="flex items-center gap-3 mb-6 border-b-2 border-slate-200 pb-2">
-                <h2 className="font-headline font-black text-3xl text-primary tracking-tighter uppercase">Pitching</h2>
+              <div className="flex items-center justify-between mb-6 border-b-2 border-slate-200 pb-2">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-3xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>sports_cricket</span>
+                  <h2 className="font-headline font-black text-3xl text-primary tracking-tighter uppercase">Pitching</h2>
+                </div>
+                <Link to={`/leaders/players?view=pitching&year=${year}`} className="text-xs font-bold text-secondary uppercase tracking-widest hover:underline flex items-center">
+                  View All Pitching <span className="material-symbols-outlined text-[14px] ml-1">arrow_forward</span>
+                </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {leaders.filter(c => ["ERA", "wins", "strikeouts", "saves", "WHIP", "qualityStarts", "opponentAvg", "holds", "avgGameScore"].includes(c.name)).map((cat: any, idx: number) => (

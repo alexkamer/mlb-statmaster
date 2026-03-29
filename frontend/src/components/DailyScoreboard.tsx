@@ -74,7 +74,6 @@ export const DailyScoreboard = () => {
           <h2 className="font-headline text-3xl font-black text-primary uppercase tracking-tighter">Daily Scoreboard</h2>
           <p className="text-sm text-slate-500 uppercase tracking-widest">{displayDate}</p>
         </div>
-        <button className="bg-slate-200 px-6 py-2 rounded text-primary text-xs font-black uppercase tracking-widest hover:bg-slate-300 transition-colors">View All Scores</button>
       </div>
       
       <div className="grid grid-cols-1 gap-6">
@@ -182,7 +181,6 @@ export const DailyScoreboard = () => {
                   </div>
                   <div className="mt-4 shrink-0 flex justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{tvProvider}</span>
-                    {isFinal && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest underline cursor-pointer hover:text-primary">Recap</span>}
                   </div>
                 </div>
 
@@ -422,9 +420,6 @@ export const DailyScoreboard = () => {
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                    {comp.attendance ? `Attendance: ${comp.attendance.toLocaleString()}` : (isScheduled ? 'Scheduled Game' : '')}
                 </span>
-                {event.links?.find((l:any) => l.text === 'Gamecast') && (
-                  <a href={event.links.find((l:any) => l.text === 'Gamecast').href} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-[#0066cc] uppercase tracking-widest hover:underline">Gamecast</a>
-                )}
               </div>
             </div>
           );

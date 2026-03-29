@@ -796,3 +796,91 @@ async def get_player_gamelog(player_id: int, year: int = 2024):
     except Exception as e:
         print(f"Error fetching gamelogs: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch game logs")
+
+
+@app.get("/api/stats/league")
+async def get_league_stats(year: int = 2024, type: str = "batting", season_type: str = "Regular Season", limit: int = 100):
+    """Get aggregated league-wide player statistics for a specific season."""
+    
+    type_id_map = {
+        "Preseason": 1,
+        "Regular Season": 2,
+        "Postseason": 3,
+        "All": None
+    }
+    type_id = type_id_map.get(season_type, 2)
+    type_filter = f" AND st.type_id = {type_id}" if type_id else ""
+    
+    if type == "batting":
+        query = f"""
+            SELECT 
+                b.athlete_id,
+                MAX(p.display_name) as name,
+                
+                MAX(t.abbreviation) as team_abbrev,
+                MAX(t.color) as team_color,
+                MAX(b.team_id) as team_id,
+                COUNT(b.event_id) as g,
+                SUM(b.ab) as ab,
+                SUM(b.r) as r,
+                SUM(b.h) as h,
+                SUM(b.hr) as hr,
+                SUM(b.rbi) as rbi,
+                SUM(b.bb) as bb,
+                SUM(b.k) as k,
+                CASE WHEN SUM(b.ab) > 0 THEN ROUND((SUM(b.h)::numeric / SUM(b.ab)), 3) ELSE 0 END as avg,
+                CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END as obp,
+                CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3)::numeric / SUM(b.ab)), 3) ELSE 0 END as slg,
+                (CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END + 
+                 CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3)::numeric / SUM(b.ab)), 3) ELSE 0 END) as ops
+            FROM event_boxscores_batting b
+            JOIN events e ON b.event_id = e.event_id
+            JOIN athletes p ON b.athlete_id = p.athlete_id
+            JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE e.season_year = :year {type_filter} AND b.ab IS NOT NULL
+            GROUP BY b.athlete_id
+            HAVING SUM(b.ab) > 0
+            ORDER BY ops DESC, hr DESC
+            LIMIT :limit
+        """
+    else:
+        query = f"""
+            SELECT 
+                p_box.athlete_id,
+                MAX(p.display_name) as name,
+                
+                MAX(t.abbreviation) as team_abbrev,
+                MAX(t.color) as team_color,
+                MAX(p_box.team_id) as team_id,
+                COUNT(p_box.event_id) as g,
+                SUM(NULLIF(p_box.ip, '--.--')::numeric) as ip,
+                SUM(p_box.h) as h,
+                SUM(p_box.r) as r,
+                SUM(p_box.er) as er,
+                SUM(p_box.hr) as hr,
+                SUM(p_box.bb) as bb,
+                SUM(p_box.k) as k,
+                SUM(CASE WHEN c.winner = true AND c.team_id = p_box.team_id THEN 1 ELSE 0 END) as w,
+                SUM(CASE WHEN c.winner = false AND c.team_id = p_box.team_id THEN 1 ELSE 0 END) as l,
+                CASE WHEN SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0 THEN ROUND((SUM(p_box.er)::numeric * 9 / SUM(NULLIF(p_box.ip, '--.--')::numeric)), 2) ELSE 0 END as era,
+                CASE WHEN SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0 THEN ROUND(((SUM(p_box.bb) + SUM(p_box.h))::numeric / SUM(NULLIF(p_box.ip, '--.--')::numeric)), 2) ELSE 0 END as whip
+            FROM event_boxscores_pitching p_box
+            JOIN events e ON p_box.event_id = e.event_id
+            JOIN athletes p ON p_box.athlete_id = p.athlete_id
+            JOIN season_teams t ON p_box.team_id = t.team_id AND e.season_year = t.season_year
+            LEFT JOIN event_competitors c ON p_box.event_id = c.event_id AND p_box.team_id = c.team_id
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE e.season_year = :year {type_filter} AND p_box.ip IS NOT NULL AND p_box.ip != '--.--'
+            GROUP BY p_box.athlete_id
+            HAVING SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0
+            ORDER BY era ASC, k DESC
+            LIMIT :limit
+        """
+
+    try:
+        stats = await database.fetch_all(query=query, values={"year": year, "limit": limit})
+        return [dict(s) for s in stats]
+    except Exception as e:
+        print(f"Error fetching league stats: {e}")
+        return []
