@@ -118,24 +118,26 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
         
         // Fetch the empirical list of teams they played for in this specific season via Core API
         let teamAbbrev = "MLB";
+        let teamsObj: any[] = [];
         try {
             const coreRes = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/athletes/${playerId}?lang=en&region=us`);
             if (coreRes.ok) {
                 const coreData = await coreRes.json();
                 if (coreData.teams && coreData.teams.length > 0) {
-                    // They might have played for multiple teams. Fetch the abbreviation for each ref.
+                    // They might have played for multiple teams. Fetch the abbreviation and ID for each ref.
                     const teamPromises = coreData.teams.map(async (t: any) => {
                         const tRes = await fetch(t["$ref"].replace("http://", "https://"));
                         if (tRes.ok) {
                             const tData = await tRes.json();
-                            return tData.abbreviation;
+                            return { id: tData.id, abbrev: tData.abbreviation };
                         }
                         return null;
                     });
                     const resolvedTeams = await Promise.all(teamPromises);
                     const validTeams = resolvedTeams.filter(Boolean);
                     if (validTeams.length > 0) {
-                        teamAbbrev = validTeams.join("/");
+                        teamAbbrev = validTeams.map(t => t.abbrev).join("/");
+                        teamsObj = validTeams;
                     }
                 }
             }
@@ -146,6 +148,7 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
         return {
             season,
             team: teamAbbrev,
+            teamsObj,
             stats: overallSplit.stats
         };
       } catch (e) {
@@ -165,3 +168,10 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
   };
 }
 
+
+
+export async function fetchPlayerGameLogs(playerId: number, year: number) {
+  const response = await fetch(`${API_URL}/players/${playerId}/gamelog?year=${year}`);
+  if (!response.ok) return { batting: [], pitching: [] };
+  return await response.json();
+}
