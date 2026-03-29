@@ -88,7 +88,7 @@ export const GamePage = () => {
                                    {awayTeam?.team?.abbreviation}
                                </td>
                                {awayTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3">{inning.value}</td>
+                                   <td key={i} className="px-3 py-3">{inning.displayValue || "-"}</td>
                                ))}
                                <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{awayTeam?.score}</td>
                                <td className="px-4 py-3 font-bold">{awayTeam?.hits}</td>
@@ -100,7 +100,7 @@ export const GamePage = () => {
                                    {homeTeam?.team?.abbreviation}
                                </td>
                                {homeTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3">{inning.value}</td>
+                                   <td key={i} className="px-3 py-3">{inning.displayValue || "-"}</td>
                                ))}
                                <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{homeTeam?.score}</td>
                                <td className="px-4 py-3 font-bold">{homeTeam?.hits}</td>
