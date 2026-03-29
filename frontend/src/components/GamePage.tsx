@@ -69,16 +69,16 @@ export const GamePage = () => {
               {/* Linescore Matrix */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                  <div className="overflow-x-auto">
-                     <table className="w-full text-center border-collapse tabular-nums">
+                     <table className="w-full text-center border-collapse tabular-nums table-fixed">
                         <thead>
                            <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
-                               <th className="px-4 py-3 text-left w-32">Team</th>
+                               <th className="px-4 py-3 text-left w-48">Team</th>
                                {awayTeam?.linescores?.map((_: any, i: number) => (
-                                   <th key={i} className="px-3 py-3 w-10">{i + 1}</th>
+                                   <th key={i} className="px-3 py-3 text-center">{i + 1}</th>
                                ))}
-                               <th className="px-4 py-3 font-black text-primary border-l border-slate-200">R</th>
-                               <th className="px-4 py-3 font-black text-primary">H</th>
-                               <th className="px-4 py-3 font-black text-primary">E</th>
+                               <th className="px-4 py-3 font-black text-primary border-l border-slate-200 w-[6%]">R</th>
+                               <th className="px-4 py-3 font-black text-primary w-[6%]">H</th>
+                               <th className="px-4 py-3 font-black text-primary w-[6%]">E</th>
                            </tr>
                         </thead>
                         <tbody className="font-medium text-slate-700">
