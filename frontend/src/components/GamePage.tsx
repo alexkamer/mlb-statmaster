@@ -149,7 +149,7 @@ export const GamePage = () => {
                                                               <span className="text-[10px] text-slate-400 ml-1 font-normal">{ath.athlete?.position?.abbreviation}</span>
                                                           </td>
                                                           {ath.stats?.map((stat: string, j: number) => (
-                                                              <td key={j} className="px-2 py-2 text-right">{stat}</td>
+                                                              battingStats.labels[j] !== "#P" ? <td key={j} className="px-2 py-2 text-right">{stat}</td> : null
                                                           ))}
                                                       </tr>
                                                   ))}
