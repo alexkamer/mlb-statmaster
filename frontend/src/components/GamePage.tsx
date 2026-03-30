@@ -440,7 +440,7 @@ export const GamePage = () => {
                                           
                                           {/* Pitches / Detailed Plays */}
                                           {isExpanded && (
-                                              <div className="bg-slate-50/50 border-t border-slate-100 p-4 pl-36 space-y-2">
+                                              <div className="bg-slate-50/50 border-t border-slate-100 pl-36 flex flex-col">
                                                   {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher" && p.type?.type !== "play-result").map((play: any, pIdx: number, arr: any[]) => {
                                                       const isPitch = play.pitchVelocity !== undefined || play.pitchType !== undefined;
                                                       let pitchNumber = null;
@@ -473,7 +473,7 @@ export const GamePage = () => {
                                                       }
 
                                                       return (
-                                                          <div key={`p-${play.id}-${pIdx}`} className="flex items-center gap-4">
+                                                          <div key={`p-${play.id}-${pIdx}`} className="flex items-center gap-4 py-2 border-b border-slate-100 last:border-0">
                                                               {isPitch && (
                                                                   <div className="w-16 shrink-0 flex flex-col items-end border-r border-slate-200 pr-3">
                                                                       {play.pitchVelocity ? <span className="text-xs font-black text-slate-700 tracking-tighter">{play.pitchVelocity} <span className="text-[10px] font-bold text-slate-400 uppercase">MPH</span></span> : <span className="text-xs text-slate-400 font-bold">-</span>}
