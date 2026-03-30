@@ -124,6 +124,26 @@ export const GamePage = () => {
       return { chartData, inningDividers };
   }, [data]);
 
+  const boxscorePitchers = React.useMemo(() => {
+      const pitchers = new Map();
+      if (data?.boxscore?.players) {
+          data.boxscore.players.forEach((teamStats: any) => {
+              const pitchingStats = teamStats.statistics?.find((s: any) => s.type === "pitching");
+              if (pitchingStats && pitchingStats.athletes) {
+                  pitchingStats.athletes.forEach((ath: any) => {
+                      if (ath.athlete?.id) {
+                          pitchers.set(ath.athlete.id, {
+                              stats: ath.stats,
+                              labels: pitchingStats.labels
+                          });
+                      }
+                  });
+              }
+          });
+      }
+      return pitchers;
+  }, [data]);
+
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary uppercase tracking-widest animate-pulse">Loading Game Data...</div>;
   if (!data) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">Failed to load game data.</div>;
 
@@ -182,7 +202,7 @@ export const GamePage = () => {
                            {awayTeam?.team?.abbreviation}
                        </td>
                        {awayTeam?.linescores?.map((inning: any, i: number) => (
-                           <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
+                           <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue !== undefined ? inning.displayValue : "-"}</td>
                        ))}
                        <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{awayTeam?.score}</td>
                        <td className="px-4 py-3 font-bold">{awayTeam?.hits}</td>
@@ -193,9 +213,12 @@ export const GamePage = () => {
                            <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${homeTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-5 h-5 object-contain" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                            {homeTeam?.team?.abbreviation}
                        </td>
-                       {homeTeam?.linescores?.map((inning: any, i: number) => (
-                           <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
-                       ))}
+                       {awayTeam?.linescores?.map((_: any, i: number) => {
+                           const inning = homeTeam?.linescores?.[i];
+                           return (
+                               <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning ? (inning.displayValue !== undefined ? inning.displayValue : "-") : ""}</td>
+                           );
+                       })}
                        <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{homeTeam?.score}</td>
                        <td className="px-4 py-3 font-bold">{homeTeam?.hits}</td>
                        <td className="px-4 py-3 font-bold">{homeTeam?.errors}</td>
@@ -203,6 +226,55 @@ export const GamePage = () => {
                 </tbody>
              </table>
          </div>
+         
+         {/* Pitchers of Record */}
+         {header?.status?.type?.completed && header?.status?.featuredAthletes && header.status.featuredAthletes.length > 0 && (
+             <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex flex-wrap items-center gap-x-8 gap-y-2">
+                 {header.status.featuredAthletes.map((fa: any, idx: number) => {
+                     const isWinner = fa.name === 'winningPitcher';
+                     const isLoser = fa.name === 'losingPitcher';
+                     const isSaver = fa.name === 'savingPitcher';
+                     if (!isWinner && !isLoser && !isSaver) return null;
+                     
+                     const label = isWinner ? 'W' : isLoser ? 'L' : 'SV';
+                     const colorClass = isWinner ? 'text-emerald-600' : isLoser ? 'text-rose-600' : 'text-blue-600';
+                     const boxData = boxscorePitchers.get(fa.athlete.id);
+                     let statStr = "";
+                     
+                     if (boxData) {
+                         const ipIdx = boxData.labels.indexOf('IP');
+                         const hIdx = boxData.labels.indexOf('H');
+                         const erIdx = boxData.labels.indexOf('ER');
+                         const bbIdx = boxData.labels.indexOf('BB');
+                         const kIdx = boxData.labels.indexOf('K');
+                         
+                         const ip = ipIdx > -1 ? boxData.stats[ipIdx] : '-';
+                         const h = hIdx > -1 ? boxData.stats[hIdx] : '-';
+                         const er = erIdx > -1 ? boxData.stats[erIdx] : '-';
+                         const bb = bbIdx > -1 ? boxData.stats[bbIdx] : '-';
+                         const k = kIdx > -1 ? boxData.stats[kIdx] : '-';
+                         
+                         statStr = `${ip} IP, ${h} H, ${er} ER, ${bb} BB, ${k} K`;
+                     }
+                     
+                     let seasonStat = "";
+                     if (isWinner || isLoser) {
+                         seasonStat = fa.athlete.record || "";
+                     } else if (isSaver) {
+                         seasonStat = fa.athlete.saves ? `${fa.athlete.saves} SV` : "";
+                     }
+
+                     return (
+                         <div key={idx} className="flex items-center gap-2 text-sm">
+                             <span className={`font-black ${colorClass}`}>{label}</span>
+                             <Link to={`/players/${fa.athlete.id}`} className="font-bold text-slate-700 hover:underline">{fa.athlete.shortName}</Link>
+                             {seasonStat && <span className="text-slate-500 font-medium text-xs">({seasonStat})</span>}
+                             {statStr && <span className="text-slate-500 font-medium text-xs border-l border-slate-300 pl-2 ml-1">{statStr}</span>}
+                         </div>
+                     );
+                 })}
+             </div>
+         )}
       </div>
       
       {/* Game Content Navigation */}
