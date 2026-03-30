@@ -494,20 +494,24 @@ export const GamePage = () => {
                                                               </div>
                                                               {play.pitchCoordinate && (
                                                                   <div className="shrink-0 w-16 flex justify-end pr-4 relative h-10 items-center">
-                                                                      <div className="w-8 h-10 border border-slate-300 relative bg-white">
-                                                                          {/* Strikezone grid lines */}
-                                                                          <div className="absolute top-1/3 left-0 right-0 border-b border-slate-200" />
-                                                                          <div className="absolute top-2/3 left-0 right-0 border-b border-slate-200" />
-                                                                          <div className="absolute left-1/3 top-0 bottom-0 border-r border-slate-200" />
-                                                                          <div className="absolute left-2/3 top-0 bottom-0 border-r border-slate-200" />
+                                                                      {/* Full Pitch Container (represents X:55-195, Y:112-220) */}
+                                                                      <div className="w-10 h-10 relative">
+                                                                          {/* The actual Strikezone Box (inset 25% on all sides) */}
+                                                                          <div className="absolute inset-x-0 inset-y-0 m-auto w-[50%] h-[50%] border border-slate-300 bg-white">
+                                                                              {/* Grid lines */}
+                                                                              <div className="absolute top-1/3 left-0 right-0 border-b border-slate-200" />
+                                                                              <div className="absolute top-2/3 left-0 right-0 border-b border-slate-200" />
+                                                                              <div className="absolute left-1/3 top-0 bottom-0 border-r border-slate-200" />
+                                                                              <div className="absolute left-2/3 top-0 bottom-0 border-r border-slate-200" />
+                                                                          </div>
                                                                           
                                                                           {/* Pitch location dot */}
                                                                           <div 
-                                                                              className={`absolute w-2 h-2 rounded-full ${pitchColor} shadow-sm -ml-1 -mt-1`}
+                                                                              className={`absolute w-2 h-2 rounded-full ${pitchColor} shadow-sm z-10`}
                                                                               style={{
-                                                                                  // Normalize coordinates based on rough ESPN strikezone dimensions (X: ~60-180, Y: ~120-230)
-                                                                                  left: `${Math.max(0, Math.min(100, ((play.pitchCoordinate.x - 40) / 160) * 100))}%`,
-                                                                                  top: `${Math.max(0, Math.min(100, ((play.pitchCoordinate.y - 80) / 180) * 100))}%`
+                                                                                  // Adjusted ESPN coordinate mapping to fit inset box
+                                                                                  left: `calc(${Math.max(-10, Math.min(110, ((play.pitchCoordinate.x - 55) / 140) * 100))}% - 4px)`,
+                                                                                  top: `calc(${Math.max(-10, Math.min(110, ((play.pitchCoordinate.y - 112) / 108) * 100))}% - 4px)`
                                                                               }}
                                                                           />
                                                                       </div>
