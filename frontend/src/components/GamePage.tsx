@@ -26,6 +26,10 @@ export const GamePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = React.useState<any>(null);
   const [propBets, setPropBets] = React.useState<any>(null);
+  const [propFilterTeam, setPropFilterTeam] = React.useState<string>('all');
+  const [propFilterPlayer, setPropFilterPlayer] = React.useState<string>('all');
+  const [propFilterType, setPropFilterType] = React.useState<string>('all');
+  const [propFilterLine, setPropFilterLine] = React.useState<string>('all');
   const [loading, setLoading] = React.useState(true);
   const [expandedAtBats, setExpandedAtBats] = React.useState<Set<string>>(new Set());
   const [hoveredProb, setHoveredProb] = React.useState<any>(null);
@@ -1024,16 +1028,204 @@ export const GamePage = () => {
 
       {activeTab === "props" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-slate-400" />
-                  <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Player Prop Bets</h3>
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-slate-400" />
+                      <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Player Prop Bets</h3>
+                  </div>
+                  
+                  {propBets && propBets.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                      <div className="flex flex-col">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Team</label>
+                          <select 
+                              className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                              value={propFilterTeam}
+                              onChange={(e) => {
+                                  setPropFilterTeam(e.target.value);
+                                  setPropFilterPlayer('all');
+                                  setPropFilterType('all');
+                                  setPropFilterLine('all');
+                              }}
+                          >
+                              <option value="all">All Teams</option>
+                              <option value={awayTeam?.team?.abbreviation}>{awayTeam?.team?.name}</option>
+                              <option value={homeTeam?.team?.abbreviation}>{homeTeam?.team?.name}</option>
+                          </select>
+                      </div>
+                      
+                      <div className="flex flex-col">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Player</label>
+                          <select 
+                              className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary disabled:opacity-50"
+                              value={propFilterPlayer}
+                              onChange={(e) => {
+                                  setPropFilterPlayer(e.target.value);
+                                  setPropFilterType('all');
+                                  setPropFilterLine('all');
+                              }}
+                          >
+                              <option value="all">All Players</option>
+                              {(() => {
+                                  // Gather unique players for the current team filter
+                                  const players = new Map();
+                                  propBets.forEach((bet: any) => {
+                                      const ref = bet.athlete?.$ref;
+                                      if (!ref) return;
+                                      const match = ref.match(/athletes\/(\d+)/);
+                                      const id = match ? match[1] : null;
+                                      if (!id) return;
+                                      
+                                      let name = "Player " + id;
+                                      let teamAbbr = "UNK";
+                                      
+                                      if (data.rosters) {
+                                          data.rosters.forEach((r: any) => {
+                                              const found = r.roster?.find((entry: any) => entry.athlete?.id === id);
+                                              if (found) {
+                                                  name = found.athlete.displayName;
+                                                  // Rosters array usually matches away/home order. We can infer team via roster loop
+                                                  const isAwayRoster = r.team?.id === awayTeam?.team?.id;
+                                                  teamAbbr = isAwayRoster ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                              }
+                                          });
+                                      }
+                                      
+                                      if (propFilterTeam === 'all' || propFilterTeam === teamAbbr) {
+                                          players.set(id, name);
+                                      }
+                                  });
+                                  
+                                  return Array.from(players.entries()).sort((a, b) => a[1].localeCompare(b[1])).map(([id, name]) => (
+                                      <option key={id} value={id}>{name}</option>
+                                  ));
+                              })()}
+                          </select>
+                      </div>
+                      
+                      <div className="flex flex-col">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Prop Type</label>
+                          <select 
+                              className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary disabled:opacity-50"
+                              value={propFilterType}
+                              onChange={(e) => {
+                                  setPropFilterType(e.target.value);
+                                  setPropFilterLine('all');
+                              }}
+                          >
+                              <option value="all">All Prop Types</option>
+                              {(() => {
+                                  const types = new Set<string>();
+                                  propBets.forEach((bet: any) => {
+                                      const ref = bet.athlete?.$ref;
+                                      const match = ref?.match(/athletes\/(\d+)/);
+                                      const pId = match ? match[1] : null;
+                                      
+                                      // Respect previous filters
+                                      let teamAbbr = "UNK";
+                                      if (data.rosters && pId) {
+                                          data.rosters.forEach((r: any) => {
+                                              if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                  teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                              }
+                                          });
+                                      }
+                                      
+                                      if (
+                                          (propFilterTeam === 'all' || propFilterTeam === teamAbbr) &&
+                                          (propFilterPlayer === 'all' || propFilterPlayer === pId)
+                                      ) {
+                                          if (bet.type?.name) types.add(bet.type.name);
+                                      }
+                                  });
+                                  return Array.from(types).sort().map(t => (
+                                      <option key={t} value={t}>{t}</option>
+                                  ));
+                              })()}
+                          </select>
+                      </div>
+                      
+                      <div className="flex flex-col">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Prop Line / Target</label>
+                          <select 
+                              className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary disabled:opacity-50"
+                              value={propFilterLine}
+                              onChange={(e) => setPropFilterLine(e.target.value)}
+                              disabled={propFilterType === 'all'}
+                          >
+                              <option value="all">All Lines</option>
+                              {(() => {
+                                  if (propFilterType === 'all') return null;
+                                  const lines = new Set<string>();
+                                  propBets.forEach((bet: any) => {
+                                      const ref = bet.athlete?.$ref;
+                                      const match = ref?.match(/athletes\/(\d+)/);
+                                      const pId = match ? match[1] : null;
+                                      
+                                      let teamAbbr = "UNK";
+                                      if (data.rosters && pId) {
+                                          data.rosters.forEach((r: any) => {
+                                              if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                  teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                              }
+                                          });
+                                      }
+                                      
+                                      if (
+                                          (propFilterTeam === 'all' || propFilterTeam === teamAbbr) &&
+                                          (propFilterPlayer === 'all' || propFilterPlayer === pId) &&
+                                          (bet.type?.name === propFilterType)
+                                      ) {
+                                          if (bet.current?.target?.displayValue) lines.add(bet.current.target.displayValue.toString());
+                                      }
+                                  });
+                                  // Sort numerically if possible, else alphabetically
+                                  return Array.from(lines).sort((a, b) => {
+                                      const na = parseFloat(a);
+                                      const nb = parseFloat(b);
+                                      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                                      return a.localeCompare(b);
+                                  }).map(l => (
+                                      <option key={l} value={l}>{l}</option>
+                                  ));
+                              })()}
+                          </select>
+                      </div>
+                  </div>
+                  )}
               </div>
               <div className="p-0">
                   {(() => {
                       if (!propBets || propBets.length === 0) return <div className="p-8 text-center text-slate-500 font-bold">No prop bets available.</div>;
                       
                       // Group by type.name
-                      const grouped = propBets.reduce((acc: any, item: any) => {
+                      // Apply filters first
+                      const filteredBets = propBets.filter((bet: any) => {
+                          const ref = bet.athlete?.$ref;
+                          const match = ref?.match(/athletes\/(\d+)/);
+                          const pId = match ? match[1] : null;
+                          
+                          let teamAbbr = "UNK";
+                          if (data.rosters && pId) {
+                              data.rosters.forEach((r: any) => {
+                                  if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                      teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                  }
+                              });
+                          }
+                          
+                          if (propFilterTeam !== 'all' && propFilterTeam !== teamAbbr) return false;
+                          if (propFilterPlayer !== 'all' && propFilterPlayer !== pId) return false;
+                          if (propFilterType !== 'all' && propFilterType !== bet.type?.name) return false;
+                          if (propFilterLine !== 'all' && String(bet.current?.target?.displayValue) !== propFilterLine) return false;
+                          
+                          return true;
+                      });
+                      
+                      if (filteredBets.length === 0) return <div className="p-8 text-center text-slate-500 font-bold">No matching prop bets for these filters.</div>;
+
+                      // Group by type.name
+                      const grouped = filteredBets.reduce((acc: any, item: any) => {
                           const typeName = item.type?.name || "Other";
                           if (!acc[typeName]) acc[typeName] = [];
                           acc[typeName].push(item);
