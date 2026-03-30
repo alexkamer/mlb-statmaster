@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface ScoreboardContextType {
-  events: any[];
+  events: any[]; // Events for the selected date (for the ticker)
+  todayEvents: any[]; // Events strictly for today (for the daily scoreboard)
   displayDate: string;
   currentDate: Date;
   changeDate: (days: number) => void;
@@ -10,6 +11,7 @@ interface ScoreboardContextType {
 
 const ScoreboardContext = createContext<ScoreboardContextType>({ 
   events: [], 
+  todayEvents: [],
   displayDate: '', 
   currentDate: new Date(), 
   changeDate: () => {},
@@ -18,6 +20,7 @@ const ScoreboardContext = createContext<ScoreboardContextType>({
 
 export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<any[]>([]);
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [displayDate, setDisplayDate] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<Date>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -42,7 +45,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchScores = async () => {
       try {
-        // Format YYYYMMDD
+        // Ticker / Header Date
         const y = currentDate.getFullYear();
         const m = String(currentDate.getMonth() + 1).padStart(2, '0');
         const d = String(currentDate.getDate()).padStart(2, '0');
@@ -50,13 +53,25 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
         
         setDisplayDate(currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
         
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`);
-        const data = await response.json();
-        if (data && data.events) {
-          setEvents(data.events);
-        } else {
-          setEvents([]);
-        }
+        // Today Date
+        const today = new Date();
+        const ty = today.getFullYear();
+        const tm = String(today.getMonth() + 1).padStart(2, '0');
+        const td = String(today.getDate()).padStart(2, '0');
+        const todayString = `${ty}${tm}${td}`;
+        
+        // Parallel Fetch
+        const [dateRes, todayRes] = await Promise.all([
+          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`),
+          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${todayString}`)
+        ]);
+
+        const dateData = await dateRes.json();
+        const todayData = await todayRes.json();
+
+        setEvents(dateData?.events || []);
+        setTodayEvents(todayData?.events || []);
+
       } catch (err) {
         console.error("Error fetching scoreboard:", err);
       }
@@ -68,7 +83,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   }, [currentDate]);
 
   return (
-    <ScoreboardContext.Provider value={{ events, displayDate, currentDate, changeDate, setDate: setCurrentDate }}>
+    <ScoreboardContext.Provider value={{ events, todayEvents, displayDate, currentDate, changeDate, setDate: setCurrentDate }}>
       {children}
     </ScoreboardContext.Provider>
   );

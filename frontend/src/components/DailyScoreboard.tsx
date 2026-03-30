@@ -4,7 +4,9 @@ import { useScoreboard } from '../context/ScoreboardContext';
 import { Link } from 'react-router-dom';
 
 export const DailyScoreboard = () => {
-  const { events, displayDate } = useScoreboard();
+  const { todayEvents, displayDate } = useScoreboard();
+  
+  const events = todayEvents;
 
   const getContrastColor = (abbr: string) => {
     const safeColors: Record<string, string> = {
