@@ -466,6 +466,49 @@ def update_game_data():
             df_wp = pd.DataFrame(global_wp).drop_duplicates('play_id')
             execute_upsert(df_wp, 'event_win_probability', ['play_id'])
 
+        # --- FETCH ODDS FOR COMPLETED GAMES ---
+        if global_events:
+            print(f"Fetching odds for {len(global_events)} completed games...")
+            global_odds = []
+            odds_urls = {f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/{e['event_id']}/competitions/{e['event_id']}/odds": e['event_id'] for e in global_events}
+            
+            with ThreadPoolExecutor(max_workers=50) as odds_executor:
+                future_to_odds_url = {odds_executor.submit(fetch_data, client, url): url for url in odds_urls}
+                for future in as_completed(future_to_odds_url):
+                    url = future_to_odds_url[future]
+                    event_id = odds_urls[url]
+                    try:
+                        data = future.result()
+                        if data and 'items' in data:
+                            for item in data['items']:
+                                provider = item.get('provider', {})
+                                provider_id = provider.get('id')
+                                if not provider_id: continue
+                                
+                                away_odds = item.get('awayTeamOdds', {})
+                                home_odds = item.get('homeTeamOdds', {})
+                                
+                                global_odds.append({
+                                    'event_odds_id': f"{event_id}_{provider_id}",
+                                    'event_id': event_id,
+                                    'provider_id': int(provider_id),
+                                    'provider_name': provider.get('name'),
+                                    'details': item.get('details'),
+                                    'over_under': item.get('overUnder'),
+                                    'spread': item.get('spread'),
+                                    'over_odds': item.get('overOdds'),
+                                    'under_odds': item.get('underOdds'),
+                                    'away_money_line': away_odds.get('moneyLine'),
+                                    'home_money_line': home_odds.get('moneyLine')
+                                })
+                    except Exception:
+                        pass
+            
+            if global_odds:
+                df_odds = pd.DataFrame(global_odds).drop_duplicates('event_odds_id')
+                execute_upsert(df_odds, 'event_odds', ['event_odds_id'])
+                print(f"✓ Saved {len(df_odds)} odds records.")
+
 if __name__ == "__main__":
     t0 = time.time()
     try:
