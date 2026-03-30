@@ -411,21 +411,21 @@ export const GamePage = () => {
                                                       </p>
                                                   </div>
                                                   
-                                                  <div className="shrink-0 flex items-center gap-6 border-l border-slate-200 pl-6 h-10 w-[200px] justify-end">
+                                                  <div className="shrink-0 flex items-center border-l border-slate-200 pl-6 h-10 w-[200px]">
                                                       {(pitcher || batter) && (
-                                                          <div className="flex items-center gap-6">
-                                                              {pitcher && (
-                                                                  <div className="flex flex-col items-center min-w-[4rem]" title={`Pitcher: ${pitcher.shortName}`}>
+                                                          <div className="flex items-center gap-6 w-full">
+                                                              {pitcher ? (
+                                                                  <div className="flex flex-col items-center flex-1" title={`Pitcher: ${pitcher.shortName}`}>
                                                                       <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200">{pitcher.shortName.split(' ').pop()}</span>
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{pitcher.shortName.split(' ').pop()}</span>
                                                                   </div>
-                                                              )}
-                                                              {batter && (
-                                                                  <div className="flex flex-col items-center min-w-[4rem]" title={`Batter: ${batter.shortName}`}>
+                                                              ) : <div className="flex-1"></div>}
+                                                              {batter ? (
+                                                                  <div className="flex flex-col items-center flex-1" title={`Batter: ${batter.shortName}`}>
                                                                       <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200">{batter.shortName.split(' ').pop()}</span>
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{batter.shortName.split(' ').pop()}</span>
                                                                   </div>
-                                                              )}
+                                                              ) : <div className="flex-1"></div>}
                                                           </div>
                                                       )}
                                                   </div>
