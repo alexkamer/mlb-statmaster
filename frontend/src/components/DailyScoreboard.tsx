@@ -4,7 +4,7 @@ import { useScoreboard } from '../context/ScoreboardContext';
 import { Link } from 'react-router-dom';
 
 export const DailyScoreboard = () => {
-  const { todayEvents, displayDate } = useScoreboard();
+  const { todayEvents, displayDateToday } = useScoreboard();
   
   const events = todayEvents;
 
@@ -75,7 +75,7 @@ export const DailyScoreboard = () => {
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <h2 className="font-headline text-3xl font-black text-primary uppercase tracking-tighter">Daily Scoreboard</h2>
-          <p className="text-sm text-slate-500 uppercase tracking-widest">{displayDate}</p>
+          <p className="text-sm text-slate-500 uppercase tracking-widest">{displayDateToday}</p>
         </div>
       </div>
       

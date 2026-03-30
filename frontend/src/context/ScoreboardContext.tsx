@@ -4,6 +4,7 @@ interface ScoreboardContextType {
   events: any[]; // Events for the selected date (for the ticker)
   todayEvents: any[]; // Events strictly for today (for the daily scoreboard)
   displayDate: string;
+  displayDateToday: string;
   currentDate: Date;
   changeDate: (days: number) => void;
   setDate: (date: Date) => void;
@@ -13,6 +14,7 @@ const ScoreboardContext = createContext<ScoreboardContextType>({
   events: [], 
   todayEvents: [],
   displayDate: '', 
+  displayDateToday: '',
   currentDate: new Date(), 
   changeDate: () => {},
   setDate: () => {} 
@@ -22,6 +24,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<any[]>([]);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [displayDate, setDisplayDate] = useState<string>('');
+  const [displayDateToday, setDisplayDateToday] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<Date>(() => {
     const params = new URLSearchParams(window.location.search);
     const dateOverride = params.get('date');
@@ -60,6 +63,8 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
         const td = String(today.getDate()).padStart(2, '0');
         const todayString = `${ty}${tm}${td}`;
         
+        setDisplayDateToday(today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
+
         // Parallel Fetch
         const [dateRes, todayRes] = await Promise.all([
           fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`),
@@ -83,7 +88,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   }, [currentDate]);
 
   return (
-    <ScoreboardContext.Provider value={{ events, todayEvents, displayDate, currentDate, changeDate, setDate: setCurrentDate }}>
+    <ScoreboardContext.Provider value={{ events, todayEvents, displayDate, displayDateToday, currentDate, changeDate, setDate: setCurrentDate }}>
       {children}
     </ScoreboardContext.Provider>
   );
