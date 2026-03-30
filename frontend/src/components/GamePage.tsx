@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { fetchGameSummary } from '../api';
+import { fetchGameSummary, fetchPropBets } from '../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
@@ -25,6 +25,7 @@ export const GamePage = () => {
   const { gameId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = React.useState<any>(null);
+  const [propBets, setPropBets] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [expandedAtBats, setExpandedAtBats] = React.useState<Set<string>>(new Set());
   const [hoveredProb, setHoveredProb] = React.useState<any>(null);
@@ -60,8 +61,9 @@ export const GamePage = () => {
     async function loadData() {
       if (!gameId) return;
       setLoading(true);
-      const summary = await fetchGameSummary(gameId);
+      const [summary, props] = await Promise.all([fetchGameSummary(gameId), fetchPropBets(gameId)]);
       setData(summary);
+      if (props && props.items) setPropBets(props.items);
       setLoading(false);
     }
     loadData();
@@ -150,7 +152,7 @@ export const GamePage = () => {
   const header = data.header?.competitions?.[0];
   const homeTeam = header?.competitors?.find((c: any) => c.homeAway === "home");
   const isPregame = header?.status?.type?.state === 'pre';
-  const validTabs = isPregame ? ["matchup"] : ["boxscore", "plays", "win_probability"];
+  const validTabs = isPregame ? ["matchup", "props"] : ["boxscore", "plays", "win_probability"];
   if (isPregame && activeTab !== "matchup") {
       activeTab = "matchup";
   } else if (!isPregame && activeTab === "matchup") {
@@ -293,6 +295,9 @@ export const GamePage = () => {
       {isPregame ? (
           <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
              <button onClick={() => handleTabChange("matchup")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "matchup" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Matchup Preview</button>
+             {propBets && propBets.length > 0 && (
+                 <button onClick={() => handleTabChange("props")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "props" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Prop Bets</button>
+             )}
           </div>
       ) : (
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
@@ -1016,6 +1021,90 @@ export const GamePage = () => {
                       </div>
                   </div>
               )}
+          </div>
+      )}
+
+
+      {activeTab === "props" && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-slate-400" />
+                  <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Player Prop Bets</h3>
+              </div>
+              <div className="p-0">
+                  {(() => {
+                      if (!propBets || propBets.length === 0) return <div className="p-8 text-center text-slate-500 font-bold">No prop bets available.</div>;
+                      
+                      // Group by type.name
+                      const grouped = propBets.reduce((acc: any, item: any) => {
+                          const typeName = item.type?.name || "Other";
+                          if (!acc[typeName]) acc[typeName] = [];
+                          acc[typeName].push(item);
+                          return acc;
+                      }, {});
+
+                      return Object.keys(grouped).map((groupName, gIdx) => {
+                          const items = grouped[groupName];
+                          
+                          // Group by athlete
+                          const athleteGroups = items.reduce((acc: any, item: any) => {
+                              const ref = item.athlete?.$ref;
+                              if (!ref) return acc;
+                              const match = ref.match(/athletes\/(\d+)/);
+                              const athleteId = match ? match[1] : "unknown";
+                              if (!acc[athleteId]) acc[athleteId] = [];
+                              acc[athleteId].push(item);
+                              return acc;
+                          }, {});
+
+                          return (
+                              <div key={gIdx} className="border-b border-slate-200 last:border-0">
+                                  <div className="bg-slate-100/50 px-6 py-3 border-y border-slate-200 mt-[-1px]">
+                                      <h4 className="font-bold text-sm text-slate-800 uppercase tracking-widest">{groupName}</h4>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                                      {Object.keys(athleteGroups).map((athleteId, aIdx) => {
+                                          const aItems = athleteGroups[athleteId];
+                                          // Find athlete from boxscore/rosters for name
+                                          let athleteName = "Player " + athleteId;
+                                          let headshot = `https://a.espncdn.com/i/headshots/mlb/players/full/${athleteId}.png`;
+                                          
+                                          if (data.rosters) {
+                                              data.rosters.forEach((r: any) => {
+                                                  const found = r.roster?.find((entry: any) => entry.athlete?.id === athleteId);
+                                                  if (found) athleteName = found.athlete.displayName;
+                                              });
+                                          }
+
+                                          return (
+                                              <div key={aIdx} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors border-b md:border-b-0 border-slate-100">
+                                                  <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
+                                                      <img src={headshot} alt={athleteName} className="w-full h-full object-cover bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                      <Link to={`/players/${athleteId}`} className="font-bold text-primary hover:underline truncate block">{athleteName}</Link>
+                                                      <div className="flex flex-col gap-1 mt-2">
+                                                          {aItems.map((bet: any, bIdx: number) => {
+                                                              const isOverUnder = bet.current?.target?.displayValue && aItems.length > 1;
+                                                              const label = isOverUnder ? (bIdx === 0 ? "Over" : "Under") : bet.current?.target?.displayValue || "Yes";
+                                                              return (
+                                                                  <div key={bIdx} className="flex items-center justify-between text-xs bg-slate-100 rounded px-2 py-1">
+                                                                      <span className="font-bold text-slate-600 uppercase tracking-widest text-[9px]">{label} {bet.current?.target?.displayValue}</span>
+                                                                      <span className="font-black text-primary">{bet.odds?.american?.value}</span>
+                                                                  </div>
+                                                              );
+                                                          })}
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              </div>
+                          );
+                      });
+                  })()}
+              </div>
           </div>
       )}
 

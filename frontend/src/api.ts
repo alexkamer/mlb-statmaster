@@ -399,3 +399,14 @@ export async function fetchGameSummary(gameId: string) {
         return null;
     }
 }
+
+export async function fetchPropBets(gameId: string) {
+    try {
+        const res = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${gameId}/competitions/${gameId}/odds/100/propBets?lang=en&region=us&limit=1000`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch(e) {
+        console.error("Failed to fetch prop bets", e);
+        return null;
+    }
+}
