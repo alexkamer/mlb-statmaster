@@ -273,6 +273,19 @@ export const GamePage = () => {
                           let atBats: any[] = [];
                           let currentAtBat: any = null;
 
+                          const playerLookup: Record<string, any> = {};
+                          if (data.rosters) {
+                              data.rosters.forEach((r: any) => {
+                                  r.roster?.forEach((entry: any) => {
+                                      const ath = entry.athlete;
+                                      if (ath) {
+                                          playerLookup[ath.id] = { lastName: ath.lastName, shortName: ath.shortName };
+                                      }
+                                  });
+                              });
+                          }
+                          const normalize = (str: string) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+
                           plays.forEach((play: any) => {
                               const isStartInning = play.type?.type === "start-inning" || play.type?.type === "end-inning";
                               if (isStartInning) {
@@ -329,6 +342,19 @@ export const GamePage = () => {
                                   const resultPlay = ab.resultPlay || ab.plays[ab.plays.length - 1];
                                   const isScoring = ab.scoringPlay;
                                   
+                                  let displayText = resultPlay.text;
+                                  if (resultPlay.participants) {
+                                      const batterId = resultPlay.participants.find((p: any) => p.type === 'batter')?.athlete?.id;
+                                      if (batterId && playerLookup[batterId]) {
+                                          const { lastName, shortName } = playerLookup[batterId];
+                                          const normText = normalize(displayText);
+                                          const normLastName = normalize(lastName);
+                                          if (normLastName && normText.startsWith(normLastName)) {
+                                              displayText = shortName + displayText.substring(lastName.length);
+                                          }
+                                      }
+                                  }
+                                  
                                   return (
                                       <div key={`ab-${ab.id}-${idx}`} className="border-b border-slate-100">
                                           {/* At-Bat Header */}
@@ -352,7 +378,7 @@ export const GamePage = () => {
                                               <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                   {ab.startPlay && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
                                                   <p className={`text-base leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
-                                                      {resultPlay.text}
+                                                      {displayText}
                                                   </p>
                                               </div>
                                               {isScoring && (
@@ -371,7 +397,7 @@ export const GamePage = () => {
                                           {/* Pitches / Detailed Plays */}
                                           {isExpanded && (
                                               <div className="bg-slate-50/50 border-t border-slate-100 p-4 pl-36 space-y-2">
-                                                  {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher").map((play: any, pIdx: number) => {
+                                                  {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher").map((play: any, pIdx: number, arr: any[]) => {
                                                       const isPitch = play.pitchVelocity !== undefined || play.pitchType !== undefined;
                                                       const isResult = play.type?.type === "play-result";
                                                       let pitchNumber = null;
@@ -391,7 +417,8 @@ export const GamePage = () => {
                                                               } else if (outcome.includes("strike") && !outcome.includes("foul")) {
                                                                   pitchColor = "bg-rose-500 text-white"; // red for strike
                                                               } else if (outcome.includes("foul")) {
-                                                                  if (play.resultCount?.strikes === 2 && !outcome.includes("strike 3")) {
+                                                                  const startingStrikes = pIdx > 0 ? (arr[pIdx - 1].resultCount?.strikes || 0) : 0;
+                                                                  if (startingStrikes === 2 && !outcome.includes("strike 3")) {
                                                                        pitchColor = "bg-slate-300 text-slate-600"; // grey for foul with 2 strikes
                                                                   } else {
                                                                        pitchColor = "bg-rose-400 text-white"; // lighter red for foul
