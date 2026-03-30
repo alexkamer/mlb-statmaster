@@ -18,22 +18,25 @@ import { LeaguePlayersPage } from './components/LeaguePlayersPage';
 import { GamePage } from './components/GamePage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
+import { useScoreboard } from './context/ScoreboardContext';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
-import { 
-  LayoutDashboard, 
-  Trophy, 
-  ArrowLeftRight, 
-  Activity, 
-  Archive, 
-  Search, 
-  User, 
+import {
+  LayoutDashboard,
+  Trophy,
+  ArrowLeftRight,
+  Activity,
+  Archive,
+  Search,
+  Users,
+  Calendar,
+  BarChart3,
   ChevronRight,
-  ChevronLeft, 
-  Calendar as CalendarIcon,
+  ChevronLeft,
   TrendingUp,
   Award,
   ShieldCheck,
-  Menu
+  Menu,
+  ChevronDown
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -185,15 +188,34 @@ const TopNav = () => {
 
 const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
   const navigate = useNavigate();
+  const { displayDate, currentDate, changeDate, setDate } = useScoreboard();
+
   return (
   <header className="fixed top-0 z-50 w-full shadow-xl flex flex-col bg-primary">
-    <div className="flex bg-primary items-center px-6 h-20 w-full">
-      <div className="flex items-center gap-6 shrink-0">
-        <button onClick={() => navigate('/')} className="text-2xl font-black text-white tracking-tighter font-headline hover:text-secondary transition-colors">Statmaster</button>
+    <div className="flex bg-primary items-center px-6 h-20 w-full gap-6">
+      <div className="flex items-start gap-1 shrink-0 flex-col justify-center">
+        <button onClick={() => navigate('/')} className="text-2xl font-black text-white tracking-tighter font-headline hover:text-secondary transition-colors leading-none">Statmaster</button>
+        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">
+          <button onClick={() => changeDate(-1)} className="hover:text-white p-0.5"><ChevronLeft className="w-3 h-3" /></button>
+          <div className="relative group">
+            <span className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">{displayDate} <ChevronDown className="w-3 h-3" /></span>
+            <input 
+              type="date" 
+              className="absolute inset-0 opacity-0 cursor-pointer" 
+              value={`${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split('-').map(Number);
+                  setDate(new Date(y, m - 1, d));
+                }
+              }}
+            />
+          </div>
+          <button onClick={() => changeDate(1)} className="hover:text-white p-0.5"><ChevronRight className="w-3 h-3" /></button>
+        </div>
       </div>
-      
-      <LiveTicker />
 
+      <LiveTicker />
       <div className="flex items-center gap-4 shrink-0">
         <div className="relative hidden sm:block">
           <input 
