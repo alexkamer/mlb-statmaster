@@ -407,24 +407,50 @@ export const GamePage = () => {
                           return filteredItems.map((item: any, idx: number) => {
                               if (item.type === "inning-marker") {
                                   const play = item.play;
-                                  let team = null;
-                                  if (play.team?.id) {
-                                      if (play.team.id === homeTeam?.id) team = homeTeam?.team;
-                                      if (play.team.id === awayTeam?.id) team = awayTeam?.team;
-                                  }
                                   
-                                  const periodType = play.period?.type || "Top"; // "Top" or "Bottom"
-                                  const periodNum = play.period?.displayValue || play.period?.number || ""; // e.g. "1st Inning"
-                                  const periodShort = periodNum.toString().split(' ')[0]; // "1st"
-                                  
-                                  return (
-                                      <div key={`inning-${idx}`} className="bg-slate-100 px-6 py-2 border-y border-slate-200 font-black text-xs uppercase tracking-widest text-slate-500 sticky top-0 z-10 shadow-sm flex items-center justify-between">
-                                          <div className="flex items-center gap-3">
-                                              {team && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`} alt={team.abbreviation} className="w-5 h-5 object-contain" />}
-                                              <span>{team ? team.name : ""} - {periodType} {periodShort}</span>
+                                  if (play.type.type === "end-inning") {
+                                      // It's the end of a half-inning, so we show the runs/hits/errors summary.
+                                      // The team parameter on this play indicates who was batting.
+                                      // "Middle of 1st" -> Away Team batted in the Top of 1st
+                                      // "End of 1st" -> Home Team batted in the Bottom of 1st
+                                      
+                                      const isMid = play.period?.type === "Mid";
+                                      const inningIdx = play.period?.number ? play.period.number - 1 : 0;
+                                      
+                                      let summaryStr = "0 RUNS, 0 HITS, 0 ERRORS";
+                                      if (isMid && awayTeam?.linescores?.[inningIdx]) {
+                                          const ls = awayTeam.linescores[inningIdx];
+                                          summaryStr = `${ls.displayValue || 0} RUNS, ${ls.hits || 0} HITS, ${ls.errors || 0} ERRORS`;
+                                      } else if (!isMid && homeTeam?.linescores?.[inningIdx]) {
+                                          const ls = homeTeam.linescores[inningIdx];
+                                          summaryStr = `${ls.displayValue || 0} RUNS, ${ls.hits || 0} HITS, ${ls.errors || 0} ERRORS`;
+                                      }
+                                      
+                                      return (
+                                          <div key={`inning-${idx}`} className="bg-white px-6 py-2 border-b border-slate-100 font-bold text-[10px] uppercase tracking-widest text-slate-500 flex justify-end">
+                                              <span>{summaryStr}</span>
                                           </div>
-                                      </div>
-                                  );
+                                      );
+                                  } else {
+                                      let team = null;
+                                      if (play.team?.id) {
+                                          if (play.team.id === homeTeam?.id) team = homeTeam?.team;
+                                          if (play.team.id === awayTeam?.id) team = awayTeam?.team;
+                                      }
+                                      
+                                      const periodType = play.period?.type || "Top"; // "Top" or "Bottom"
+                                      const periodNum = play.period?.displayValue || play.period?.number || ""; // e.g. "1st Inning"
+                                      const periodShort = periodNum.toString().split(' ')[0]; // "1st"
+                                      
+                                      return (
+                                          <div key={`inning-${idx}`} className="bg-slate-100 px-6 py-2 border-y border-slate-200 font-black text-xs uppercase tracking-widest text-slate-500 sticky top-0 z-10 shadow-sm flex items-center justify-between">
+                                              <div className="flex items-center gap-3">
+                                                  {team && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`} alt={team.abbreviation} className="w-5 h-5 object-contain" />}
+                                                  <span>{team ? team.name : ""} - {periodType} {periodShort}</span>
+                                              </div>
+                                          </div>
+                                      );
+                                  }
                               }
 
                               if (item.type === "pitching-change") {
