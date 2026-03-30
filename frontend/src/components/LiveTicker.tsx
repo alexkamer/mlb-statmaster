@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ChevronRight, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
 
 export const LiveTicker = () => {
   const { events } = useScoreboard();
+  const navigate = useNavigate();
 
   if (events.length === 0) return null;
 
@@ -68,12 +70,19 @@ export const LiveTicker = () => {
           }
 
           return (
-            <div key={event.id} className="flex flex-col justify-center gap-1 px-6 min-w-max hover:bg-white/5 transition-colors cursor-pointer h-full">
-              <div className="flex justify-between items-center mb-1 gap-4">
+            <div 
+              key={event.id} 
+              onClick={() => navigate(`/games/${event.id}`)}
+              className="group flex flex-col justify-center gap-1 px-6 min-w-max hover:bg-white/5 transition-colors cursor-pointer h-full relative"
+            >
+              <div className="absolute inset-0 bg-[#002d62] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <span className="text-white font-bold text-xs uppercase tracking-widest">{isScheduled ? 'Preview' : 'Box Score'}</span>
+              </div>
+              <div className="flex justify-between items-center mb-1 gap-4 group-hover:invisible">
                 <span className={`text-[10px] font-bold ${badgeColor} uppercase tracking-tighter`}>{badgeText}</span>
                 {isLive && <span className="text-[10px] text-[#7796d1] font-medium">{statusText}</span>}
               </div>
-              <div className="flex flex-col text-[12px] leading-relaxed font-bold gap-1 w-full">
+              <div className="flex flex-col text-[12px] leading-relaxed font-bold gap-1 w-full group-hover:invisible">
                 <div className="flex items-center justify-between gap-4 text-white min-w-[90px]">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full flex items-center justify-center p-0.5" style={{ backgroundColor: awayColor }}>
