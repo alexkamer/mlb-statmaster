@@ -437,8 +437,21 @@ export const GamePage = () => {
                                   }
                                   
                                   return (
-                                      <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center bg-white text-slate-500 font-bold uppercase tracking-widest text-[10px]`}>
-                                          <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
+                                      <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-white text-slate-500 font-bold uppercase tracking-widest text-[10px]`}>
+                                          <div className="flex-1">
+                                              <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
+                                          </div>
+                                          <div className="shrink-0 flex items-center justify-end">
+                                              <div className="flex items-center gap-4 w-20 pl-4 mr-4 text-slate-700">
+                                                  <div className="flex flex-col flex-1 items-center">
+                                                      <span className="text-[10px] font-black uppercase tracking-widest leading-none">{awayTeam?.team?.abbreviation}</span>
+                                                  </div>
+                                                  <div className="flex flex-col flex-1 items-center">
+                                                      <span className="text-[10px] font-black uppercase tracking-widest leading-none">{homeTeam?.team?.abbreviation}</span>
+                                                  </div>
+                                              </div>
+                                              <div className="w-10"></div>
+                                          </div>
                                       </div>
                                   );
                               }
@@ -488,13 +501,11 @@ export const GamePage = () => {
                                               <div className="shrink-0 flex items-center justify-end">
                                                   {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
                                                       <div className="flex items-center gap-4 w-20 text-slate-700 font-bold border-l border-slate-200 pl-4 mr-4">
-                                                          <div className="flex flex-col flex-1 items-center">
-                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
-                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.awayScore}</span>
+                                                          <div className="flex flex-col flex-1 items-center justify-center h-full">
+                                                              <span className="text-xs tabular-nums leading-none">{resultPlay.awayScore}</span>
                                                           </div>
-                                                          <div className="flex flex-col flex-1 items-center">
-                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
-                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.homeScore}</span>
+                                                          <div className="flex flex-col flex-1 items-center justify-center h-full">
+                                                              <span className="text-xs tabular-nums leading-none">{resultPlay.homeScore}</span>
                                                           </div>
                                                       </div>
                                                   ) : null}
@@ -608,13 +619,11 @@ export const GamePage = () => {
                                       <div className="shrink-0 flex items-center justify-end">
                                           {(play.awayScore !== undefined && play.homeScore !== undefined) ? (
                                               <div className="flex items-center gap-4 w-20 text-slate-700 font-bold border-l border-slate-200 pl-4 mr-4">
-                                                  <div className="flex flex-col flex-1 items-center">
-                                                      <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
-                                                      <span className="text-xs tabular-nums leading-none mt-1">{play.awayScore}</span>
+                                                  <div className="flex flex-col flex-1 items-center justify-center h-full">
+                                                      <span className="text-xs tabular-nums leading-none">{play.awayScore}</span>
                                                   </div>
-                                                  <div className="flex flex-col flex-1 items-center">
-                                                      <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
-                                                      <span className="text-xs tabular-nums leading-none mt-1">{play.homeScore}</span>
+                                                  <div className="flex flex-col flex-1 items-center justify-center h-full">
+                                                      <span className="text-xs tabular-nums leading-none">{play.homeScore}</span>
                                                   </div>
                                               </div>
                                           ) : <div className="w-20 border-l border-slate-200 pl-4 mr-4"></div>}
