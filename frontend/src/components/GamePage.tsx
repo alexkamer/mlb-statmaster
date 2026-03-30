@@ -391,10 +391,10 @@ export const GamePage = () => {
                                               className={`px-6 py-4 flex items-center gap-6 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
                                           >
                                               <div className="w-24 shrink-0 flex items-center justify-between border-r border-slate-200 pr-4 text-slate-700 font-bold">
-                                                  {(resultPlay.resultCount?.balls !== undefined && resultPlay.resultCount?.strikes !== undefined) ? (
+                                                  {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
                                                       <div className="flex flex-col">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">Count</span>
-                                                        <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.resultCount.balls}-{resultPlay.resultCount.strikes}</span>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">Score</span>
+                                                        <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.awayScore}-{resultPlay.homeScore}</span>
                                                       </div>
                                                   ) : <span className="w-8"></span>}
                                                   
