@@ -123,7 +123,10 @@ export const DailyScoreboard = () => {
           const oddsObj = comp.odds?.[0];
           const awayML = oddsObj?.moneyline?.away?.close?.odds || oddsObj?.awayTeamOdds?.moneyLine || 'N/A';
           const homeML = oddsObj?.moneyline?.home?.close?.odds || oddsObj?.homeTeamOdds?.moneyLine || 'N/A';
-          const overUnder = oddsObj?.overUnder ?? 'N/A';
+          const awayRL = oddsObj?.pointSpread?.away?.close?.line || 'N/A';
+          const homeRL = oddsObj?.pointSpread?.home?.close?.line || 'N/A';
+          const totalOver = oddsObj?.total?.over?.close?.line || 'N/A';
+          const totalUnder = oddsObj?.total?.under?.close?.line || 'N/A';
 
           return (
             <div key={event.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 relative">
@@ -286,19 +289,31 @@ export const DailyScoreboard = () => {
                       </a>
                     </div>
                     <div className="h-px w-full bg-slate-100" />
-                    <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-slate-500">{awayTeam?.team?.abbreviation}</span>
-                        <span className="text-xs font-black text-slate-800">{awayML}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-slate-500">{homeTeam?.team?.abbreviation}</span>
-                        <span className="text-xs font-black text-slate-800">{homeML}</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 mt-0.5">
-                        <span className="text-[11px] font-bold text-slate-500">O/U</span>
-                        <span className="text-xs font-black text-slate-800">{overUnder}</span>
-                      </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="font-bold text-slate-500 text-[10px] pb-1 w-1/4 sr-only">Team</th>
+                            <th className="font-bold text-slate-500 text-[10px] pb-1 w-1/4">ML</th>
+                            <th className="font-bold text-slate-500 text-[10px] pb-1 w-1/4">Total</th>
+                            <th className="font-bold text-slate-500 text-[10px] pb-1 w-1/4">RL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="text-[11px] font-bold text-slate-500 py-1 border-b border-slate-200/50">{awayTeam?.team?.abbreviation}</td>
+                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{awayML}</td>
+                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{totalOver}</td>
+                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{awayRL}</td>
+                          </tr>
+                          <tr>
+                            <td className="text-[11px] font-bold text-slate-500 pt-1">{homeTeam?.team?.abbreviation}</td>
+                            <td className="text-xs font-black text-slate-800 pt-1">{homeML}</td>
+                            <td className="text-xs font-black text-slate-800 pt-1">{totalUnder}</td>
+                            <td className="text-xs font-black text-slate-800 pt-1">{homeRL}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
