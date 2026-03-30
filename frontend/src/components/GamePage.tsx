@@ -279,7 +279,11 @@ export const GamePage = () => {
                                   r.roster?.forEach((entry: any) => {
                                       const ath = entry.athlete;
                                       if (ath) {
-                                          playerLookup[ath.id] = { lastName: ath.lastName, shortName: ath.shortName };
+                                          playerLookup[ath.id] = { 
+                                              lastName: ath.lastName, 
+                                              shortName: ath.shortName,
+                                              headshot: ath.headshot?.href || `https://a.espncdn.com/i/headshots/mlb/players/full/${ath.id}.png`
+                                          };
                                       }
                                   });
                               });
@@ -343,15 +347,23 @@ export const GamePage = () => {
                                   const isScoring = ab.scoringPlay;
                                   
                                   let displayText = resultPlay.text;
+                                  let batter = null;
+                                  let pitcher = null;
                                   if (resultPlay.participants) {
                                       const batterId = resultPlay.participants.find((p: any) => p.type === 'batter')?.athlete?.id;
+                                      const pitcherId = resultPlay.participants.find((p: any) => p.type === 'pitcher')?.athlete?.id;
+                                      
                                       if (batterId && playerLookup[batterId]) {
-                                          const { lastName, shortName } = playerLookup[batterId];
+                                          batter = playerLookup[batterId];
+                                          const { lastName, shortName } = batter;
                                           const normText = normalize(displayText);
                                           const normLastName = normalize(lastName);
                                           if (normLastName && normText.startsWith(normLastName)) {
                                               displayText = shortName + displayText.substring(lastName.length);
                                           }
+                                      }
+                                      if (pitcherId && playerLookup[pitcherId]) {
+                                          pitcher = playerLookup[pitcherId];
                                       }
                                   }
                                   
@@ -387,6 +399,22 @@ export const GamePage = () => {
                                                     <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
                                                         {resultPlay.awayScore} - {resultPlay.homeScore}
                                                     </span>
+                                                  </div>
+                                              )}
+                                              {(pitcher || batter) && (
+                                                  <div className="shrink-0 flex items-center gap-4 mr-4 border-l border-slate-200 pl-6 h-10">
+                                                      {pitcher && (
+                                                          <div className="flex flex-col items-center w-12" title={`Pitcher: ${pitcher.shortName}`}>
+                                                              <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
+                                                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1 rounded-sm w-full text-center truncate border border-slate-200">{pitcher.shortName.split(' ').pop()}</span>
+                                                          </div>
+                                                      )}
+                                                      {batter && (
+                                                          <div className="flex flex-col items-center w-12" title={`Batter: ${batter.shortName}`}>
+                                                              <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
+                                                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1 rounded-sm w-full text-center truncate border border-slate-200">{batter.shortName.split(' ').pop()}</span>
+                                                          </div>
+                                                      )}
                                                   </div>
                                               )}
                                               <div className="shrink-0 text-slate-400">
