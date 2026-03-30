@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { fetchGameSummary } from '../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
 
 export const GamePage = () => {
   const { gameId } = useParams();
@@ -24,10 +25,10 @@ export const GamePage = () => {
       });
   };
   
-  const activeTab = searchParams.get("tab") === "plays" ? "plays" : "boxscore";
+  const activeTab = searchParams.get("tab") === "plays" ? "plays" : searchParams.get("tab") === "win_probability" ? "win_probability" : "boxscore";
   const filterPlays = searchParams.get("filter") === "scoring" ? "scoring" : "all";
 
-  const handleTabChange = (tab: "boxscore" | "plays") => {
+  const handleTabChange = (tab: "boxscore" | "plays" | "win_probability") => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
     setSearchParams(newParams);
@@ -135,6 +136,7 @@ export const GamePage = () => {
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
          <button onClick={() => handleTabChange("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
          <button onClick={() => handleTabChange("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
+         <button onClick={() => handleTabChange("win_probability")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "win_probability" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Win Probability</button>
       </div>
 
       {activeTab === "boxscore" && (
@@ -675,6 +677,183 @@ export const GamePage = () => {
                               );
                           });
                       })()}
+                  </div>
+              )}
+          </div>
+      )}
+
+      {activeTab === "win_probability" && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6">
+              <div className="flex items-center justify-between mb-8">
+                  <h3 className="font-headline font-black text-2xl uppercase tracking-widest text-primary">Win Probability</h3>
+                  <div className="flex gap-4 text-xs font-bold uppercase tracking-widest">
+                      <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: `#${awayTeam?.team?.color}` }}></div>
+                          <span className="text-slate-500">{awayTeam?.team?.abbreviation}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: `#${homeTeam?.team?.color}` }}></div>
+                          <span className="text-slate-500">{homeTeam?.team?.abbreviation}</span>
+                      </div>
+                  </div>
+              </div>
+              
+              {!data.winprobability || data.winprobability.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 font-bold">Win probability data is not available for this game.</div>
+              ) : (
+                  <div className="h-[400px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                          {(() => {
+                              const inningDividers: number[] = [];
+                              
+                              const getOrdinal = (n: number) => {
+                                  const s = ["th", "st", "nd", "rd"], v = n % 100;
+                                  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                              };
+
+                              let chartData = data.winprobability.map((wp: any, i: number, arr: any[]) => {
+                                  const play = data.plays?.find((p: any) => p.id === wp.playId);
+                                  
+                                  if (play?.period?.number) {
+                                      if (i > 0) {
+                                          const prevWp = arr[i - 1];
+                                          const prevPlay = data.plays?.find((p: any) => p.id === prevWp.playId);
+                                          if (prevPlay?.period?.number && prevPlay.period.number !== play.period.number) {
+                                              inningDividers.push(i);
+                                          }
+                                      } else {
+                                          inningDividers.push(0); // Start of game
+                                      }
+                                  }
+
+                                  return {
+                                      index: i,
+                                      homeWinPct: wp.homeWinPercentage * 100,
+                                      awayWinPct: (1 - wp.homeWinPercentage) * 100,
+                                      chartValue: (1 - wp.homeWinPercentage) * 100,
+                                      playText: play?.text || "Unknown play",
+                                      homeScore: play?.homeScore,
+                                      awayScore: play?.awayScore,
+                                      inning: play?.period?.displayValue,
+                                      inningNumber: play?.period?.number,
+                                      half: play?.period?.type,
+                                      inningLabel: "",
+                                  };
+                              });
+                              
+                              // Now add labels in the middle of each inning
+                              const boundaries = [...inningDividers, chartData.length - 1];
+                              for (let i = 0; i < boundaries.length - 1; i++) {
+                                  const start = boundaries[i];
+                                  const end = boundaries[i + 1];
+                                  const mid = Math.floor((start + end) / 2);
+                                  const inningNum = chartData[mid]?.inningNumber;
+                                  if (inningNum) {
+                                      chartData[mid].inningLabel = getOrdinal(inningNum);
+                                  }
+                              }
+                              
+                              // remove 0 from dividers so we don't draw a line at the very beginning
+                              if (inningDividers[0] === 0) {
+                                  inningDividers.shift();
+                              }
+                              
+                              return (
+                                  <AreaChart 
+                                      data={chartData}
+                                      margin={{ top: 20, right: 10, left: 10, bottom: 25 }}
+                                  >
+                                      <defs>
+                                          <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="100%" gradientUnits="userSpaceOnUse">
+                                              {/* Top half: Away Team (100% to 50%) */}
+                                              <stop offset="0%" stopColor={`#${awayTeam?.team?.color || "000000"}`} stopOpacity={0.8} />
+                                              <stop offset="50%" stopColor={`#${awayTeam?.team?.color || "000000"}`} stopOpacity={0} />
+                                              
+                                              {/* Bottom half: Home Team (50% to 0%) */}
+                                              <stop offset="50%" stopColor={`#${homeTeam?.team?.color || "000000"}`} stopOpacity={0} />
+                                              <stop offset="100%" stopColor={`#${homeTeam?.team?.color || "000000"}`} stopOpacity={0.8} />
+                                          </linearGradient>
+                                          <linearGradient id="splitStroke" x1="0" y1="0" x2="0" y2="100%" gradientUnits="userSpaceOnUse">
+                                              <stop offset="49.9%" stopColor={`#${awayTeam?.team?.color || "000000"}`} stopOpacity={1} />
+                                              <stop offset="50%" stopColor={`#${homeTeam?.team?.color || "000000"}`} stopOpacity={1} />
+                                          </linearGradient>
+                                      </defs>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                      <XAxis 
+                                          dataKey="index" 
+                                          tick={false} 
+                                          hide={true} 
+                                      />
+                                      <XAxis 
+                                          xAxisId="innings" 
+                                          dataKey="inningLabel" 
+                                          axisLine={false} 
+                                          tickLine={false} 
+                                          tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 'bold' }} 
+                                          interval={0}
+                                          tickMargin={0}
+                                          textAnchor="middle"
+                                      />
+                              <YAxis 
+                                  orientation="right"
+                                  domain={[0, 100]} 
+                                  ticks={[0, 25, 50, 75, 100]} 
+                                  tickFormatter={(val) => {
+                                      if (val === 50) return "50%";
+                                      if (val === 100) return "100%"; // Top is Away 100%
+                                      if (val === 0) return "100%"; // Bottom is Home 100%
+                                      if (val === 25 || val === 75) return ""; // No label for 75%s
+                                      return `${val}%`;
+                                  }}
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 'bold' }}
+                                  type="number"
+                              />
+                              <Tooltip 
+                                  content={({ active, payload }: any) => {
+                                      if (active && payload && payload.length) {
+                                          const d = payload[0].payload;
+                                          return (
+                                              <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-lg max-w-sm z-50">
+                                                  {d.inning && <p className="font-bold text-[10px] uppercase text-slate-400 mb-1">{d.half} {d.inning}</p>}
+                                                  <p className="text-sm font-medium text-slate-800 mb-2 leading-tight">{d.playText}</p>
+                                                  <div className="flex gap-4 text-xs font-bold mt-2 pt-2 border-t border-slate-100">
+                                                      <span style={{ color: `#${awayTeam?.team?.color}` }}>{awayTeam?.team?.abbreviation}: {d.awayWinPct.toFixed(1)}%</span>
+                                                      <span style={{ color: `#${homeTeam?.team?.color}` }}>{homeTeam?.team?.abbreviation}: {d.homeWinPct.toFixed(1)}%</span>
+                                                  </div>
+                                                  {d.homeScore !== undefined && d.awayScore !== undefined && (
+                                                     <div className="mt-1.5 text-[10px] uppercase tracking-widest text-slate-500 font-bold bg-slate-50 rounded px-2 py-1 inline-block">
+                                                         Score: {awayTeam?.team?.abbreviation} {d.awayScore} - {homeTeam?.team?.abbreviation} {d.homeScore}
+                                                     </div>
+                                                  )}
+                                              </div>
+                                          );
+                                      }
+                                      return null;
+                                  }}
+                              />
+                              {inningDividers.map((idx) => (
+                                  <ReferenceLine key={idx} x={idx} stroke="#e2e8f0" strokeDasharray="3 3" />
+                              ))}
+                              <ReferenceLine y={75} stroke="#e2e8f0" strokeDasharray="3 3" />
+                              <ReferenceLine y={50} stroke="#cbd5e1" strokeWidth={2} />
+                              <ReferenceLine y={25} stroke="#e2e8f0" strokeDasharray="3 3" />
+                              <Area 
+                                  type="monotone" 
+                                  dataKey="chartValue" 
+                                  stroke="url(#splitStroke)" 
+                                  fill="url(#splitColor)"
+                                  fillOpacity={1}
+                                  strokeWidth={3}
+                                  dot={false}
+                                  activeDot={{ r: 6, fill: "#fff", stroke: '#cbd5e1', strokeWidth: 2 }}
+                                  baseValue={50}
+                              />
+                          </AreaChart>
+                              );
+                          })()}
+                      </ResponsiveContainer>
                   </div>
               )}
           </div>
