@@ -559,7 +559,7 @@ export const GamePage = () => {
                                           
                                           {/* Pitches / Detailed Plays */}
                                           {isExpanded && (
-                                              <div className="bg-slate-50/50 border-t border-slate-100 pl-36 flex flex-col">
+                                              <div className="bg-slate-50/50 border-t border-slate-100 pl-24 flex flex-col">
                                                   {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher" && p.type?.type !== "play-result").map((play: any, pIdx: number, arr: any[]) => {
                                                       const isPitch = play.pitchVelocity !== undefined || play.pitchType !== undefined;
                                                       let pitchNumber = null;
@@ -592,29 +592,29 @@ export const GamePage = () => {
                                                       }
 
                                                       return (
-                                                          <div key={`p-${play.id}-${pIdx}`} className="flex items-center gap-4 py-2 border-b border-slate-100 last:border-0">
+                                                          <div key={`p-${play.id}-${pIdx}`} className="flex items-center gap-3 py-1 border-b border-slate-100 last:border-0">
                                                               {isPitch && (
-                                                                  <div className="w-16 shrink-0 flex flex-col items-end border-r border-slate-200 pr-3">
-                                                                      {play.pitchVelocity ? <span className="text-xs font-black text-slate-700 tracking-tighter">{play.pitchVelocity} <span className="text-[10px] font-bold text-slate-400 uppercase">MPH</span></span> : <span className="text-xs text-slate-400 font-bold">-</span>}
-                                                                      {play.pitchType && <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter text-right leading-none mt-0.5">{play.pitchType.text}</span>}
+                                                                  <div className="w-12 shrink-0 flex flex-col items-end border-r border-slate-200 pr-2">
+                                                                      {play.pitchVelocity ? <span className="text-[10px] font-black text-slate-700 tracking-tighter">{play.pitchVelocity} <span className="text-[8px] font-bold text-slate-400 uppercase">MPH</span></span> : <span className="text-[10px] text-slate-400 font-bold">-</span>}
+                                                                      {play.pitchType && <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter text-right leading-none mt-0.5">{play.pitchType.text}</span>}
                                                                   </div>
                                                               )}
-                                                              {!isPitch && <div className="w-16 shrink-0 border-r border-slate-200 pr-3"></div>}
+                                                              {!isPitch && <div className="w-12 shrink-0 border-r border-slate-200 pr-2"></div>}
                                                               
-                                                              <div className="flex-1 py-1 flex items-center gap-3">
+                                                              <div className="flex-1 py-1 flex items-center gap-2">
                                                                   {pitchNumber && (
-                                                                      <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${pitchColor}`}>
+                                                                      <div className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black ${pitchColor}`}>
                                                                           {pitchNumber}
                                                                       </div>
                                                                   )}
-                                                                  <p className="text-sm text-slate-600">
+                                                                  <p className="text-xs text-slate-600">
                                                                       {play.display_text || play.text}
                                                                   </p>
                                                               </div>
                                                               {play.pitchCoordinate && (
-                                                                  <div className="shrink-0 w-16 flex justify-end pr-4 relative h-10 items-center">
+                                                                  <div className="shrink-0 w-12 flex justify-end pr-3 relative h-8 items-center">
                                                                       {/* Full Pitch Container (represents X:55-195, Y:112-220) */}
-                                                                      <div className="w-10 h-10 relative">
+                                                                      <div className="w-6 h-6 relative">
                                                                           {/* The actual Strikezone Box (inset 25% on all sides) */}
                                                                           <div className="absolute inset-x-0 inset-y-0 m-auto w-[50%] h-[50%] border border-slate-300 bg-white">
                                                                               {/* Grid lines */}
