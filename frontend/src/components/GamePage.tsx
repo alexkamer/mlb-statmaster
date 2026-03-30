@@ -417,13 +417,13 @@ export const GamePage = () => {
                                                               {pitcher ? (
                                                                   <div className="flex flex-col items-center flex-1" title={`Pitcher: ${pitcher.shortName}`}>
                                                                       <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{pitcher.shortName.split(' ').pop()}</span>
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{pitcher.lastName}</span>
                                                                   </div>
                                                               ) : <div className="flex-1"></div>}
                                                               {batter ? (
                                                                   <div className="flex flex-col items-center flex-1" title={`Batter: ${batter.shortName}`}>
                                                                       <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{batter.shortName.split(' ').pop()}</span>
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{batter.lastName}</span>
                                                                   </div>
                                                               ) : <div className="flex-1"></div>}
                                                           </div>
