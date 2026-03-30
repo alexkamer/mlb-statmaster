@@ -86,7 +86,52 @@ export const GamePage = () => {
         </div>
       </div>
       
-            {/* Game Content Navigation */}
+      {/* Linescore Matrix (Always Visible) */}
+      <div className="mb-12 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+         <div className="overflow-x-auto">
+             <table className="w-full text-center border-collapse tabular-nums table-fixed">
+                <thead>
+                   <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
+                       <th className="px-4 py-3 text-left w-48">Team</th>
+                       {awayTeam?.linescores?.map((_: any, i: number) => (
+                           <th key={i} className="px-3 py-3 text-center border-l border-slate-200/60">{i + 1}</th>
+                       ))}
+                       <th className="px-4 py-3 font-black text-primary border-l border-slate-200 w-[6%]">R</th>
+                       <th className="px-4 py-3 font-black text-primary w-[6%]">H</th>
+                       <th className="px-4 py-3 font-black text-primary w-[6%]">E</th>
+                   </tr>
+                </thead>
+                <tbody className="font-medium text-slate-700">
+                   <tr className="border-b border-slate-100 hover:bg-slate-50">
+                       <td className="px-4 py-3 text-left font-black flex items-center gap-2" style={{ color: `#${awayTeam?.team?.color}` }}>
+                           <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${awayTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-5 h-5 object-contain" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                           {awayTeam?.team?.abbreviation}
+                       </td>
+                       {awayTeam?.linescores?.map((inning: any, i: number) => (
+                           <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
+                       ))}
+                       <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{awayTeam?.score}</td>
+                       <td className="px-4 py-3 font-bold">{awayTeam?.hits}</td>
+                       <td className="px-4 py-3 font-bold">{awayTeam?.errors}</td>
+                   </tr>
+                   <tr className="hover:bg-slate-50">
+                       <td className="px-4 py-3 text-left font-black flex items-center gap-2" style={{ color: `#${homeTeam?.team?.color}` }}>
+                           <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${homeTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-5 h-5 object-contain" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                           {homeTeam?.team?.abbreviation}
+                       </td>
+                       {homeTeam?.linescores?.map((inning: any, i: number) => (
+                           <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
+                       ))}
+                       <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{homeTeam?.score}</td>
+                       <td className="px-4 py-3 font-bold">{homeTeam?.hits}</td>
+                       <td className="px-4 py-3 font-bold">{homeTeam?.errors}</td>
+                   </tr>
+                </tbody>
+             </table>
+         </div>
+      </div>
+      
+      {/* Game Content Navigation */}
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
          <button onClick={() => handleTabChange("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
          <button onClick={() => handleTabChange("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
@@ -94,51 +139,6 @@ export const GamePage = () => {
 
       {activeTab === "boxscore" && (
           <div className="flex flex-col gap-8">
-              
-              {/* Linescore Matrix */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                 <div className="overflow-x-auto">
-                     <table className="w-full text-center border-collapse tabular-nums table-fixed">
-                        <thead>
-                           <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
-                               <th className="px-4 py-3 text-left w-48">Team</th>
-                               {awayTeam?.linescores?.map((_: any, i: number) => (
-                                   <th key={i} className="px-3 py-3 text-center border-l border-slate-200/60">{i + 1}</th>
-                               ))}
-                               <th className="px-4 py-3 font-black text-primary border-l border-slate-200 w-[6%]">R</th>
-                               <th className="px-4 py-3 font-black text-primary w-[6%]">H</th>
-                               <th className="px-4 py-3 font-black text-primary w-[6%]">E</th>
-                           </tr>
-                        </thead>
-                        <tbody className="font-medium text-slate-700">
-                           <tr className="border-b border-slate-100 hover:bg-slate-50">
-                               <td className="px-4 py-3 text-left font-black flex items-center gap-2" style={{ color: `#${awayTeam?.team?.color}` }}>
-                                   <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${awayTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-5 h-5 object-contain" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                                   {awayTeam?.team?.abbreviation}
-                               </td>
-                               {awayTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
-                               ))}
-                               <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{awayTeam?.score}</td>
-                               <td className="px-4 py-3 font-bold">{awayTeam?.hits}</td>
-                               <td className="px-4 py-3 font-bold">{awayTeam?.errors}</td>
-                           </tr>
-                           <tr className="hover:bg-slate-50">
-                               <td className="px-4 py-3 text-left font-black flex items-center gap-2" style={{ color: `#${homeTeam?.team?.color}` }}>
-                                   <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${homeTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-5 h-5 object-contain" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                                   {homeTeam?.team?.abbreviation}
-                               </td>
-                               {homeTeam?.linescores?.map((inning: any, i: number) => (
-                                   <td key={i} className="px-3 py-3 border-l border-slate-200/60">{inning.displayValue || "-"}</td>
-                               ))}
-                               <td className="px-4 py-3 font-black text-primary border-l border-slate-200">{homeTeam?.score}</td>
-                               <td className="px-4 py-3 font-bold">{homeTeam?.hits}</td>
-                               <td className="px-4 py-3 font-bold">{homeTeam?.errors}</td>
-                           </tr>
-                        </tbody>
-                     </table>
-                 </div>
-              </div>
 
               {/* Player Box Scores */}
               <div className="flex flex-col gap-12">
