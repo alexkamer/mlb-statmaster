@@ -477,20 +477,6 @@ export const GamePage = () => {
                                               onClick={() => toggleAtBat(ab.id)}
                                               className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
                                           >
-                                              <div className="w-20 shrink-0 flex items-center justify-between border-r border-slate-200 pr-3 text-slate-700 font-bold">
-                                                  {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
-                                                      <div className="flex items-center gap-3 w-full">
-                                                          <div className="flex flex-col flex-1">
-                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
-                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.awayScore}</span>
-                                                          </div>
-                                                          <div className="flex flex-col flex-1 items-end">
-                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
-                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.homeScore}</span>
-                                                          </div>
-                                                      </div>
-                                                  ) : <span className="w-8"></span>}
-                                              </div>
                                               <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
                                                   <div className="flex flex-col justify-center pr-4">
                                                       <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
@@ -499,8 +485,20 @@ export const GamePage = () => {
                                                   </div>
                                               </div>
                                               
-                                              <div className="shrink-0 flex items-center justify-end w-10">
-                                                  <div className="text-slate-400">
+                                              <div className="shrink-0 flex items-center justify-end">
+                                                  {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
+                                                      <div className="flex items-center gap-4 w-20 text-slate-700 font-bold border-l border-slate-200 pl-4 mr-4">
+                                                          <div className="flex flex-col flex-1 items-center">
+                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
+                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.awayScore}</span>
+                                                          </div>
+                                                          <div className="flex flex-col flex-1 items-center">
+                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
+                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.homeScore}</span>
+                                                          </div>
+                                                      </div>
+                                                  ) : null}
+                                                  <div className="text-slate-400 w-10 flex justify-end">
                                                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                   </div>
                                               </div>
@@ -599,17 +597,29 @@ export const GamePage = () => {
                               const isScoring = play.scoringPlay;
                               return (
                                   <div key={`misc-${play.id}-${idx}`} className={`px-4 py-3 border-b border-slate-100 flex items-center gap-4 ${isScoring ? "bg-emerald-50/50" : ""}`}>
-                                      <div className="w-20 shrink-0 flex items-center justify-end border-r border-slate-200 pr-3 text-slate-400 font-bold">
-                                          <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
-                                      </div>
                                       <div className="flex-1 min-w-0 flex items-center justify-between">
                                           <div className="flex flex-col justify-center pr-4">
                                               <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-slate-500"}`}>
-                                                  {play.text}
+                                                  <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400 mr-2 border border-slate-200 px-1 py-0.5 rounded-sm bg-white">MISC PLAY</span> {play.text}
                                               </p>
                                           </div>
                                       </div>
-                                      <div className="shrink-0 flex items-center justify-end w-10"></div>
+                                      
+                                      <div className="shrink-0 flex items-center justify-end">
+                                          {(play.awayScore !== undefined && play.homeScore !== undefined) ? (
+                                              <div className="flex items-center gap-4 w-20 text-slate-700 font-bold border-l border-slate-200 pl-4 mr-4">
+                                                  <div className="flex flex-col flex-1 items-center">
+                                                      <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
+                                                      <span className="text-xs tabular-nums leading-none mt-1">{play.awayScore}</span>
+                                                  </div>
+                                                  <div className="flex flex-col flex-1 items-center">
+                                                      <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
+                                                      <span className="text-xs tabular-nums leading-none mt-1">{play.homeScore}</span>
+                                                  </div>
+                                              </div>
+                                          ) : <div className="w-20 border-l border-slate-200 pl-4 mr-4"></div>}
+                                          <div className="w-10"></div>
+                                      </div>
                                   </div>
                               );
                           });
