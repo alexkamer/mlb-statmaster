@@ -479,12 +479,12 @@ export const GamePage = () => {
                                   }
                                   
                                   return (
-                                      <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-white text-slate-500 font-bold uppercase tracking-widest text-[10px]`}>
+                                      <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50 text-slate-600 font-bold uppercase tracking-widest text-[10px]`}>
                                           <div className="flex-1">
-                                              <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
+                                              <span className="text-slate-900 font-black">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
                                           </div>
                                           <div className="shrink-0 flex items-center justify-end">
-                                              <div className="flex items-center gap-4 w-20 pl-4 mr-4 text-slate-700">
+                                              <div className="flex items-center gap-4 w-20 pl-4 mr-4 text-slate-900">
                                                   <div className="flex flex-col flex-1 items-center">
                                                       <span className="text-[10px] font-black uppercase tracking-widest leading-none">{awayTeam?.team?.abbreviation}</span>
                                                   </div>
