@@ -288,6 +288,22 @@ export const GamePage = () => {
                                   });
                               });
                           }
+                          if (data.boxscore?.players) {
+                              data.boxscore.players.forEach((teamStats: any) => {
+                                  teamStats.statistics?.forEach((statGroup: any) => {
+                                      statGroup.athletes?.forEach((entry: any) => {
+                                          const ath = entry.athlete;
+                                          if (ath && !playerLookup[ath.id]) {
+                                              playerLookup[ath.id] = {
+                                                  lastName: ath.lastName || ath.displayName.split(' ').pop(),
+                                                  shortName: ath.shortName || ath.displayName,
+                                                  headshot: ath.headshot?.href || `https://a.espncdn.com/i/headshots/mlb/players/full/${ath.id}.png`
+                                              };
+                                          }
+                                      });
+                                  });
+                              });
+                          }
                           const normalize = (str: string) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
 
                           plays.forEach((play: any) => {
