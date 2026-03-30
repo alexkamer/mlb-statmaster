@@ -894,16 +894,23 @@ export const GamePage = () => {
                                           )}
                                       </div>
                                       <div className="flex gap-6 text-sm font-medium">
-                                          {pc.details && (
-                                              <div className="flex flex-col items-end">
-                                                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Line</span>
-                                                  <span className="font-black text-primary">{pc.details}</span>
+                                          <div className="flex flex-col items-end">
+                                              <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Moneyline</span>
+                                              <div className="flex flex-col items-end gap-0.5 mt-0.5">
+                                                  <div className="flex items-center gap-1">
+                                                      <span className="text-xs font-bold text-slate-500">{awayTeam?.team?.abbreviation}</span>
+                                                      <span className="font-black text-primary w-10 text-right">{pc.awayTeamOdds?.moneyLine > 0 ? `+${pc.awayTeamOdds.moneyLine}` : pc.awayTeamOdds?.moneyLine || '-'}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1">
+                                                      <span className="text-xs font-bold text-slate-500">{homeTeam?.team?.abbreviation}</span>
+                                                      <span className="font-black text-primary w-10 text-right">{pc.homeTeamOdds?.moneyLine > 0 ? `+${pc.homeTeamOdds.moneyLine}` : pc.homeTeamOdds?.moneyLine || '-'}</span>
+                                                  </div>
                                               </div>
-                                          )}
+                                          </div>
                                           {pc.overUnder && (
                                               <div className="flex flex-col items-end">
                                                   <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">O/U</span>
-                                                  <span className="font-black text-primary">{pc.overUnder}</span>
+                                                  <span className="font-black text-primary mt-0.5">{pc.overUnder}</span>
                                               </div>
                                           )}
                                       </div>
