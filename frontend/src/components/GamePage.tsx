@@ -306,6 +306,8 @@ export const GamePage = () => {
                           }
                           const normalize = (str: string) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
 
+                          const lastPitcherByHalf: Record<string, string> = {};
+
                           plays.forEach((play: any) => {
                               const isStartInning = play.type?.type === "start-inning" || play.type?.type === "end-inning";
                               if (isStartInning) {
@@ -316,25 +318,21 @@ export const GamePage = () => {
                               if (play.type?.type === "start-batterpitcher") {
                                   const pitcher = play.participants?.find((p: any) => p.type === 'pitcher');
                                   if (pitcher && pitcher.athlete?.id) {
-                                      // Check if this is a new pitcher for this team
+                                      const half = play.period?.type; // "Top" or "Bottom"
                                       const lastPlay = atBats[atBats.length - 1];
-                                      let isNewPitcher = false;
                                       
-                                      // Only insert pitching changes if we aren't immediately following an inning marker, 
-                                      // because those happen at the start of the half inning.
-                                      if (lastPlay && lastPlay.type !== "inning-marker") {
-                                          // Find the last known pitcher
-                                          const prevABPlay = [...atBats].reverse().find(a => a.type === "at-bat" && a.atBat.startPlay);
-                                          const prevPitcherId = prevABPlay?.atBat.startPlay?.participants?.find((p: any) => p.type === 'pitcher')?.athlete?.id;
-                                          if (prevPitcherId && prevPitcherId !== pitcher.athlete.id) {
-                                              isNewPitcher = true;
-                                          }
+                                      let isPitchingChange = false;
+                                      
+                                      if (lastPitcherByHalf[half] !== pitcher.athlete.id) {
+                                          isPitchingChange = true;
+                                          lastPitcherByHalf[half] = pitcher.athlete.id;
                                       } else if (lastPlay && lastPlay.type === "inning-marker" && lastPlay.play.type?.type === "start-inning") {
-                                          // It's the start of an inning, log the pitcher for the inning
-                                          isNewPitcher = true;
+                                          // It's the same pitcher, but it's the start of a new inning.
+                                          // ESPN typically doesn't restate the pitcher at the top of an inning if they were already pitching in the previous inning.
+                                          isPitchingChange = false;
                                       }
                                       
-                                      if (isNewPitcher) {
+                                      if (isPitchingChange) {
                                           atBats.push({ type: "pitching-change", play, pitcherId: pitcher.athlete.id });
                                       }
                                   }
