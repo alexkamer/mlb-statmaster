@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 
 import { fetchGameSummary } from '../api';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
 
 const TooltipStateSyncer = ({ active, payload, onHover }: any) => {
@@ -41,10 +41,10 @@ export const GamePage = () => {
       });
   };
   
-  const activeTab = searchParams.get("tab") === "plays" ? "plays" : searchParams.get("tab") === "win_probability" ? "win_probability" : "boxscore";
+  let activeTab = searchParams.get("tab") || "boxscore";
   const filterPlays = searchParams.get("filter") === "scoring" ? "scoring" : "all";
 
-  const handleTabChange = (tab: "boxscore" | "plays" | "win_probability") => {
+  const handleTabChange = (tab: string) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
     setSearchParams(newParams);
@@ -149,6 +149,16 @@ export const GamePage = () => {
 
   const header = data.header?.competitions?.[0];
   const homeTeam = header?.competitors?.find((c: any) => c.homeAway === "home");
+  const isPregame = header?.status?.type?.state === 'pre';
+  const validTabs = isPregame ? ["matchup"] : ["boxscore", "plays", "win_probability"];
+  if (isPregame && activeTab !== "matchup") {
+      activeTab = "matchup";
+  } else if (!isPregame && activeTab === "matchup") {
+      activeTab = "boxscore";
+  }
+  if (!validTabs.includes(activeTab)) {
+      activeTab = isPregame ? "matchup" : "boxscore";
+  }
   const awayTeam = header?.competitors?.find((c: any) => c.homeAway === "away");
 
   return (
@@ -180,7 +190,8 @@ export const GamePage = () => {
         </div>
       </div>
       
-      {/* Linescore Matrix (Always Visible) */}
+      {/* Linescore Matrix (Always Visible unless Pregame) */}
+      {!isPregame && (
       <div className="mb-12 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
          <div className="overflow-x-auto">
              <table className="w-full text-center border-collapse tabular-nums table-fixed">
@@ -276,13 +287,20 @@ export const GamePage = () => {
              </div>
          )}
       </div>
+      )}
       
       {/* Game Content Navigation */}
+      {isPregame ? (
+          <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
+             <button onClick={() => handleTabChange("matchup")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "matchup" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Matchup Preview</button>
+          </div>
+      ) : (
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
          <button onClick={() => handleTabChange("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
          <button onClick={() => handleTabChange("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
          <button onClick={() => handleTabChange("win_probability")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "win_probability" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Win Probability</button>
       </div>
+      )}
 
       {activeTab === "boxscore" && (
           <div className="flex flex-col gap-8">
@@ -822,6 +840,173 @@ export const GamePage = () => {
                               );
                           });
                       })()}
+                  </div>
+              )}
+          </div>
+      )}
+
+
+      {activeTab === "matchup" && (
+          <div className="flex flex-col gap-8">
+              {/* Matchup Predictor & Odds */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Predictor */}
+                  {data.predictor && (
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                              <TrendingUp className="w-5 h-5 text-slate-400" />
+                              <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Matchup Predictor</h3>
+                          </div>
+                          <div className="p-8 flex-1 flex flex-col justify-center">
+                              <div className="flex items-center justify-between mb-4">
+                                  <div className="flex items-center gap-3">
+                                      <img src={awayTeam?.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/mlb/500/${awayTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-8 h-8 object-contain" alt="" />
+                                      <span className="font-bold text-xl" style={{ color: `#${awayTeam?.team?.color}` }}>{data.predictor.awayTeam?.gameProjection}%</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                      <span className="font-bold text-xl" style={{ color: `#${homeTeam?.team?.color}` }}>{data.predictor.homeTeam?.gameProjection}%</span>
+                                      <img src={homeTeam?.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/mlb/500/${homeTeam?.team?.abbreviation?.toLowerCase()}.png`} className="w-8 h-8 object-contain" alt="" />
+                                  </div>
+                              </div>
+                              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                                  <div className="h-full" style={{ width: `${data.predictor.awayTeam?.gameProjection}%`, backgroundColor: `#${awayTeam?.team?.color}` }}></div>
+                                  <div className="h-full" style={{ width: `${data.predictor.homeTeam?.gameProjection}%`, backgroundColor: `#${homeTeam?.team?.color}` }}></div>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* Odds */}
+                  {data.pickcenter && data.pickcenter.length > 0 && (
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                              <Shield className="w-5 h-5 text-slate-400" />
+                              <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Odds & Lines</h3>
+                          </div>
+                          <div className="p-6 flex-1 flex flex-col gap-4 justify-center">
+                              {data.pickcenter.slice(0, 2).map((pc: any, idx: number) => (
+                                  <div key={idx} className="flex items-center justify-between border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                                      <div className="flex items-center gap-3">
+                                          {pc.provider?.logos?.[0]?.href ? (
+                                              <img src={pc.provider.logos[0].href} className="h-6 object-contain" alt={pc.provider.name} />
+                                          ) : (
+                                              <span className="font-bold text-slate-600 text-sm">{pc.provider?.name || 'Odds'}</span>
+                                          )}
+                                      </div>
+                                      <div className="flex gap-6 text-sm font-medium">
+                                          {pc.details && (
+                                              <div className="flex flex-col items-end">
+                                                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Line</span>
+                                                  <span className="font-black text-primary">{pc.details}</span>
+                                              </div>
+                                          )}
+                                          {pc.overUnder && (
+                                              <div className="flex flex-col items-end">
+                                                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">O/U</span>
+                                                  <span className="font-black text-primary">{pc.overUnder}</span>
+                                              </div>
+                                          )}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+              </div>
+
+              {/* Probable Pitchers */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-slate-400" />
+                      <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Probable Pitchers</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                      {[awayTeam, homeTeam].map((teamData: any, idx: number) => {
+                          const probable = teamData?.probables?.[0]?.athlete;
+                          
+                          // Look up season stats from boxscore or leaders if available. 
+                          // Often in pre-game, probables might not have detailed stats directly under them in the "header" 
+                          // but wait, we can just show the basics.
+                          return (
+                              <div key={idx} className="p-8 flex items-center gap-6">
+                                  <div className="w-24 h-24 rounded-full bg-slate-100 border-2 overflow-hidden shadow-sm shrink-0 flex items-center justify-center text-slate-300 font-black text-xs" style={{ borderColor: `#${teamData?.team?.color}` }}>
+                                      {probable?.headshot?.href ? (
+                                          <img src={probable.headshot.href} alt={probable.displayName} className="w-full h-full object-cover object-top bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                      ) : (
+                                          <span>TBD</span>
+                                      )}
+                                  </div>
+                                  <div className="flex flex-col justify-center">
+                                      <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: `#${teamData?.team?.color}` }}>{teamData?.team?.name} Starter</span>
+                                      {probable ? (
+                                          <>
+                                              <Link to={`/players/${probable.id}`} className="font-headline font-black text-2xl text-primary hover:underline">{probable.displayName}</Link>
+                                              <div className="flex items-center gap-2 mt-1">
+                                                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{probable.position?.abbreviation || 'P'}</span>
+                                                  {probable.throws?.abbreviation && (
+                                                      <>
+                                                          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Throws {probable.throws.abbreviation}</span>
+                                                      </>
+                                                  )}
+                                                  {probable.statsSummary && (
+                                                      <>
+                                                          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{probable.statsSummary}</span>
+                                                      </>
+                                                  )}
+                                              </div>
+                                          </>
+                                      ) : (
+                                          <p className="font-headline font-black text-xl text-slate-400 mt-1">To Be Determined</p>
+                                      )}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+
+              {/* Game Info */}
+              {data.gameInfo && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                      <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                          <Info className="w-5 h-5 text-slate-400" />
+                          <h3 className="font-headline font-black uppercase tracking-widest text-slate-700">Game Information</h3>
+                      </div>
+                      <div className="flex flex-col md:flex-row">
+                          {data.gameInfo.venue?.images?.[0]?.href && (
+                              <div className="w-full md:w-1/3 h-48 md:h-auto bg-slate-200 relative">
+                                  <img src={data.gameInfo.venue.images[0].href} className="absolute inset-0 w-full h-full object-cover" alt="Venue" />
+                              </div>
+                          )}
+                          <div className="p-6 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                              <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Venue</p>
+                                  <p className="font-bold text-primary">{data.gameInfo.venue?.fullName || 'TBD Venue'}</p>
+                                  {(data.gameInfo.venue?.address?.city || data.gameInfo.venue?.address?.state) && (
+                                      <p className="text-sm font-medium text-slate-500 mt-0.5">
+                                          {data.gameInfo.venue.address.city}{data.gameInfo.venue.address.city && data.gameInfo.venue.address.state ? ', ' : ''}{data.gameInfo.venue.address.state}
+                                      </p>
+                                  )}
+                              </div>
+                              {data.ticketsInfo && (
+                                  <div>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Tickets</p>
+                                      <a href={data.ticketsInfo.seatSituation?.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-bold text-sm text-secondary hover:text-primary transition-colors">
+                                          <Ticket className="w-4 h-4" />
+                                          {data.ticketsInfo.seatSituation?.summary || "Find Tickets"}
+                                      </a>
+                                  </div>
+                              )}
+                              {data.broadcasts && data.broadcasts.length > 0 && (
+                                  <div>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Broadcast</p>
+                                      <p className="font-bold text-primary">{data.broadcasts[0].media?.shortName || data.broadcasts[0].market?.name}</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
                   </div>
               )}
           </div>
