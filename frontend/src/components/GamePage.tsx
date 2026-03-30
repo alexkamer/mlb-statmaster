@@ -329,19 +329,34 @@ export const GamePage = () => {
                                           lastPitcherByHalf[half] = pitcher.athlete.id;
                                       }
                                       
-                                      if (lastPlay && lastPlay.type === "inning-marker") {
+                                      let realLastPlay = lastPlay;
+                                      if (lastPlay && lastPlay.type === "at-bat" && lastPlay.atBat.id === play.atBatId) {
+                                          realLastPlay = atBats[atBats.length - 2];
+                                      }
+                                      
+                                      if (realLastPlay && realLastPlay.type === "inning-marker") {
                                           // It's the start of an inning, we ALWAYS state the pitcher for the inning
                                           isStartOfInningPitcher = true;
                                           isPitchingChange = false; // Don't call it a change if it's the start of an inning
                                       }
                                       
                                       if (isPitchingChange || isStartOfInningPitcher) {
-                                          atBats.push({ 
+                                          const pBlock = { 
                                               type: "pitching-change", 
                                               play, 
                                               pitcherId: pitcher.athlete.id, 
                                               isChange: isPitchingChange 
-                                          });
+                                          };
+                                          if (currentAtBat && currentAtBat.id === play.atBatId) {
+                                              const idx = atBats.findIndex(a => a.type === "at-bat" && a.atBat.id === play.atBatId);
+                                              if (idx !== -1) {
+                                                  atBats.splice(idx, 0, pBlock);
+                                              } else {
+                                                  atBats.push(pBlock);
+                                              }
+                                          } else {
+                                              atBats.push(pBlock);
+                                          }
                                       }
                                   }
                               }
