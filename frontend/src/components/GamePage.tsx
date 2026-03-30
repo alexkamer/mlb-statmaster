@@ -436,27 +436,11 @@ export const GamePage = () => {
                                       if (play.team.id === awayTeam?.id) team = homeTeam?.team;
                                   }
                                   
-                                  if (!item.isChange) {
-                                      // Start of inning: "S. LUGO PITCHING FOR KC"
-                                      return (
-                                          <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center bg-white text-slate-500 font-bold uppercase tracking-widest text-[10px]`}>
-                                              <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
-                                          </div>
-                                      );
-                                  } else {
-                                      // Mid-inning change: "PITCHING CHANGE" left, "M. STRAHM FOR KC" middle
-                                      return (
-                                          <div key={`pitcher-${idx}`} className={`px-4 py-1.5 border-b border-slate-100 flex items-center bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[9px]`}>
-                                              <div className="w-20 shrink-0 pr-3 text-right">
-                                                  <span>PITCHING<br/>CHANGE</span>
-                                              </div>
-                                              <div className="flex-1 pl-4 flex items-center gap-2 border-l border-slate-200 h-8">
-                                                  {pitcher?.headshot && <img src={pitcher.headshot} className="w-5 h-5 rounded-full object-cover object-top border border-slate-200 bg-white" referrerPolicy="no-referrer" />}
-                                                  <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} FOR {team?.abbreviation}</span>
-                                              </div>
-                                          </div>
-                                      );
-                                  }
+                                  return (
+                                      <div key={`pitcher-${idx}`} className={`px-4 py-2 border-b border-slate-100 flex items-center bg-white text-slate-500 font-bold uppercase tracking-widest text-[10px]`}>
+                                          <span className="text-slate-700">{pitcher?.shortName?.toUpperCase() || pitcher?.lastName?.toUpperCase()} PITCHING FOR {team?.abbreviation}</span>
+                                      </div>
+                                  );
                               }
 
                               if (item.type === "at-bat") {
