@@ -286,13 +286,6 @@ export const DailyScoreboard = () => {
                       <p className="text-[11px] text-slate-500">{comp.venue?.address?.city}, {comp.venue?.address?.state}</p>
                     </div>
                     <div className="h-px w-full bg-slate-100" />
-                    <div className="flex items-center gap-2">
-                      <Ticket className="w-5 h-5 text-[#0066cc]" />
-                      <a href={event.tickets?.[0]?.links?.[0]?.href || '#'} target="_blank" rel="noreferrer" className="text-xs font-medium text-[#0066cc] hover:underline">
-                         {event.tickets?.[0]?.summary || 'Tickets available'}
-                      </a>
-                    </div>
-                    <div className="h-px w-full bg-slate-100" />
                     <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 overflow-hidden">
                       <table className="w-full text-left border-collapse">
                         <thead>
