@@ -432,17 +432,7 @@ export const GamePage = () => {
                                                   </div>
                                               </div>
                                               
-                                              <div className="shrink-0 flex items-center justify-end w-[120px]">
-                                                  {isScoring ? (
-                                                      <div className="flex flex-col items-end mr-4">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
-                                                        <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
-                                                            {resultPlay.awayScore} - {resultPlay.homeScore}
-                                                        </span>
-                                                      </div>
-                                                  ) : (
-                                                      <div className="mr-4"></div>
-                                                  )}
+                                              <div className="shrink-0 flex items-center justify-end w-12">
                                                   <div className="text-slate-400">
                                                       {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                                   </div>
@@ -528,17 +518,7 @@ export const GamePage = () => {
                                               </p>
                                           </div>
                                       </div>
-                                      
-                                      <div className="shrink-0 flex items-center justify-end w-[120px]">
-                                          {isScoring && (
-                                              <div className="flex flex-col items-end mr-4">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
-                                                <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
-                                                    {play.awayScore} - {play.homeScore}
-                                                </span>
-                                              </div>
-                                          )}
-                                      </div>
+                                      <div className="shrink-0 flex items-center justify-end w-12"></div>
                                   </div>
                               );
                           });
