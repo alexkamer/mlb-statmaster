@@ -1,14 +1,43 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 import { fetchGameSummary } from '../api';
 import { Link } from 'react-router-dom';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export const GamePage = () => {
   const { gameId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<"boxscore" | "plays">("boxscore");
+  const [expandedAtBats, setExpandedAtBats] = React.useState<Set<string>>(new Set());
+  
+  const toggleAtBat = (abId: string) => {
+      setExpandedAtBats(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(abId)) {
+              newSet.delete(abId);
+          } else {
+              newSet.add(abId);
+          }
+          return newSet;
+      });
+  };
+  
+  const activeTab = searchParams.get("tab") === "plays" ? "plays" : "boxscore";
+  const filterPlays = searchParams.get("filter") === "scoring" ? "scoring" : "all";
+
+  const handleTabChange = (tab: "boxscore" | "plays") => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tab", tab);
+    setSearchParams(newParams);
+  };
+  
+  const handleFilterChange = (filter: "all" | "scoring") => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("filter", filter);
+    setSearchParams(newParams);
+  };
 
   React.useEffect(() => {
     async function loadData() {
@@ -59,8 +88,8 @@ export const GamePage = () => {
       
             {/* Game Content Navigation */}
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
-         <button onClick={() => setActiveTab("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
-         <button onClick={() => setActiveTab("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
+         <button onClick={() => handleTabChange("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
+         <button onClick={() => handleTabChange("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
       </div>
 
       {activeTab === "boxscore" && (
@@ -218,47 +247,215 @@ export const GamePage = () => {
 
       {activeTab === "plays" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-700 uppercase tracking-wider">Play-by-Play</span>
+                <div className="flex bg-slate-200 p-1 rounded-lg">
+                    <button 
+                        onClick={() => handleFilterChange("all")} 
+                        className={`px-4 py-1 text-xs font-bold uppercase tracking-widest rounded-md transition-colors ${filterPlays === "all" ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                        All Plays
+                    </button>
+                    <button 
+                        onClick={() => handleFilterChange("scoring")} 
+                        className={`px-4 py-1 text-xs font-bold uppercase tracking-widest rounded-md transition-colors ${filterPlays === "scoring" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                        Scoring Plays
+                    </button>
+                </div>
+              </div>
               {data.plays?.length === 0 ? (
                   <div className="p-12 text-center text-slate-500 font-bold">Play-by-play data is not available for this game yet.</div>
               ) : (
                   <div className="flex flex-col">
-                      {data.plays?.map((play: any, idx: number) => {
-                          const isStartInning = play.type?.type === "start-inning";
-                          const isScoring = play.scoringPlay;
+                      {(() => {
+                          const plays = data.plays || [];
+                          let atBats: any[] = [];
+                          let currentAtBat: any = null;
+
+                          plays.forEach((play: any) => {
+                              const isStartInning = play.type?.type === "start-inning" || play.type?.type === "end-inning";
+                              if (isStartInning) {
+                                  atBats.push({ type: "inning-marker", play });
+                                  return;
+                              }
+
+                              if (play.atBatId) {
+                                  if (!currentAtBat || currentAtBat.id !== play.atBatId) {
+                                      currentAtBat = { id: play.atBatId, plays: [], resultPlay: null, startPlay: null, scoringPlay: false };
+                                      atBats.push({ type: "at-bat", atBat: currentAtBat });
+                                  }
+                                  
+                                  currentAtBat.plays.push(play);
+                                  if (play.scoringPlay) currentAtBat.scoringPlay = true;
+                                  if (play.type?.type === "play-result") currentAtBat.resultPlay = play;
+                                  if (play.type?.type === "start-batterpitcher") currentAtBat.startPlay = play;
+                              } else {
+                                  atBats.push({ type: "misc", play });
+                              }
+                          });
+
+                          let filteredItems = atBats.filter(item => {
+                              if (filterPlays === "scoring") {
+                                  if (item.type === "at-bat") return item.atBat.scoringPlay;
+                                  if (item.type === "misc") return item.play.scoringPlay;
+                                  return item.type === "inning-marker"; 
+                              }
+                              return true;
+                          });
                           
-                          if (isStartInning) {
+                          // Clean up consecutive inning markers that happen after filtering
+                          filteredItems = filteredItems.filter((item, idx, arr) => {
+                              if (item.type === "inning-marker") {
+                                  if (idx === arr.length - 1) return false;
+                                  if (arr[idx+1].type === "inning-marker") return false;
+                              }
+                              return true;
+                          });
+
+                          return filteredItems.map((item: any, idx: number) => {
+                              if (item.type === "inning-marker") {
+                                  return (
+                                      <div key={`inning-${idx}`} className="bg-slate-100 px-6 py-2 border-y border-slate-200 font-black text-xs uppercase tracking-widest text-slate-500 sticky top-0 z-10 shadow-sm flex items-center justify-between">
+                                          <span>{item.play.text}</span>
+                                          <span className="text-[10px] bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm">{item.play.awayScore} - {item.play.homeScore}</span>
+                                      </div>
+                                  );
+                              }
+
+                              if (item.type === "at-bat") {
+                                  const ab = item.atBat;
+                                  const isExpanded = expandedAtBats.has(ab.id);
+                                  const resultPlay = ab.resultPlay || ab.plays[ab.plays.length - 1];
+                                  const isScoring = ab.scoringPlay;
+                                  
+                                  return (
+                                      <div key={`ab-${ab.id}-${idx}`} className="border-b border-slate-100">
+                                          {/* At-Bat Header */}
+                                          <div 
+                                              onClick={() => toggleAtBat(ab.id)}
+                                              className={`px-6 py-4 flex items-center gap-6 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
+                                          >
+                                              <div className="w-24 shrink-0 flex items-center justify-between border-r border-slate-200 pr-4 text-slate-700 font-bold">
+                                                  {(resultPlay.resultCount?.balls !== undefined && resultPlay.resultCount?.strikes !== undefined) ? (
+                                                      <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">Count</span>
+                                                        <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.resultCount.balls}-{resultPlay.resultCount.strikes}</span>
+                                                      </div>
+                                                  ) : <span className="w-8"></span>}
+                                                  
+                                                  <div className="flex flex-col items-end">
+                                                      <span className="text-[10px] font-black uppercase tracking-widest leading-none text-rose-400">Outs</span>
+                                                      <span className="text-sm tabular-nums leading-none mt-1 font-black">{resultPlay.outs || resultPlay.resultCount?.outs || 0}</span>
+                                                  </div>
+                                              </div>
+                                              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                  {ab.startPlay && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
+                                                  <p className={`text-base leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
+                                                      {resultPlay.text}
+                                                  </p>
+                                              </div>
+                                              {isScoring && (
+                                                  <div className="shrink-0 flex flex-col items-end mr-4">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
+                                                    <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
+                                                        {resultPlay.awayScore} - {resultPlay.homeScore}
+                                                    </span>
+                                                  </div>
+                                              )}
+                                              <div className="shrink-0 text-slate-400">
+                                                  {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                              </div>
+                                          </div>
+                                          
+                                          {/* Pitches / Detailed Plays */}
+                                          {isExpanded && (
+                                              <div className="bg-slate-50/50 border-t border-slate-100 p-4 pl-36 space-y-2">
+                                                  {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher").map((play: any, pIdx: number) => {
+                                                      const isPitch = play.pitchVelocity !== undefined || play.pitchType !== undefined;
+                                                      const isResult = play.type?.type === "play-result";
+                                                      let pitchNumber = null;
+                                                      let pitchColor = "bg-slate-200 text-slate-500"; // default grey
+                                                      
+                                                      if (isPitch && play.text) {
+                                                          const match = play.text.match(/^Pitch (\d+)\s*:\s*(.*)$/i);
+                                                          if (match) {
+                                                              pitchNumber = match[1];
+                                                              const outcome = match[2].toLowerCase();
+                                                              if (outcome.includes("ball in play") || outcome.includes("ball") && !outcome.includes("foul")) {
+                                                                  if (outcome.includes("ball in play")) {
+                                                                      pitchColor = "bg-blue-600 text-white"; // blue for in play
+                                                                  } else {
+                                                                      pitchColor = "bg-emerald-500 text-white"; // green for ball
+                                                                  }
+                                                              } else if (outcome.includes("strike") && !outcome.includes("foul")) {
+                                                                  pitchColor = "bg-rose-500 text-white"; // red for strike
+                                                              } else if (outcome.includes("foul")) {
+                                                                  if (play.resultCount?.strikes === 2 && !outcome.includes("strike 3")) {
+                                                                       pitchColor = "bg-slate-300 text-slate-600"; // grey for foul with 2 strikes
+                                                                  } else {
+                                                                       pitchColor = "bg-rose-400 text-white"; // lighter red for foul
+                                                                  }
+                                                              }
+                                                              // strip 'Pitch X :' from the display text
+                                                              play.display_text = match[2];
+                                                          }
+                                                      }
+
+                                                      return (
+                                                          <div key={`p-${play.id}-${pIdx}`} className="flex items-center gap-4">
+                                                              {isPitch && (
+                                                                  <div className="w-16 shrink-0 flex flex-col items-end border-r border-slate-200 pr-3">
+                                                                      {play.pitchVelocity ? <span className="text-xs font-black text-slate-700 tracking-tighter">{play.pitchVelocity} <span className="text-[10px] font-bold text-slate-400 uppercase">MPH</span></span> : <span className="text-xs text-slate-400 font-bold">-</span>}
+                                                                      {play.pitchType && <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter text-right leading-none mt-0.5">{play.pitchType.text}</span>}
+                                                                  </div>
+                                                              )}
+                                                              {!isPitch && !isResult && <div className="w-16 shrink-0 border-r border-slate-200 pr-3"></div>}
+                                                              
+                                                              <div className="flex-1 py-1 flex items-center gap-3">
+                                                                  {pitchNumber && (
+                                                                      <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${pitchColor}`}>
+                                                                          {pitchNumber}
+                                                                      </div>
+                                                                  )}
+                                                                  <p className={`text-sm ${isResult ? "font-bold text-primary" : "text-slate-600"}`}>
+                                                                      {play.display_text || play.text}
+                                                                  </p>
+                                                              </div>
+                                                          </div>
+                                                      );
+                                                  })}
+                                              </div>
+                                          )}
+                                      </div>
+                                  );
+                              }
+
+                              // Misc plays (e.g. balks, pickoffs, etc not tied to an AB)
+                              const play = item.play;
+                              const isScoring = play.scoringPlay;
                               return (
-                                  <div key={idx} className="bg-slate-100 px-6 py-3 border-y border-slate-200 font-black text-sm uppercase tracking-widest text-slate-500 sticky top-[48px] z-10 shadow-sm">
-                                      {play.text}
+                                  <div key={`misc-${play.id}-${idx}`} className={`px-6 py-4 border-b border-slate-100 flex items-center gap-6 ${isScoring ? "bg-emerald-50/50" : ""}`}>
+                                      <div className="w-24 shrink-0 flex items-center justify-end border-r border-slate-200 pr-4 text-slate-400 font-bold">
+                                          <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
+                                      </div>
+                                      <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                                          <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-slate-500"}`}>
+                                              {play.text}
+                                          </p>
+                                          {isScoring && (
+                                              <div className="shrink-0 flex flex-col items-end mr-10">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
+                                                <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
+                                                    {play.awayScore} - {play.homeScore}
+                                                </span>
+                                              </div>
+                                          )}
+                                      </div>
                                   </div>
                               );
-                          }
-
-                          return (
-                              <div key={idx} className={`px-6 py-4 border-b border-slate-100 flex gap-6 hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/30" : ""}`}>
-                                  {/* Left Column: Outs & Count */}
-                                  <div className="w-20 shrink-0 flex flex-col gap-1 border-r border-slate-200 pr-4">
-                                      {play.period?.displayValue && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{play.period.displayValue}</span>}
-                                      <span className="text-xs font-bold text-slate-600 tabular-nums">O: {play.resultCount?.outs || 0}</span>
-                                      {(play.resultCount?.balls !== undefined) && (
-                                          <span className="text-[10px] font-bold text-slate-400 uppercase tabular-nums">{play.resultCount.balls}-{play.resultCount.strikes} Count</span>
-                                      )}
-                                  </div>
-
-                                  {/* Right Column: Play Text */}
-                                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                      <p className={`text-sm ${isScoring ? "font-bold text-emerald-800" : "font-medium text-slate-700"}`}>
-                                          {play.text}
-                                      </p>
-                                      {isScoring && (
-                                          <span className="inline-block mt-2 text-xs font-black uppercase tracking-widest text-emerald-600 bg-emerald-100/50 px-2 py-1 rounded w-max">
-                                              Score: {play.awayScore} - {play.homeScore}
-                                          </span>
-                                      )}
-                                  </div>
-                              </div>
-                          );
-                      })}
+                          });
+                      })()}
                   </div>
               )}
           </div>

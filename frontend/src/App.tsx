@@ -15,6 +15,7 @@ import { SchedulePage } from './components/SchedulePage';
 import { PlayerPage } from './components/PlayerPage';
 import { LeagueLeadersPage } from './components/LeagueLeadersPage';
 import { LeaguePlayersPage } from './components/LeaguePlayersPage';
+import { GamePage } from './components/GamePage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
@@ -213,7 +214,7 @@ const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
   );
 };
 
-const HeroSection = ({ team, standing, seasons, selectedYear, onYearChange }: { team: any, standing: any, seasons: any[], selectedYear: number, onYearChange: (y: number) => void }) => {
+const HeroSection = ({ team, standing, seasons, selectedYear, onYearChange, espnRecords }: { team: any, standing: any, seasons: any[], selectedYear: number, onYearChange: (y: number) => void, espnRecords?: any }) => {
   const getRankSuffix = (rank: number) => {
     if (!rank) return '';
     const j = rank % 10, k = rank % 100;
@@ -971,6 +972,15 @@ const AppContent = () => {
             <Header selectedTeamId={null} />
             <main className="pt-36 px-6 pb-12 transition-all duration-300">
               <LeaguePlayersPage />
+            </main>
+            <Footer />
+          </>
+        } />
+        <Route path="/games/:gameId" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 px-6 pb-12 transition-all duration-300">
+              <GamePage />
             </main>
             <Footer />
           </>

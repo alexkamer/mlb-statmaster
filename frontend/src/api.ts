@@ -387,3 +387,15 @@ export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory:
         return [];
     }
 }
+
+
+export async function fetchGameSummary(gameId: string) {
+    try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch(e) {
+        console.error("Failed to fetch game summary", e);
+        return null;
+    }
+}

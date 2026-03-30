@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Ticket } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
+import { Link } from 'react-router-dom';
 
 export const DailyScoreboard = () => {
   const { events, displayDate } = useScoreboard();

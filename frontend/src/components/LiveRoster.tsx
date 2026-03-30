@@ -27,7 +27,7 @@ export const LiveRoster = ({ roster, onPlayerClick }: { roster: any[], onPlayerC
               <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">{groupName}</h4>
             </div>
             <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
-              {players.map((player) => (
+              {(players as any[]).map((player) => (
                 <div 
                   key={player.athlete_id} 
                   onClick={() => onPlayerClick(player)}
