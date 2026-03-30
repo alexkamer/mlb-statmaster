@@ -351,7 +351,6 @@ export const GamePage = () => {
                                   return (
                                       <div key={`inning-${idx}`} className="bg-slate-100 px-6 py-2 border-y border-slate-200 font-black text-xs uppercase tracking-widest text-slate-500 sticky top-0 z-10 shadow-sm flex items-center justify-between">
                                           <span>{item.play.text}</span>
-                                          <span className="text-[10px] bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm">{item.play.awayScore} - {item.play.homeScore}</span>
                                       </div>
                                   );
                               }
