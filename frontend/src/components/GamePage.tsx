@@ -401,53 +401,34 @@ export const GamePage = () => {
                                           {/* At-Bat Header */}
                                           <div 
                                               onClick={() => toggleAtBat(ab.id)}
-                                              className={`px-6 py-4 flex items-center gap-6 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
+                                              className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
                                           >
-                                              <div className="w-24 shrink-0 flex items-center justify-between border-r border-slate-200 pr-4 text-slate-700 font-bold">
+                                              <div className="w-20 shrink-0 flex items-center justify-between border-r border-slate-200 pr-3 text-slate-700 font-bold">
                                                   {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
-                                                      <div className="flex items-center gap-4 w-full">
+                                                      <div className="flex items-center gap-3 w-full">
                                                           <div className="flex flex-col flex-1">
-                                                              <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
-                                                              <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.awayScore}</span>
+                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}</span>
+                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.awayScore}</span>
                                                           </div>
                                                           <div className="flex flex-col flex-1 items-end">
-                                                              <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
-                                                              <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.homeScore}</span>
+                                                              <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">{homeTeam?.team?.abbreviation}</span>
+                                                              <span className="text-xs tabular-nums leading-none mt-1">{resultPlay.homeScore}</span>
                                                           </div>
                                                       </div>
                                                   ) : <span className="w-8"></span>}
                                               </div>
-                                              <div className="flex-1 min-w-0 flex items-center justify-between gap-6">
+                                              <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
                                                   <div className="flex flex-col justify-center pr-4">
-                                                      {ab.startPlay && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
-                                                      <p className={`text-base leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
+                                                      {ab.startPlay && <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
+                                                      <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
                                                           {displayText}
                                                       </p>
                                                   </div>
-                                                  
-                                                  <div className="shrink-0 flex items-center border-l border-slate-200 pl-6 h-10 w-[200px]">
-                                                      {(pitcher || batter) && (
-                                                          <div className="flex items-center gap-6 w-full">
-                                                              {pitcher ? (
-                                                                  <div className="flex flex-col items-center flex-1" title={`Pitcher: ${pitcher.shortName}`}>
-                                                                      <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{pitcher.lastName}</span>
-                                                                  </div>
-                                                              ) : <div className="flex-1"></div>}
-                                                              {batter ? (
-                                                                  <div className="flex flex-col items-center flex-1" title={`Batter: ${batter.shortName}`}>
-                                                                      <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200 w-full truncate">{batter.lastName}</span>
-                                                                  </div>
-                                                              ) : <div className="flex-1"></div>}
-                                                          </div>
-                                                      )}
-                                                  </div>
                                               </div>
                                               
-                                              <div className="shrink-0 flex items-center justify-end w-12">
+                                              <div className="shrink-0 flex items-center justify-end w-10">
                                                   <div className="text-slate-400">
-                                                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                   </div>
                                               </div>
                                           </div>
@@ -544,9 +525,9 @@ export const GamePage = () => {
                               const play = item.play;
                               const isScoring = play.scoringPlay;
                               return (
-                                  <div key={`misc-${play.id}-${idx}`} className={`px-6 py-4 border-b border-slate-100 flex items-center gap-6 ${isScoring ? "bg-emerald-50/50" : ""}`}>
-                                      <div className="w-24 shrink-0 flex items-center justify-end border-r border-slate-200 pr-4 text-slate-400 font-bold">
-                                          <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
+                                  <div key={`misc-${play.id}-${idx}`} className={`px-4 py-3 border-b border-slate-100 flex items-center gap-4 ${isScoring ? "bg-emerald-50/50" : ""}`}>
+                                      <div className="w-20 shrink-0 flex items-center justify-end border-r border-slate-200 pr-3 text-slate-400 font-bold">
+                                          <span className="text-[9px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
                                       </div>
                                       <div className="flex-1 min-w-0 flex items-center justify-between">
                                           <div className="flex flex-col justify-center pr-4">
@@ -555,7 +536,7 @@ export const GamePage = () => {
                                               </p>
                                           </div>
                                       </div>
-                                      <div className="shrink-0 flex items-center justify-end w-12"></div>
+                                      <div className="shrink-0 flex items-center justify-end w-10"></div>
                                   </div>
                               );
                           });
