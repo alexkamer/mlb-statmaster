@@ -393,7 +393,7 @@ export const GamePage = () => {
                                               <div className="w-24 shrink-0 flex items-center justify-between border-r border-slate-200 pr-4 text-slate-700 font-bold">
                                                   {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
                                                       <div className="flex flex-col">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">Score</span>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}-{homeTeam?.team?.abbreviation}</span>
                                                         <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.awayScore}-{resultPlay.homeScore}</span>
                                                       </div>
                                                   ) : <span className="w-8"></span>}
