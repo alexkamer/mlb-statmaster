@@ -19,14 +19,14 @@ export const DailyScoreboard = () => {
     return safeColors[abbr] || '#00193c';
   };
 
-  const getPitcherStatus = (pitcher: any, type: string) => {
+  const getPitcherStatus = (pitcher: any, type: string, gameLeaders: any[] = []) => {
     if (!pitcher || !pitcher.athlete) return null;
     const a = pitcher.athlete;
     const stats = pitcher.statistics || [];
-    
+
     let extra = '';
     let deepStats = '';
-    
+
     if (type === 'W') {
       const w = stats.find((s:any)=>s.name==='wins')?.displayValue;
       const l = stats.find((s:any)=>s.name==='losses')?.displayValue;
@@ -39,22 +39,28 @@ export const DailyScoreboard = () => {
       const sv = stats.find((s:any)=>s.name==='saves')?.displayValue;
       extra = `(${sv})`;
     }
-    
-    // ESPN often omits full game IP/ER/H/K strings directly in this node for past games without pulling boxscore API
-    // We will build a fallback deepStats string using ERA if it exists.
+
+    // Attempt to find game-specific IP, ER, H, K, BB string
+    for (const l of gameLeaders) {
+       for (const p of l.leaders || []) {
+           if (p.athlete?.id === a.id && p.displayValue?.includes('IP')) {
+               deepStats = p.displayValue;
+               break;
+           }
+       }
+       if (deepStats) break;
+    }
+
     let era = stats.find((s:any)=>s.name==='ERA')?.displayValue || '0.00';
     let recordStr = pitcher.record || '';
-    
-    if (type === 'W' || type === 'L' || type === 'SV') {
-       // Since the Scoreboard API does not provide single-game deep stats for these featured pitchers (only their season totals like ERA),
-       // we will format their season totals cleanly as a fallback.
+
+    // If game specific stats aren't found, build a fallback using season totals
+    if (!deepStats && (type === 'W' || type === 'L' || type === 'SV')) {
        const h = stats.find((s:any)=>s.name==='hits')?.displayValue || '0';
        const er = stats.find((s:any)=>s.name==='runs')?.displayValue || '0';
        const errors = stats.find((s:any)=>s.name==='errors')?.displayValue || '0';
-       
        deepStats = `${era} ERA, ${h} H, ${er} R, ${errors} E`;
-    }
-    
+    }    
     return {
       name: a.shortName || a.displayName,
       id: a.id,
@@ -361,9 +367,9 @@ export const DailyScoreboard = () => {
                     {isFinal && (
                       <div className="flex flex-col gap-2">
                         {[
-                          { type: 'W', label: 'WIN', data: getPitcherStatus(winPitcher, 'W') },
-                          { type: 'L', label: 'LOSS', data: getPitcherStatus(lossPitcher, 'L') },
-                          { type: 'SV', label: 'SAVE', data: getPitcherStatus(savePitcher, 'SV') }
+                          { type: 'W', label: 'WIN', data: getPitcherStatus(winPitcher, 'W', comp.leaders) },
+                          { type: 'L', label: 'LOSS', data: getPitcherStatus(lossPitcher, 'L', comp.leaders) },
+                          { type: 'SV', label: 'SAVE', data: getPitcherStatus(savePitcher, 'SV', comp.leaders) }
                         ].map(p => p.data ? (
                           <div key={p.type} className="flex flex-col gap-1 group">
                             <div className="flex items-center gap-3">
