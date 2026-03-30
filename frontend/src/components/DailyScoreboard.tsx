@@ -231,7 +231,7 @@ export const DailyScoreboard = () => {
                         <span className="font-bold uppercase tracking-widest text-slate-400 text-[9px] mr-1">Last Play:</span>
                         {comp.situation?.lastPlay?.text || 'Waiting for play...'}
                       </p>
-                      <p className="text-[11px] text-[#0066cc] font-bold cursor-pointer hover:underline">Play-by-Play</p>
+                      <Link to={`/games/${event.id}?tab=plays`} className="text-[11px] text-[#0066cc] font-bold cursor-pointer hover:underline inline-block">Play-by-Play</Link>
                     </div>
                   </div>
                 )}
