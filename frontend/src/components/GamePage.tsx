@@ -153,11 +153,8 @@ export const GamePage = () => {
   const homeTeam = header?.competitors?.find((c: any) => c.homeAway === "home");
   const isPregame = header?.status?.type?.state === 'pre';
   const validTabs = isPregame ? ["matchup", "props"] : ["boxscore", "plays", "win_probability"];
-  if (isPregame && activeTab !== "matchup") {
-      activeTab = "matchup";
-  } else if (!isPregame && activeTab === "matchup") {
-      activeTab = "boxscore";
-  }
+  // If the user navigates directly to a pregame game, or the state changes, ensure they land on a valid tab.
+  // We MUST NOT force 'matchup' if they are already on 'props'.
   if (!validTabs.includes(activeTab)) {
       activeTab = isPregame ? "matchup" : "boxscore";
   }
