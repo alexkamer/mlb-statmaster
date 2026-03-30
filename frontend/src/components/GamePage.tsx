@@ -390,18 +390,13 @@ export const GamePage = () => {
                                               onClick={() => toggleAtBat(ab.id)}
                                               className={`px-6 py-4 flex items-center gap-6 cursor-pointer hover:bg-slate-50 transition-colors ${isScoring ? "bg-emerald-50/50 hover:bg-emerald-50" : ""} ${isExpanded ? "bg-slate-50" : ""}`}
                                           >
-                                              <div className="w-24 shrink-0 flex items-center justify-between border-r border-slate-200 pr-4 text-slate-700 font-bold">
+                                              <div className="w-16 shrink-0 flex items-center border-r border-slate-200 pr-4 text-slate-700 font-bold">
                                                   {(resultPlay.awayScore !== undefined && resultPlay.homeScore !== undefined) ? (
                                                       <div className="flex flex-col">
                                                         <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">{awayTeam?.team?.abbreviation}-{homeTeam?.team?.abbreviation}</span>
                                                         <span className="text-sm tabular-nums leading-none mt-1">{resultPlay.awayScore}-{resultPlay.homeScore}</span>
                                                       </div>
                                                   ) : <span className="w-8"></span>}
-                                                  
-                                                  <div className="flex flex-col items-end">
-                                                      <span className="text-[10px] font-black uppercase tracking-widest leading-none text-rose-400">Outs</span>
-                                                      <span className="text-sm tabular-nums leading-none mt-1 font-black">{resultPlay.outs || resultPlay.resultCount?.outs || 0}</span>
-                                                  </div>
                                               </div>
                                               <div className="flex-1 min-w-0 flex items-center justify-between gap-6">
                                                   <div className="flex flex-col justify-center pr-4">
@@ -517,7 +512,7 @@ export const GamePage = () => {
                               const isScoring = play.scoringPlay;
                               return (
                                   <div key={`misc-${play.id}-${idx}`} className={`px-6 py-4 border-b border-slate-100 flex items-center gap-6 ${isScoring ? "bg-emerald-50/50" : ""}`}>
-                                      <div className="w-24 shrink-0 flex items-center justify-end border-r border-slate-200 pr-4 text-slate-400 font-bold">
+                                      <div className="w-16 shrink-0 flex items-center border-r border-slate-200 pr-4 text-slate-400 font-bold">
                                           <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
                                       </div>
                                       <div className="flex-1 min-w-0 flex items-center justify-between">
