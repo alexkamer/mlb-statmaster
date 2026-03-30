@@ -182,7 +182,6 @@ export const DailyScoreboard = () => {
                   </div>
                   <div className="mt-4 shrink-0 flex justify-between">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{tvProvider}</span>
-                    <span className="text-[10px] font-bold text-secondary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">Box Score <span className="material-symbols-outlined text-[12px]">arrow_forward</span></span>
                   </div>
                 </Link>
 
@@ -409,9 +408,9 @@ export const DailyScoreboard = () => {
 
                   </div>
                   <div className="flex items-center shrink-0">
-                    <button className="bg-slate-100 hover:bg-slate-200 text-primary text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded transition-colors">
+                    <Link to={`/games/${event.id}`} className="bg-slate-100 hover:bg-slate-200 text-primary text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded transition-colors block text-center">
                       {(isLive || isFinal) ? 'Boxscore' : 'Preview'}
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
