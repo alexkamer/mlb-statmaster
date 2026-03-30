@@ -2,12 +2,15 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 interface ScoreboardContextType {
   events: any[]; // Events for the selected date (for the ticker)
-  todayEvents: any[]; // Events strictly for today (for the daily scoreboard)
+  todayEvents: any[]; // Events strictly for the daily scoreboard's active date
   displayDate: string;
   displayDateToday: string;
   currentDate: Date;
   changeDate: (days: number) => void;
   setDate: (date: Date) => void;
+  scoreboardDate: Date;
+  changeScoreboardDate: (days: number) => void;
+  setScoreboardDate: (date: Date) => void;
 }
 
 const ScoreboardContext = createContext<ScoreboardContextType>({ 
@@ -17,7 +20,10 @@ const ScoreboardContext = createContext<ScoreboardContextType>({
   displayDateToday: '',
   currentDate: new Date(), 
   changeDate: () => {},
-  setDate: () => {} 
+  setDate: () => {},
+  scoreboardDate: new Date(),
+  changeScoreboardDate: () => {},
+  setScoreboardDate: () => {}
 });
 
 export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
@@ -25,7 +31,8 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [displayDate, setDisplayDate] = useState<string>('');
   const [displayDateToday, setDisplayDateToday] = useState<string>('');
-  const [currentDate, setCurrentDate] = useState<Date>(() => {
+  
+  const getInitialDate = () => {
     const params = new URLSearchParams(window.location.search);
     const dateOverride = params.get('date');
     if (dateOverride) {
@@ -35,10 +42,21 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
       return new Date(year, month, day);
     }
     return new Date();
-  });
+  };
+
+  const [currentDate, setCurrentDate] = useState<Date>(getInitialDate());
+  const [scoreboardDate, setScoreboardDate] = useState<Date>(getInitialDate());
 
   const changeDate = (days: number) => {
     setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + days);
+      return d;
+    });
+  };
+
+  const changeScoreboardDate = (days: number) => {
+    setScoreboardDate(prev => {
       const d = new Date(prev);
       d.setDate(d.getDate() + days);
       return d;
@@ -56,19 +74,18 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
         
         setDisplayDate(currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
         
-        // Today Date
-        const today = new Date();
-        const ty = today.getFullYear();
-        const tm = String(today.getMonth() + 1).padStart(2, '0');
-        const td = String(today.getDate()).padStart(2, '0');
-        const todayString = `${ty}${tm}${td}`;
+        // Scoreboard Date
+        const sy = scoreboardDate.getFullYear();
+        const sm = String(scoreboardDate.getMonth() + 1).padStart(2, '0');
+        const sd = String(scoreboardDate.getDate()).padStart(2, '0');
+        const scoreboardString = `${sy}${sm}${sd}`;
         
-        setDisplayDateToday(today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
+        setDisplayDateToday(scoreboardDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
 
         // Parallel Fetch
         const [dateRes, todayRes] = await Promise.all([
           fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`),
-          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${todayString}`)
+          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${scoreboardString}`)
         ]);
 
         const dateData = await dateRes.json();
@@ -85,10 +102,14 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
     fetchScores();
     const intervalId = setInterval(fetchScores, 15000); // 15 seconds
     return () => clearInterval(intervalId);
-  }, [currentDate]);
+  }, [currentDate, scoreboardDate]);
 
   return (
-    <ScoreboardContext.Provider value={{ events, todayEvents, displayDate, displayDateToday, currentDate, changeDate, setDate: setCurrentDate }}>
+    <ScoreboardContext.Provider value={{ 
+      events, todayEvents, displayDate, displayDateToday, 
+      currentDate, changeDate, setDate: setCurrentDate,
+      scoreboardDate, changeScoreboardDate, setScoreboardDate 
+    }}>
       {children}
     </ScoreboardContext.Provider>
   );

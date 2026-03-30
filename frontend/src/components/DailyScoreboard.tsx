@@ -1,10 +1,10 @@
 import React from 'react';
-import { Play, Ticket } from 'lucide-react';
+import { Play, Ticket, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
 import { Link } from 'react-router-dom';
 
 export const DailyScoreboard = () => {
-  const { todayEvents, displayDateToday } = useScoreboard();
+  const { todayEvents, displayDateToday, scoreboardDate, changeScoreboardDate, setScoreboardDate } = useScoreboard();
   
   const events = todayEvents;
 
@@ -75,7 +75,24 @@ export const DailyScoreboard = () => {
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <h2 className="font-headline text-3xl font-black text-primary uppercase tracking-tighter">Daily Scoreboard</h2>
-          <p className="text-sm text-slate-500 uppercase tracking-widest">{displayDateToday}</p>
+          <div className="flex items-center gap-1 text-sm font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+            <button onClick={() => changeScoreboardDate(-1)} className="hover:text-primary p-0.5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+            <div className="relative group">
+              <span className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">{displayDateToday}</span>
+              <input 
+                type="date" 
+                className="absolute inset-0 opacity-0 cursor-pointer" 
+                value={`${scoreboardDate.getFullYear()}-${String(scoreboardDate.getMonth() + 1).padStart(2, '0')}-${String(scoreboardDate.getDate()).padStart(2, '0')}`}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const [y, m, d] = e.target.value.split('-').map(Number);
+                    setScoreboardDate(new Date(y, m - 1, d));
+                  }
+                }}
+              />
+            </div>
+            <button onClick={() => changeScoreboardDate(1)} className="hover:text-primary p-0.5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          </div>
         </div>
       </div>
       
