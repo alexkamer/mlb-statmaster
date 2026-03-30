@@ -199,7 +199,7 @@ const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
         <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">
           <button onClick={() => changeDate(-1)} className="hover:text-white p-0.5"><ChevronLeft className="w-3 h-3" /></button>
           <div className="relative group">
-            <span className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">{displayDate} <ChevronDown className="w-3 h-3" /></span>
+            <span className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">{displayDate}</span>
             <input 
               type="date" 
               className="absolute inset-0 opacity-0 cursor-pointer" 
