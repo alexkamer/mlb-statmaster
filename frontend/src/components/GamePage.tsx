@@ -312,6 +312,33 @@ export const GamePage = () => {
                                   atBats.push({ type: "inning-marker", play });
                                   return;
                               }
+                              
+                              if (play.type?.type === "start-batterpitcher") {
+                                  const pitcher = play.participants?.find((p: any) => p.type === 'pitcher');
+                                  if (pitcher && pitcher.athlete?.id) {
+                                      // Check if this is a new pitcher for this team
+                                      const lastPlay = atBats[atBats.length - 1];
+                                      let isNewPitcher = false;
+                                      
+                                      // Only insert pitching changes if we aren't immediately following an inning marker, 
+                                      // because those happen at the start of the half inning.
+                                      if (lastPlay && lastPlay.type !== "inning-marker") {
+                                          // Find the last known pitcher
+                                          const prevABPlay = [...atBats].reverse().find(a => a.type === "at-bat" && a.atBat.startPlay);
+                                          const prevPitcherId = prevABPlay?.atBat.startPlay?.participants?.find((p: any) => p.type === 'pitcher')?.athlete?.id;
+                                          if (prevPitcherId && prevPitcherId !== pitcher.athlete.id) {
+                                              isNewPitcher = true;
+                                          }
+                                      } else if (lastPlay && lastPlay.type === "inning-marker" && lastPlay.play.type?.type === "start-inning") {
+                                          // It's the start of an inning, log the pitcher for the inning
+                                          isNewPitcher = true;
+                                      }
+                                      
+                                      if (isNewPitcher) {
+                                          atBats.push({ type: "pitching-change", play, pitcherId: pitcher.athlete.id });
+                                      }
+                                  }
+                              }
 
                               if (play.atBatId) {
                                   if (!currentAtBat || currentAtBat.id !== play.atBatId) {
@@ -332,16 +359,26 @@ export const GamePage = () => {
                               if (filterPlays === "scoring") {
                                   if (item.type === "at-bat") return item.atBat.scoringPlay;
                                   if (item.type === "misc") return item.play.scoringPlay;
-                                  return item.type === "inning-marker"; 
+                                  return item.type === "inning-marker" || item.type === "pitching-change"; 
                               }
                               return true;
                           });
                           
-                          // Clean up consecutive inning markers that happen after filtering
+                          // Clean up consecutive or trailing markers that happen after filtering
                           filteredItems = filteredItems.filter((item, idx, arr) => {
-                              if (item.type === "inning-marker") {
-                                  if (idx === arr.length - 1) return false;
-                                  if (arr[idx+1].type === "inning-marker") return false;
+                              if (item.type === "inning-marker" || item.type === "pitching-change") {
+                                  // Find the next actual play
+                                  let hasNextPlay = false;
+                                  for (let i = idx + 1; i < arr.length; i++) {
+                                      if (arr[i].type === "at-bat" || arr[i].type === "misc") {
+                                          hasNextPlay = true;
+                                          break;
+                                      }
+                                      if (arr[i].type === "inning-marker") {
+                                          break; // Hit the next inning before finding a play, this is an orphan
+                                      }
+                                  }
+                                  return hasNextPlay;
                               }
                               return true;
                           });
@@ -364,6 +401,35 @@ export const GamePage = () => {
                                           <div className="flex items-center gap-3">
                                               {team && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`} alt={team.abbreviation} className="w-5 h-5 object-contain" />}
                                               <span>{team ? team.name : ""} - {periodType} {periodShort}</span>
+                                          </div>
+                                      </div>
+                                  );
+                              }
+
+                              if (item.type === "pitching-change") {
+                                  const pitcher = playerLookup[item.pitcherId];
+                                  const play = item.play;
+                                  let team = null;
+                                  if (play.team?.id) {
+                                      // The team object in the start-batterpitcher event is the BATTING team.
+                                      // So the pitching team is the opposite one.
+                                      if (play.team.id === homeTeam?.id) team = awayTeam?.team;
+                                      if (play.team.id === awayTeam?.id) team = homeTeam?.team;
+                                  }
+                                  
+                                  const prevPlay = filteredItems[idx - 1];
+                                  const isStartOfInning = prevPlay?.type === "inning-marker";
+                                  const title = isStartOfInning ? "PITCHING" : "PITCHING CHANGE";
+                                  const teamName = team?.abbreviation ? ` FOR ${team.abbreviation}` : '';
+                                  
+                                  return (
+                                      <div key={`pitcher-${idx}`} className={`px-4 py-1.5 border-b border-slate-100 flex items-center bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[9px]`}>
+                                          <div className="w-20 shrink-0 border-r border-slate-200 pr-3 text-right">
+                                              <span>{title}</span>
+                                          </div>
+                                          <div className="flex-1 pl-4 flex items-center gap-2">
+                                              {pitcher?.headshot && <img src={pitcher.headshot} className="w-4 h-4 rounded-full object-cover border border-slate-200" referrerPolicy="no-referrer" />}
+                                              <span className="text-slate-700">{pitcher?.shortName || pitcher?.lastName}{teamName}</span>
                                           </div>
                                       </div>
                                   );
