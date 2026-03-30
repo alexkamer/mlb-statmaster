@@ -442,9 +442,8 @@ export const GamePage = () => {
                                           {/* Pitches / Detailed Plays */}
                                           {isExpanded && (
                                               <div className="bg-slate-50/50 border-t border-slate-100 p-4 pl-36 space-y-2">
-                                                  {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher").map((play: any, pIdx: number, arr: any[]) => {
+                                                  {ab.plays.filter((p: any) => p.type?.type !== "start-batterpitcher" && p.type?.type !== "end-batterpitcher" && p.type?.type !== "play-result").map((play: any, pIdx: number, arr: any[]) => {
                                                       const isPitch = play.pitchVelocity !== undefined || play.pitchType !== undefined;
-                                                      const isResult = play.type?.type === "play-result";
                                                       let pitchNumber = null;
                                                       let pitchColor = "bg-slate-200 text-slate-500"; // default grey
                                                       
@@ -482,7 +481,7 @@ export const GamePage = () => {
                                                                       {play.pitchType && <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter text-right leading-none mt-0.5">{play.pitchType.text}</span>}
                                                                   </div>
                                                               )}
-                                                              {!isPitch && !isResult && <div className="w-16 shrink-0 border-r border-slate-200 pr-3"></div>}
+                                                              {!isPitch && <div className="w-16 shrink-0 border-r border-slate-200 pr-3"></div>}
                                                               
                                                               <div className="flex-1 py-1 flex items-center gap-3">
                                                                   {pitchNumber && (
@@ -490,7 +489,7 @@ export const GamePage = () => {
                                                                           {pitchNumber}
                                                                       </div>
                                                                   )}
-                                                                  <p className={`text-sm ${isResult ? "font-bold text-primary" : "text-slate-600"}`}>
+                                                                  <p className="text-sm text-slate-600">
                                                                       {play.display_text || play.text}
                                                                   </p>
                                                               </div>
