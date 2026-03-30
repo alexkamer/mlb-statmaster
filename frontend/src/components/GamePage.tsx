@@ -940,7 +940,7 @@ export const GamePage = () => {
                                       <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: `#${teamData?.team?.color}` }}>{teamData?.team?.name} Starter</span>
                                       {probable ? (
                                           <>
-                                              <Link to={`/players/${probable.id}`} className="font-headline font-black text-2xl text-primary hover:underline">{probable.displayName}</Link>
+                                              <Link to={`/players/${probable.id}?tab=stats&category=pitching`} className="font-headline font-black text-2xl text-primary hover:underline">{probable.displayName}</Link>
                                               <div className="flex items-center gap-2 mt-1">
                                                   <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{probable.position?.abbreviation || 'P'}</span>
                                                   {probable.throws?.abbreviation && (
