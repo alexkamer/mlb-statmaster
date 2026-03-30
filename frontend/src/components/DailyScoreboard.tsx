@@ -124,9 +124,13 @@ export const DailyScoreboard = () => {
           const awayML = oddsObj?.moneyline?.away?.close?.odds || oddsObj?.awayTeamOdds?.moneyLine || 'N/A';
           const homeML = oddsObj?.moneyline?.home?.close?.odds || oddsObj?.homeTeamOdds?.moneyLine || 'N/A';
           const awayRL = oddsObj?.pointSpread?.away?.close?.line || 'N/A';
+          const awayRLOdds = oddsObj?.pointSpread?.away?.close?.odds || 'N/A';
           const homeRL = oddsObj?.pointSpread?.home?.close?.line || 'N/A';
+          const homeRLOdds = oddsObj?.pointSpread?.home?.close?.odds || 'N/A';
           const totalOver = oddsObj?.total?.over?.close?.line || 'N/A';
+          const totalOverOdds = oddsObj?.total?.over?.close?.odds || 'N/A';
           const totalUnder = oddsObj?.total?.under?.close?.line || 'N/A';
+          const totalUnderOdds = oddsObj?.total?.under?.close?.odds || 'N/A';
 
           return (
             <div key={event.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 relative">
@@ -301,16 +305,36 @@ export const DailyScoreboard = () => {
                         </thead>
                         <tbody>
                           <tr>
-                            <td className="text-[11px] font-bold text-slate-500 py-1 border-b border-slate-200/50">{awayTeam?.team?.abbreviation}</td>
-                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{awayML}</td>
-                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{totalOver}</td>
-                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50">{awayRL}</td>
+                            <td className="text-[11px] font-bold text-slate-500 py-1 border-b border-slate-200/50 align-top">{awayTeam?.team?.abbreviation}</td>
+                            <td className="text-xs font-black text-slate-800 py-1 border-b border-slate-200/50 align-top">{awayML}</td>
+                            <td className="py-1 border-b border-slate-200/50 align-top">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black text-slate-800 leading-none">{totalOver}</span>
+                                <span className="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">{totalOverOdds}</span>
+                              </div>
+                            </td>
+                            <td className="py-1 border-b border-slate-200/50 align-top">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black text-slate-800 leading-none">{awayRL}</span>
+                                <span className="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">{awayRLOdds}</span>
+                              </div>
+                            </td>
                           </tr>
                           <tr>
-                            <td className="text-[11px] font-bold text-slate-500 pt-1">{homeTeam?.team?.abbreviation}</td>
-                            <td className="text-xs font-black text-slate-800 pt-1">{homeML}</td>
-                            <td className="text-xs font-black text-slate-800 pt-1">{totalUnder}</td>
-                            <td className="text-xs font-black text-slate-800 pt-1">{homeRL}</td>
+                            <td className="text-[11px] font-bold text-slate-500 pt-1 align-top">{homeTeam?.team?.abbreviation}</td>
+                            <td className="text-xs font-black text-slate-800 pt-1 align-top">{homeML}</td>
+                            <td className="pt-1 align-top">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black text-slate-800 leading-none">{totalUnder}</span>
+                                <span className="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">{totalUnderOdds}</span>
+                              </div>
+                            </td>
+                            <td className="pt-1 align-top">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black text-slate-800 leading-none">{homeRL}</span>
+                                <span className="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">{homeRLOdds}</span>
+                              </div>
+                            </td>
                           </tr>
                         </tbody>
                       </table>
