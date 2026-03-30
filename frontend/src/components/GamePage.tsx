@@ -1085,8 +1085,25 @@ export const GamePage = () => {
                                                       <Link to={`/players/${athleteId}`} className="font-bold text-primary hover:underline truncate block">{athleteName}</Link>
                                                       <div className="flex flex-col gap-1 mt-2">
                                                           {aItems.map((bet: any, bIdx: number) => {
-                                                              const isOverUnder = bet.current?.target?.displayValue && aItems.length > 1;
-                                                              const label = isOverUnder ? (bIdx === 0 ? "Over" : "Under") : bet.current?.target?.displayValue || "Yes";
+                                                              // Group by target value to figure out if it's an Over/Under pair
+                                                              const targetVal = bet.current?.target?.value;
+                                                              const siblingsWithSameTarget = aItems.filter((i: any) => i.current?.target?.value === targetVal);
+                                                              
+                                                              let label = "Alt";
+                                                              
+                                                              if (siblingsWithSameTarget.length === 2) {
+                                                                  // It's a standard over/under line
+                                                                  // We assume the first one is the Over and the second is the Under (which is standard from DraftKings/ESPN)
+                                                                  const idxInSiblings = siblingsWithSameTarget.indexOf(bet);
+                                                                  label = idxInSiblings === 0 ? "Over" : "Under";
+                                                              } else if (bet.current?.target?.displayValue && String(bet.current?.target?.displayValue).includes("+")) {
+                                                                  // It's a milestone like "1+"
+                                                                  label = "Yes";
+                                                              } else {
+                                                                  // Alternate line, usually means "Over" because sportsbooks don't typically offer alternate Unders
+                                                                  label = "Over";
+                                                              }
+
                                                               return (
                                                                   <div key={bIdx} className="flex items-center justify-between text-xs bg-slate-100 rounded px-2 py-1">
                                                                       <span className="font-bold text-slate-600 uppercase tracking-widest text-[9px]">{label} {bet.current?.target?.displayValue}</span>
