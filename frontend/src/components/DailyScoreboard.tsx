@@ -120,6 +120,11 @@ export const DailyScoreboard = () => {
           const lossPitcher = comp.status?.featuredAthletes?.find((a:any)=>a.name==='losingPitcher') || event.status?.featuredAthletes?.find((a:any)=>a.name==='losingPitcher');
           const savePitcher = comp.status?.featuredAthletes?.find((a:any)=>a.name==='savingPitcher') || event.status?.featuredAthletes?.find((a:any)=>a.name==='savingPitcher');
 
+          const oddsObj = comp.odds?.[0];
+          const awayML = oddsObj?.moneyline?.away?.close?.odds || oddsObj?.awayTeamOdds?.moneyLine || 'N/A';
+          const homeML = oddsObj?.moneyline?.home?.close?.odds || oddsObj?.homeTeamOdds?.moneyLine || 'N/A';
+          const overUnder = oddsObj?.overUnder ?? 'N/A';
+
           return (
             <div key={event.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 relative">
               <div className="grid grid-cols-12 min-h-[140px]">
@@ -281,9 +286,19 @@ export const DailyScoreboard = () => {
                       </a>
                     </div>
                     <div className="h-px w-full bg-slate-100" />
-                    <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 text-center">
-                      <span className="text-[11px] font-bold text-slate-500 mr-2">ML:</span>
-                      <span className="text-xs font-black text-slate-800">{comp.odds?.[0]?.details || 'N/A'}</span>
+                    <div className="bg-slate-50 border border-slate-200 rounded-md py-2 px-3 flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-bold text-slate-500">{awayTeam?.team?.abbreviation}</span>
+                        <span className="text-xs font-black text-slate-800">{awayML}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-bold text-slate-500">{homeTeam?.team?.abbreviation}</span>
+                        <span className="text-xs font-black text-slate-800">{homeML}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 mt-0.5">
+                        <span className="text-[11px] font-bold text-slate-500">O/U</span>
+                        <span className="text-xs font-black text-slate-800">{overUnder}</span>
+                      </div>
                     </div>
                   </div>
                 )}
