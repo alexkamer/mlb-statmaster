@@ -492,6 +492,27 @@ export const GamePage = () => {
                                                                       {play.display_text || play.text}
                                                                   </p>
                                                               </div>
+                                                              {play.pitchCoordinate && (
+                                                                  <div className="shrink-0 w-16 flex justify-end pr-4 relative h-10 items-center">
+                                                                      <div className="w-8 h-10 border border-slate-300 relative bg-white">
+                                                                          {/* Strikezone grid lines */}
+                                                                          <div className="absolute top-1/3 left-0 right-0 border-b border-slate-200" />
+                                                                          <div className="absolute top-2/3 left-0 right-0 border-b border-slate-200" />
+                                                                          <div className="absolute left-1/3 top-0 bottom-0 border-r border-slate-200" />
+                                                                          <div className="absolute left-2/3 top-0 bottom-0 border-r border-slate-200" />
+                                                                          
+                                                                          {/* Pitch location dot */}
+                                                                          <div 
+                                                                              className={`absolute w-2 h-2 rounded-full ${pitchColor} shadow-sm -ml-1 -mt-1`}
+                                                                              style={{
+                                                                                  // Normalize coordinates based on rough ESPN strikezone dimensions (X: ~60-180, Y: ~120-230)
+                                                                                  left: `${Math.max(0, Math.min(100, ((play.pitchCoordinate.x - 40) / 160) * 100))}%`,
+                                                                                  top: `${Math.max(0, Math.min(100, ((play.pitchCoordinate.y - 80) / 180) * 100))}%`
+                                                                              }}
+                                                                          />
+                                                                      </div>
+                                                                  </div>
+                                                              )}
                                                           </div>
                                                       );
                                                   })}
