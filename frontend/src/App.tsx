@@ -36,7 +36,8 @@ import {
   Award,
   ShieldCheck,
   Menu,
-  ChevronDown
+  ChevronDown,
+  User
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
