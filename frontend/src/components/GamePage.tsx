@@ -403,38 +403,48 @@ export const GamePage = () => {
                                                       <span className="text-sm tabular-nums leading-none mt-1 font-black">{resultPlay.outs || resultPlay.resultCount?.outs || 0}</span>
                                                   </div>
                                               </div>
-                                              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                  {ab.startPlay && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
-                                                  <p className={`text-base leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
-                                                      {displayText}
-                                                  </p>
+                                              <div className="flex-1 min-w-0 flex items-center justify-between gap-6">
+                                                  <div className="flex flex-col justify-center pr-4">
+                                                      {ab.startPlay && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{ab.startPlay.text}</p>}
+                                                      <p className={`text-base leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-primary"}`}>
+                                                          {displayText}
+                                                      </p>
+                                                  </div>
+                                                  
+                                                  <div className="shrink-0 flex items-center gap-6 border-l border-slate-200 pl-6 h-10 w-[200px] justify-end">
+                                                      {(pitcher || batter) && (
+                                                          <div className="flex items-center gap-6">
+                                                              {pitcher && (
+                                                                  <div className="flex flex-col items-center min-w-[4rem]" title={`Pitcher: ${pitcher.shortName}`}>
+                                                                      <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200">{pitcher.shortName.split(' ').pop()}</span>
+                                                                  </div>
+                                                              )}
+                                                              {batter && (
+                                                                  <div className="flex flex-col items-center min-w-[4rem]" title={`Batter: ${batter.shortName}`}>
+                                                                      <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
+                                                                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 rounded-sm text-center border border-slate-200">{batter.shortName.split(' ').pop()}</span>
+                                                                  </div>
+                                                              )}
+                                                          </div>
+                                                      )}
+                                                  </div>
                                               </div>
-                                              {isScoring && (
-                                                  <div className="shrink-0 flex flex-col items-end mr-4">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
-                                                    <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
-                                                        {resultPlay.awayScore} - {resultPlay.homeScore}
-                                                    </span>
+                                              
+                                              <div className="shrink-0 flex items-center justify-end w-[120px]">
+                                                  {isScoring ? (
+                                                      <div className="flex flex-col items-end mr-4">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
+                                                        <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
+                                                            {resultPlay.awayScore} - {resultPlay.homeScore}
+                                                        </span>
+                                                      </div>
+                                                  ) : (
+                                                      <div className="mr-4"></div>
+                                                  )}
+                                                  <div className="text-slate-400">
+                                                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                                   </div>
-                                              )}
-                                              {(pitcher || batter) && (
-                                                  <div className="shrink-0 flex items-center gap-4 mr-4 border-l border-slate-200 pl-6 h-10">
-                                                      {pitcher && (
-                                                          <div className="flex flex-col items-center w-12" title={`Pitcher: ${pitcher.shortName}`}>
-                                                              <img src={pitcher.headshot} alt={pitcher.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1 rounded-sm w-full text-center truncate border border-slate-200">{pitcher.shortName.split(' ').pop()}</span>
-                                                          </div>
-                                                      )}
-                                                      {batter && (
-                                                          <div className="flex flex-col items-center w-12" title={`Batter: ${batter.shortName}`}>
-                                                              <img src={batter.headshot} alt={batter.shortName} className="w-8 h-8 rounded-full object-cover object-top border border-slate-200 bg-white -mb-1 z-10" referrerPolicy="no-referrer" />
-                                                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1 rounded-sm w-full text-center truncate border border-slate-200">{batter.shortName.split(' ').pop()}</span>
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              )}
-                                              <div className="shrink-0 text-slate-400">
-                                                  {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                               </div>
                                           </div>
                                           
@@ -510,12 +520,17 @@ export const GamePage = () => {
                                       <div className="w-24 shrink-0 flex items-center justify-end border-r border-slate-200 pr-4 text-slate-400 font-bold">
                                           <span className="text-[10px] font-black uppercase tracking-widest leading-none text-slate-400">Misc Play</span>
                                       </div>
-                                      <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-                                          <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-slate-500"}`}>
-                                              {play.text}
-                                          </p>
+                                      <div className="flex-1 min-w-0 flex items-center justify-between">
+                                          <div className="flex flex-col justify-center pr-4">
+                                              <p className={`text-sm leading-snug ${isScoring ? "font-black text-emerald-800" : "font-bold text-slate-500"}`}>
+                                                  {play.text}
+                                              </p>
+                                          </div>
+                                      </div>
+                                      
+                                      <div className="shrink-0 flex items-center justify-end w-[120px]">
                                           {isScoring && (
-                                              <div className="shrink-0 flex flex-col items-end mr-10">
+                                              <div className="flex flex-col items-end mr-4">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Runs Scored</span>
                                                 <span className="inline-block font-black text-lg text-emerald-700 bg-emerald-100/80 px-3 py-1 rounded-md tabular-nums border border-emerald-200">
                                                     {play.awayScore} - {play.homeScore}
