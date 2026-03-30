@@ -348,9 +348,23 @@ export const GamePage = () => {
 
                           return filteredItems.map((item: any, idx: number) => {
                               if (item.type === "inning-marker") {
+                                  const play = item.play;
+                                  let team = null;
+                                  if (play.team?.id) {
+                                      if (play.team.id === homeTeam?.id) team = homeTeam?.team;
+                                      if (play.team.id === awayTeam?.id) team = awayTeam?.team;
+                                  }
+                                  
+                                  const periodType = play.period?.type || "Top"; // "Top" or "Bottom"
+                                  const periodNum = play.period?.displayValue || play.period?.number || ""; // e.g. "1st Inning"
+                                  const periodShort = periodNum.toString().split(' ')[0]; // "1st"
+                                  
                                   return (
                                       <div key={`inning-${idx}`} className="bg-slate-100 px-6 py-2 border-y border-slate-200 font-black text-xs uppercase tracking-widest text-slate-500 sticky top-0 z-10 shadow-sm flex items-center justify-between">
-                                          <span>{item.play.text}</span>
+                                          <div className="flex items-center gap-3">
+                                              {team && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`} alt={team.abbreviation} className="w-5 h-5 object-contain" />}
+                                              <span>{team ? team.name : ""} - {periodType} {periodShort}</span>
+                                          </div>
                                       </div>
                                   );
                               }
