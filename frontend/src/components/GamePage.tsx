@@ -388,18 +388,34 @@ export const GamePage = () => {
                           // Clean up consecutive or trailing markers that happen after filtering
                           filteredItems = filteredItems.filter((item, idx, arr) => {
                               if (item.type === "inning-marker" || item.type === "pitching-change") {
-                                  // Find the next actual play
-                                  let hasNextPlay = false;
-                                  for (let i = idx + 1; i < arr.length; i++) {
-                                      if (arr[i].type === "at-bat" || arr[i].type === "misc") {
-                                          hasNextPlay = true;
-                                          break;
+                                  const isEndInning = item.play.type.type === "end-inning";
+                                  if (isEndInning) {
+                                      // Only keep end-inning if there was an actual play before it in this inning
+                                      let hasPrevPlay = false;
+                                      for (let i = idx - 1; i >= 0; i--) {
+                                          if (arr[i].type === "at-bat" || arr[i].type === "misc") {
+                                              hasPrevPlay = true;
+                                              break;
+                                          }
+                                          if (arr[i].type === "inning-marker" && arr[i].play.type.type === "start-inning") {
+                                              break;
+                                          }
                                       }
-                                      if (arr[i].type === "inning-marker") {
-                                          break; // Hit the next inning before finding a play, this is an orphan
+                                      return hasPrevPlay;
+                                  } else {
+                                      // Start-inning / pitching-change should be kept if there's a play AFTER them
+                                      let hasNextPlay = false;
+                                      for (let i = idx + 1; i < arr.length; i++) {
+                                          if (arr[i].type === "at-bat" || arr[i].type === "misc") {
+                                              hasNextPlay = true;
+                                              break;
+                                          }
+                                          if (arr[i].type === "inning-marker" && arr[i].play.type.type === "start-inning") {
+                                              break; // Hit the next inning before finding a play, this is an orphan
+                                          }
                                       }
+                                      return hasNextPlay;
                                   }
-                                  return hasNextPlay;
                               }
                               return true;
                           });
