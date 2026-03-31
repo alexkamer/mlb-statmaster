@@ -23,12 +23,14 @@ export const PropAnalysisPage = () => {
     const initialPropLine = searchParams.get('propLine') || '1.5';
     const initialViewLimit = parseInt(searchParams.get('limit') || '20');
     const initialViewMode = (searchParams.get('view') as 'table' | 'chart') || 'table';
+    const initialHand = searchParams.get('hand') || 'all';
 
     const [playerId, setPlayerId] = useState(initialPlayerId);
     const [propType, setPropType] = useState(initialPropType);
     const [propLine, setPropLine] = useState(initialPropLine);
     const [viewLimit, setViewLimit] = useState(initialViewLimit);
     const [viewMode, setViewMode] = useState<'table' | 'chart'>(initialViewMode);
+    const [pitcherHandFilter, setPitcherHandFilter] = useState(initialHand);
 
     const [player, setPlayer] = useState<any>(null);
     const [gameLogs, setGameLogs] = useState<any[]>([]);
@@ -115,8 +117,9 @@ export const PropAnalysisPage = () => {
         if (propLine) params.set('propLine', propLine);
         if (viewLimit) params.set('limit', viewLimit.toString());
         if (viewMode) params.set('view', viewMode);
+        if (pitcherHandFilter !== 'all') params.set('hand', pitcherHandFilter);
         setSearchParams(params, { replace: true });
-    }, [playerId, propType, propLine, viewLimit, viewMode, setSearchParams]);
+    }, [playerId, propType, propLine, viewLimit, viewMode, pitcherHandFilter, setSearchParams]);
 
     const getStatValueFromLog = (log: any, pType: string) => {
         const p = pType.toLowerCase().trim();
@@ -177,6 +180,7 @@ export const PropAnalysisPage = () => {
 
     const filteredLogs = gameLogs.filter(log => {
         if (homeAwayFilter !== 'all' && log.home_away !== homeAwayFilter) return false;
+        if (pitcherHandFilter !== 'all' && log.opp_starter_throws !== pitcherHandFilter) return false;
         if (oddsFilter !== 'all') {
             const moneyLine = parseFloat(log.team_money_line);
             if (isNaN(moneyLine)) return false;
@@ -341,6 +345,21 @@ export const PropAnalysisPage = () => {
                     </div>
 
                     <div className="flex flex-col">
+                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Vs. Pitcher Hand</label>
+                        <div className="flex bg-white rounded-lg border border-slate-200 p-0.5 shadow-sm">
+                            {['all', 'L', 'R'].map(v => (
+                                <button
+                                    key={v}
+                                    onClick={() => setPitcherHandFilter(v)}
+                                    className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${pitcherHandFilter === v ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    {v === 'all' ? 'All' : `${v}HP`}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col">
                         <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Odds Status</label>
                         <div className="flex bg-white rounded-lg border border-slate-200 p-0.5 shadow-sm">
                             {['all', 'favored', 'underdog'].map(v => (
@@ -445,6 +464,7 @@ export const PropAnalysisPage = () => {
                                                     </text>
                                                     <text x={0} y={24} textAnchor="middle" fill="#94a3b8" fontSize={9} fontWeight={800}>
                                                         {log ? `${prefix} ${log.opponent_abbrev}` : ''}
+                                                        {log?.opp_starter_throws ? ` (${log.opp_starter_throws})` : ''}
                                                     </text>
                                                 </g>
                                             );
@@ -574,6 +594,11 @@ export const PropAnalysisPage = () => {
                                                         )}
                                                         <div className="flex items-center gap-1.5">
                                                             <span>{opponentAbbrev}</span>
+                                                            {log.opp_starter_throws && (
+                                                                <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1 rounded">
+                                                                    {log.opp_starter_throws}HP
+                                                                </span>
+                                                            )}
                                                             {log.season_type === 3 && (
                                                                 <Trophy className="w-3.5 h-3.5 text-amber-500" title="Postseason" />
                                                             )}

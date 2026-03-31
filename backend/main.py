@@ -760,7 +760,8 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
                     WHEN ec.home_away = 'home' THEN (SELECT home_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
                     ELSE (SELECT away_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
                 END
-             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = b.team_id) as team_money_line
+             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = b.team_id) as team_money_line,
+            (SELECT a.throws FROM event_boxscores_pitching bp JOIN athletes a ON bp.athlete_id = a.athlete_id WHERE bp.event_id = e.event_id AND bp.team_id != b.team_id AND bp.starter = true LIMIT 1) as opp_starter_throws
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
@@ -797,7 +798,8 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
                     WHEN ec.home_away = 'home' THEN (SELECT home_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
                     ELSE (SELECT away_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
                 END
-             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = p.team_id) as team_money_line
+             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = p.team_id) as team_money_line,
+            (SELECT a.throws FROM event_boxscores_pitching bp JOIN athletes a ON bp.athlete_id = a.athlete_id WHERE bp.event_id = e.event_id AND bp.team_id != p.team_id AND bp.starter = true LIMIT 1) as opp_starter_throws
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
