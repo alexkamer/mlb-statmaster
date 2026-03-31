@@ -16,6 +16,7 @@ import { PlayerPage } from './components/PlayerPage';
 import { LeagueLeadersPage } from './components/LeagueLeadersPage';
 import { LeaguePlayersPage } from './components/LeaguePlayersPage';
 import { GamePage } from './components/GamePage';
+import { GamePredictorPage } from './components/GamePredictorPage';
 import { PropsPage } from './components/PropsPage';
 import { PropAnalysisPage } from './components/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
@@ -39,7 +40,8 @@ import {
   ShieldCheck,
   Menu,
   ChevronDown,
-  User
+  User,
+  Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -1025,6 +1027,15 @@ const AppContent = () => {
             <Header selectedTeamId={null} />
             <main className="pt-36 px-6 pb-12 transition-all duration-300">
               <GamePage />
+            </main>
+            <Footer />
+          </>
+        } />
+        <Route path="/games/:gameId/predict" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 px-6 pb-12 transition-all duration-300">
+              <GamePredictorPage />
             </main>
             <Footer />
           </>
