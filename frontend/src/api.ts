@@ -183,6 +183,12 @@ export async function fetchPlayerGameLogs(playerId: number, year: number) {
   return await response.json();
 }
 
+export async function fetchPlayerPropsAvailable(playerId: number) {
+  const response = await fetch(`${API_URL}/players/${playerId}/props`);
+  if (!response.ok) return [];
+  return await response.json();
+}
+
 export async function fetchLeagueLeaders(year: number = new Date().getFullYear()) {
   try {
     // Determine the active season from our local DB, otherwise fallback
@@ -410,8 +416,12 @@ export async function fetchPropBets(gameId: string) {
         return null;
     }
 }
-export async function fetchSavedProps(date: string) {
-    const response = await fetch(`${API_URL}/props/${date}`);
+export async function fetchSavedProps(date: string, eventIds?: string[]) {
+    let url = `${API_URL}/props/${date}`;
+    if (eventIds && eventIds.length > 0) {
+        url += `?event_ids=${eventIds.join(',')}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Network response was not ok');
     }

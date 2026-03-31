@@ -17,6 +17,7 @@ import { LeagueLeadersPage } from './components/LeagueLeadersPage';
 import { LeaguePlayersPage } from './components/LeaguePlayersPage';
 import { GamePage } from './components/GamePage';
 import { PropsPage } from './components/PropsPage';
+import { PropAnalysisPage } from './components/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
 import { useScoreboard } from './context/ScoreboardContext';
@@ -970,6 +971,15 @@ const AppContent = () => {
             <Header selectedTeamId={null} />
             <main className="pt-36 transition-all duration-300">
               <PropsPage />
+            </main>
+            <Footer />
+          </>
+        } />
+        <Route path="/props/analysis" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 transition-all duration-300">
+              <PropAnalysisPage />
             </main>
             <Footer />
           </>

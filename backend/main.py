@@ -720,12 +720,14 @@ async def get_player_profile(player_id: int):
 
 
 @app.get("/api/players/{player_id}/gamelog")
-async def get_player_gamelog(player_id: int, year: int = 2024):
-    """Get a player's game-by-game logs for a specific season."""
+async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
+    """Get a player's game-by-game logs for a specific season, or last N games if year is omitted."""
     
     # We will query both batting and pitching events for the player
     # Since a player can pitch and hit in the same game, we use an outer join pattern or two queries
     # For simplicity and performance, we will grab batting and pitching separately and merge them.
+    
+    # If a year is passed but we want all-time last N starts, we will ignore the year filter
     
     batting_query = """
         SELECT 
@@ -743,6 +745,10 @@ async def get_player_gamelog(player_id: int, year: int = 2024):
             b.bb,
             b.k,
             b.pitches_faced,
+            COALESCE(b.d, 0) as d,
+            COALESCE(b.t, 0) as t,
+            COALESCE(b.sb, 0) as sb,
+            (b.h - COALESCE(b.d, 0) - COALESCE(b.t, 0) - b.hr) as singles,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as team_score,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_score,
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
@@ -752,8 +758,9 @@ async def get_player_gamelog(player_id: int, year: int = 2024):
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE b.athlete_id = :player_id AND e.season_year = :year AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        WHERE b.athlete_id = :player_id AND b.starter = true AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
         ORDER BY e.date DESC
+        LIMIT :limit
     """
     
     pitching_query = """
@@ -772,6 +779,7 @@ async def get_player_gamelog(player_id: int, year: int = 2024):
             p.bb,
             p.k,
             p.pitches,
+            COALESCE(p.recorded_win, false) as recorded_win,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as team_score,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_score,
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
@@ -781,22 +789,44 @@ async def get_player_gamelog(player_id: int, year: int = 2024):
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE p.athlete_id = :player_id AND e.season_year = :year AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        WHERE p.athlete_id = :player_id AND p.starter = true AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
         ORDER BY e.date DESC
+        LIMIT :limit
     """
     
     try:
-        batting_logs = await database.fetch_all(query=batting_query, values={"player_id": player_id, "year": year})
-        pitching_logs = await database.fetch_all(query=pitching_query, values={"player_id": player_id, "year": year})
+        batting_logs = await database.fetch_all(query=batting_query, values={"player_id": player_id, "limit": limit})
+        pitching_logs = await database.fetch_all(query=pitching_query, values={"player_id": player_id, "limit": limit})
+        
+        bat_list = [dict(b) for b in batting_logs]
+        pit_list = [dict(p) for p in pitching_logs]
         
         return {
-            "batting": [dict(b) for b in batting_logs],
-            "pitching": [dict(p) for p in pitching_logs]
+            "batting": bat_list,
+            "pitching": pit_list
         }
     except Exception as e:
         print(f"Error fetching gamelogs: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch game logs")
 
+@app.get("/api/players/{player_id}/props")
+async def get_player_props(player_id: int):
+    """Get all unique prop types and their latest lines available for a specific player."""
+    query = """
+        SELECT prop_type, prop_line
+        FROM player_props
+        WHERE athlete_id = :player_id
+        ORDER BY last_updated DESC
+    """
+    props = await database.fetch_all(query=query, values={"player_id": player_id})
+    
+    # Deduplicate keeping most recent
+    result = {}
+    for p in props:
+        if p["prop_type"] not in result:
+            result[p["prop_type"]] = p["prop_line"]
+            
+    return [{"prop_type": k, "prop_line": v} for k, v in result.items()]
 
 @app.get("/api/stats/league")
 async def get_league_stats(year: int = 2024, type: str = "batting", season_type: str = "Regular Season", limit: int = 100):
@@ -885,31 +915,64 @@ async def get_league_stats(year: int = 2024, type: str = "batting", season_type:
         print(f"Error fetching league stats: {e}")
         return []
 
+from typing import Optional
+
 @app.get("/api/props/{date}")
-async def get_daily_props(date: str):
-    """Get all saved player props for a specific date (YYYYMMDD)."""
+async def get_daily_props(date: str, event_ids: Optional[str] = None):
+    """Get all saved player props for a specific date (YYYYMMDD) and optionally filter by event_ids."""
     try:
-        # Fetch the games for that date to filter the props
-        import httpx
-        url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date}"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url)
-            if resp.status_code != 200:
-                return []
-            data = resp.json()
-            event_ids = [int(event["id"]) for event in data.get("events", [])]
+        e_ids = []
+        if event_ids:
+            e_ids = [int(eid) for eid in event_ids.split(",") if eid.strip()]
+        else:
+            # Fallback to ESPN if event_ids are not provided
+            import httpx
+            url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date}"
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    e_ids = [int(event["id"]) for event in data.get("events", [])]
             
-        if not event_ids:
+        if not e_ids:
             return []
 
         query = """
             SELECT 
-                id, event_id, athlete_id, prop_type, prop_line, over_odds, under_odds, last_updated
-            FROM player_props
-            WHERE event_id = ANY(:event_ids)
+                pp.id, pp.event_id, pp.athlete_id, pp.prop_type, pp.prop_line, pp.over_odds, pp.under_odds, pp.last_updated,
+                a.display_name as athlete_name,
+                COALESCE(
+                    (
+                        SELECT st.abbreviation
+                        FROM season_rosters sr
+                        JOIN season_teams st ON sr.season_team_id = st.season_team_id
+                        WHERE sr.athlete_id = pp.athlete_id
+                        ORDER BY sr.season_year DESC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT t.abbreviation
+                        FROM event_boxscores_batting b
+                        JOIN season_teams t ON b.team_id = t.team_id
+                        WHERE b.athlete_id = pp.athlete_id
+                        ORDER BY b.event_id DESC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT t.abbreviation
+                        FROM event_boxscores_pitching p
+                        JOIN season_teams t ON p.team_id = t.team_id
+                        WHERE p.athlete_id = pp.athlete_id
+                        ORDER BY p.event_id DESC
+                        LIMIT 1
+                    )
+                ) as team_abbrev
+            FROM player_props pp
+            LEFT JOIN athletes a ON pp.athlete_id = a.athlete_id
+            WHERE pp.event_id = ANY(:event_ids)
         """
         
-        props = await database.fetch_all(query=query, values={"event_ids": event_ids})
+        props = await database.fetch_all(query=query, values={"event_ids": e_ids})
         return [dict(p) for p in props]
     except Exception as e:
         print(f"Error fetching props: {e}")
