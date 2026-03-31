@@ -16,6 +16,7 @@ export const PropsPage = () => {
     const [propFilterType, setPropFilterType] = useState<string>('all');
     const [l10TrendMode, setL10TrendMode] = useState<'over' | 'under'>('over');
     const [hitRateFilter, setHitRateFilter] = useState<string>('all');
+    const [edgeFilter, setEdgeFilter] = useState<string>('all');
     
     // Prevent auto-refreshing when ScoreboardContext interval updates todayEvents
     const [fetchedDate, setFetchedDate] = useState<string>('');
@@ -224,6 +225,16 @@ export const PropsPage = () => {
         tableRowsMap.get(rowKey).bets.push(bet);
     });
 
+    const calculateImpliedProbability = (americanOdds: string) => {
+        const odds = parseInt(americanOdds);
+        if (isNaN(odds)) return null;
+        if (odds > 0) {
+            return 100 / (odds + 100);
+        } else {
+            return Math.abs(odds) / (Math.abs(odds) + 100);
+        }
+    };
+
     let allRows = Array.from(tableRowsMap.values()).map(row => {
         if (row.bets.length >= 2) {
             const overBet = row.bets.find((b: any) => b.current?.target?.value === "OVER");
@@ -240,6 +251,9 @@ export const PropsPage = () => {
         }
         
         row.l10 = '-';
+        row.hitRate = 0;
+        row.edge = null;
+
         const logs = allPlayersLogs[row.playerId];
         if (logs) {
             const p = row.propType.toLowerCase();
@@ -282,6 +296,14 @@ export const PropsPage = () => {
                 if (validCount > 0) {
                     row.l10 = `${hitCount} / ${validCount}`;
                     row.hitRate = hitCount / validCount;
+                    
+                    const relevantOdds = l10TrendMode === 'over' ? row.overOdds : row.underOdds;
+                    if (relevantOdds !== '-') {
+                        const impliedProb = calculateImpliedProbability(relevantOdds);
+                        if (impliedProb !== null) {
+                            row.edge = row.hitRate - impliedProb;
+                        }
+                    }
                 } else {
                     row.l10 = '-';
                     row.hitRate = 0;
@@ -301,6 +323,11 @@ export const PropsPage = () => {
         if (hitRateFilter !== 'all') {
             const threshold = parseInt(hitRateFilter) / 100;
             if (!row.hitRate || row.hitRate < threshold) return false;
+        }
+        
+        if (edgeFilter !== 'all') {
+            const threshold = parseInt(edgeFilter) / 100;
+            if (row.edge === null || row.edge < threshold) return false;
         }
         
         return true;
@@ -420,6 +447,20 @@ export const PropsPage = () => {
                         </select>
                     </div>
                     <div className="flex flex-col">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Min Edge</label>
+                        <select 
+                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            value={edgeFilter}
+                            onChange={(e) => setEdgeFilter(e.target.value)}
+                        >
+                            <option value="all">All</option>
+                            <option value="5">5%+</option>
+                            <option value="10">10%+</option>
+                            <option value="15">15%+</option>
+                            <option value="20">20%+</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Trend Mode</label>
                         <div className="flex bg-white rounded border border-slate-200 p-0.5">
                             <button
@@ -449,6 +490,7 @@ export const PropsPage = () => {
                                 <th className="p-4">Prop Type</th>
                                 <th className="p-4">Prop Line</th>
                                 <th className="p-4 text-center">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'}</th>
+                                <th className="p-4 text-center">Edge</th>
                                 <th className="p-4 text-right">Over Odds</th>
                                 <th className="p-4 text-right">Under Odds</th>
                             </tr>
@@ -490,13 +532,22 @@ export const PropsPage = () => {
                                             </span>
                                         )}
                                     </td>
+                                    <td className="p-4 text-center">
+                                        {row.edge === null ? (
+                                            <span className="text-slate-400">-</span>
+                                        ) : (
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black ${row.edge > 0.15 ? 'bg-emerald-500 text-white' : row.edge > 0.05 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                +{Math.round(row.edge * 100)}%
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-right font-bold text-emerald-600">{row.overOdds}</td>
                                     <td className="p-4 text-right font-bold text-rose-600">{row.underOdds}</td>
                                 </tr>
                             ))}
                             {tableRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
+                                    <td colSpan={10} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
                                 </tr>
                             )}
                         </tbody>
