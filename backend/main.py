@@ -162,10 +162,19 @@ async def get_team_pitching_stats(team_id: int, year: int = 2024, season_type: s
 
 
 @app.get("/api/teams/{team_id}/recent_games")
-async def get_recent_games(team_id: int, limit: int = 5):
-    """Get the recent results for a team."""
-    query = """
-        SELECT 
+async def get_recent_games(team_id: int, limit: int = 5, year: int = 2024, season_type_id: int = None):
+    """Get the recent results for a team, optionally filtered by year and season type."""
+    where_clause = "WHERE c1.score IS NOT NULL"
+    values = {"team_id": team_id, "limit": limit, "year": year}
+
+    if season_type_id:
+        where_clause += " AND st.type_id = :season_type_id"
+        values["season_type_id"] = season_type_id
+    else:
+        where_clause += " AND e.season_year = :year"
+
+    query = f"""
+        SELECT
             e.event_id,
             e.date,
             e.name as matchup,
@@ -176,12 +185,12 @@ async def get_recent_games(team_id: int, limit: int = 5):
         FROM events e
         JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
         JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
-        WHERE c1.score IS NOT NULL
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        {where_clause}
         ORDER BY e.date DESC
         LIMIT :limit
     """
-    return await database.fetch_all(query=query, values={"team_id": team_id, "limit": limit})
-
+    return await database.fetch_all(query=query, values=values)
 @app.get("/api/games")
 async def get_all_games(year: int = 2024, page: int = 1, limit: int = 50, season_type: str = "All"):
     """Get a paginated list of all games in a specific season, optionally filtered by type."""
@@ -720,8 +729,9 @@ async def get_player_profile(player_id: int):
 
 
 @app.get("/api/players/{player_id}/gamelog")
-async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
+async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, season_type_id: int = None):
     """Get a player's game-by-game logs for a specific season, or last N games if year is omitted."""
+    type_filter = "st.type_id = :season_type_id" if season_type_id else "st.type_id IN (2, 3)"
     
     # We will query both batting and pitching events for the player
     # Since a player can pitch and hit in the same game, we use an outer join pattern or two queries
@@ -765,12 +775,12 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE b.athlete_id = :player_id AND b.starter = true AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        WHERE b.athlete_id = :player_id AND b.starter = true AND {type_filter}
         ORDER BY e.date DESC
         LIMIT :limit
     """
     
-    pitching_query = """
+    pitching_query = f"""
         SELECT 
             st.type_id as season_type,
             e.event_id,
@@ -803,14 +813,18 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE p.athlete_id = :player_id AND p.starter = true AND st.type_id IN (2, 3) -- Only Regular Season & Postseason
+        WHERE p.athlete_id = :player_id AND p.starter = true AND {type_filter}
         ORDER BY e.date DESC
         LIMIT :limit
     """
     
     try:
-        batting_logs = await database.fetch_all(query=batting_query, values={"player_id": player_id, "limit": limit})
-        pitching_logs = await database.fetch_all(query=pitching_query, values={"player_id": player_id, "limit": limit})
+        values = {"player_id": player_id, "limit": limit}
+        if season_type_id:
+            values["season_type_id"] = season_type_id
+            
+        batting_logs = await database.fetch_all(query=batting_query, values=values)
+        pitching_logs = await database.fetch_all(query=pitching_query, values=values)
         
         bat_list = [dict(b) for b in batting_logs]
         pit_list = [dict(p) for p in pitching_logs]

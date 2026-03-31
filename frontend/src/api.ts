@@ -15,8 +15,10 @@ export async function fetchTeamRoster(teamId: number, year = 2024, seasonType = 
   return response.json();
 }
 
-export async function fetchRecentGames(teamId: number, limit = 5) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/recent_games?limit=${limit}`);
+export async function fetchRecentGames(teamId: number, limit = 5, year = 2024, seasonTypeId?: number) {
+  let url = `${API_URL}/teams/${teamId}/recent_games?limit=${limit}&year=${year}`;
+  if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
+  const response = await fetch(url);
   return response.json();
 }export async function fetchPaginatedTeamGames(teamId: number, year = 2024, page = 1, limit = 20, seasonType = "All") {
   const response = await fetch(`${API_URL}/teams/${teamId}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
@@ -177,8 +179,10 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
 
 
 
-export async function fetchPlayerGameLogs(playerId: number, year: number, limit: number = 20) {
-  const response = await fetch(`${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`);
+export async function fetchPlayerGameLogs(playerId: number, year: number, limit: number = 20, seasonTypeId?: number) {
+  let url = `${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`;
+  if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
+  const response = await fetch(url);
   if (!response.ok) return { batting: [], pitching: [] };
   return await response.json();
 }

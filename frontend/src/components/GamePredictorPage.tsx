@@ -47,12 +47,12 @@ export const GamePredictorPage = () => {
                     const year = new Date().getFullYear();
 
                     const [aRecent, hRecent, aStarter, hStarter, aLogs, hLogs] = await Promise.all([
-                        fetchRecentGames(parseInt(awayTeam.id), 10),
-                        fetchRecentGames(parseInt(homeTeam.id), 10),
+                        fetchRecentGames(parseInt(awayTeam.id), 10, year, 2), // ONLY Regular Season
+                        fetchRecentGames(parseInt(homeTeam.id), 10, year, 2), // ONLY Regular Season
                         awayProbable ? fetchPlayerProfile(parseInt(awayProbable.id)) : Promise.resolve(null),
                         homeProbable ? fetchPlayerProfile(parseInt(homeProbable.id)) : Promise.resolve(null),
-                        awayProbable ? fetchPlayerGameLogs(parseInt(awayProbable.id), year, 5) : Promise.resolve(null),
-                        homeProbable ? fetchPlayerGameLogs(parseInt(homeProbable.id), year, 5) : Promise.resolve(null)
+                        awayProbable ? fetchPlayerGameLogs(parseInt(awayProbable.id), year, 5, 2) : Promise.resolve(null), // ONLY Regular Season
+                        homeProbable ? fetchPlayerGameLogs(parseInt(homeProbable.id), year, 5, 2) : Promise.resolve(null)  // ONLY Regular Season
                     ]);
                     
                     setAwayRecent(aRecent);
