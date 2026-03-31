@@ -64,6 +64,16 @@ export const PlayerPage = () => {
           espnOverview: espnOverview,
           teamHistory: teamHistory
         });
+
+        // Set active category automatically if not in URL
+        if (!searchParams.get("category")) {
+          const pos = espnBase.athlete.position?.abbreviation;
+          if (pos === "SP" || pos === "RP") {
+            setActiveCategory("pitching");
+          } else {
+            setActiveCategory("batting");
+          }
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -93,14 +103,11 @@ export const PlayerPage = () => {
   // Secondary effect to load the multithreaded splits data
   useEffect(() => {
     async function loadSplits() {
-      if (!playerId) return;
+      if (!playerId || !activeCategory) return;
       setLoadingSplits(true);
       try {
-          const splits = await fetchEspnSplits(Number(playerId), activeCategory || undefined);
+          const splits = await fetchEspnSplits(Number(playerId), activeCategory);
           setSplitsData(splits);
-          if (!activeCategory && splits.activeCategory) {
-              setActiveCategory(splits.activeCategory);
-          }
       } catch (e) {
           console.error("Failed to load detailed splits", e);
       } finally {
@@ -444,6 +451,30 @@ export const PlayerPage = () => {
                 )}
               </tbody>
             </table>
+            
+            {splitsData?.labels && splitsData.labels.length > 0 && splitsData?.displayNames && splitsData?.descriptions && (
+              <div className="bg-slate-50 border-t border-slate-200 p-6">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Stats Legend</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {splitsData.labels.map((label: string, i: number) => {
+                    const displayName = splitsData.displayNames?.[i];
+                    const description = splitsData.descriptions?.[i];
+                    if (!displayName) return null;
+                    return (
+                      <div key={i} className="flex flex-col">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-bold text-sm text-slate-700">{label}</span>
+                          <span className="text-xs font-medium text-slate-500">{displayName}</span>
+                        </div>
+                        {description && description !== displayName && (
+                          <span className="text-[10px] text-slate-400 leading-snug mt-0.5">{description}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         )}

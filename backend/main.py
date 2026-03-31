@@ -14,7 +14,7 @@ app = FastAPI(title="MLB Statmaster API")
 # Allow the React frontend to make requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://0.0.0.0:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -165,33 +165,43 @@ async def get_team_pitching_stats(team_id: int, year: int = 2024, season_type: s
 @app.get("/api/teams/{team_id}/recent_games")
 async def get_recent_games(team_id: int, limit: int = 5, year: int = 2024, season_type_id: int = None):
     """Get the recent results for a team, optionally filtered by year and season type."""
-    where_clause = "WHERE c1.score IS NOT NULL"
-    values = {"team_id": team_id, "limit": limit, "year": year}
+    try:
+        where_clause = "WHERE c1.score IS NOT NULL"
+        query_params = {"team_id": team_id, "limit": limit}
 
-    if season_type_id:
-        where_clause += " AND st.type_id = :season_type_id"
-        values["season_type_id"] = season_type_id
-    else:
-        where_clause += " AND e.season_year = :year"
+        if season_type_id:
+            where_clause += " AND st.type_id = :season_type_id"
+            query_params["season_type_id"] = season_type_id
+        else:
+            where_clause += " AND e.season_year = :year"
+            query_params["year"] = year
 
-    query = f"""
-        SELECT
-            e.event_id,
-            e.date,
-            e.name as matchup,
-            c1.score as team_score,
-            c2.score as opponent_score,
-            c2.team_id as opponent_id,
-            c1.winner
-        FROM events e
-        JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
-        JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
-        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        {where_clause}
-        ORDER BY e.date DESC
-        LIMIT :limit
-    """
-    return await database.fetch_all(query=query, values=values)
+        query = f"""
+            SELECT
+                e.event_id,
+                e.date,
+                e.name as matchup,
+                c1.score as team_score,
+                c2.score as opponent_score,
+                c2.team_id as opponent_id,
+                c1.winner,
+                (SELECT st_inner.name FROM season_types st_inner WHERE e.season_year = st_inner.season_year AND e.date >= st_inner.start_date AND e.date <= st_inner.end_date LIMIT 1) as season_type_name,
+                (SELECT st_inner.type_id FROM season_types st_inner WHERE e.season_year = st_inner.season_year AND e.date >= st_inner.start_date AND e.date <= st_inner.end_date LIMIT 1) as season_type_id,
+                (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = c2.team_id AND t.season_year = e.season_year LIMIT 1) as opponent_abbreviation,
+                c1.home_away as location
+            FROM events e
+            JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+            JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            {where_clause}
+            ORDER BY e.date DESC
+            LIMIT :limit
+        """
+        results = await database.fetch_all(query=query, values=query_params)
+        return [dict(r) for r in results]
+    except Exception as e:
+        print(f"Error in get_recent_games: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 @app.get("/api/games")
 async def get_all_games(year: int = 2024, page: int = 1, limit: int = 50, season_type: str = "All"):
     """Get a paginated list of all games in a specific season, optionally filtered by type."""
@@ -490,8 +500,7 @@ async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "R
             data = resp.json()
             
             # We want to pull specific categories to make a clean dashboard:
-            # e.g. Batting Average, Home Runs, ERA, Strikeouts
-            desired_categories = ['battingAverage', 'homeRuns', 'runsBattedIn', 'earnedRunAverage', 'strikeouts']
+            desired_categories = ['avg', 'homeRuns', 'RBIs', 'OPS', 'stolenBases', 'ERA', 'strikeouts', 'wins', 'saves', 'WHIP']
             
             final_leaders = []
             
@@ -517,7 +526,7 @@ async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "R
                 athlete_record = await database.fetch_one(query=athlete_query, values={"id": athlete_id})
                 
                 pos_abbrev = "UN"
-                if athlete_record and athlete_record['position_id']:
+                if athlete_record and athlete_record['position_id'] is not None:
                     pos_query = "SELECT abbreviation FROM positions WHERE position_id = :pid"
                     pos_record = await database.fetch_one(query=pos_query, values={"pid": athlete_record['position_id']})
                     if pos_record:
@@ -776,12 +785,12 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, 
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE b.athlete_id = :player_id AND b.starter = true AND {type_filter}
+        WHERE b.athlete_id = :player_id AND b.starter = true AND __TYPE_FILTER__
         ORDER BY e.date DESC
         LIMIT :limit
-    """
+    """.replace("__TYPE_FILTER__", type_filter)
     
-    pitching_query = f"""
+    pitching_query = """
         SELECT 
             st.type_id as season_type,
             e.event_id,
@@ -814,18 +823,18 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, 
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE p.athlete_id = :player_id AND p.starter = true AND {type_filter}
+        WHERE p.athlete_id = :player_id AND p.starter = true AND __TYPE_FILTER__
         ORDER BY e.date DESC
         LIMIT :limit
-    """
+    """.replace("__TYPE_FILTER__", type_filter)
     
     try:
-        values = {"player_id": player_id, "limit": limit}
+        query_params = {"player_id": player_id, "limit": limit}
         if season_type_id:
-            values["season_type_id"] = season_type_id
+            query_params["season_type_id"] = season_type_id
             
-        batting_logs = await database.fetch_all(query=batting_query, values=values)
-        pitching_logs = await database.fetch_all(query=pitching_query, values=values)
+        batting_logs = await database.fetch_all(query=batting_query, values=query_params)
+        pitching_logs = await database.fetch_all(query=pitching_query, values=query_params)
         
         bat_list = [dict(b) for b in batting_logs]
         pit_list = [dict(p) for p in pitching_logs]
@@ -1020,159 +1029,247 @@ async def get_prediction_context(
     Aggregates comprehensive situational data for an upcoming game.
     Designed to provide a structured payload for LLM analysis.
     """
-    
-    async def get_team_context(team_id: int):
-        # 1. Season Record & Last 10
-        record_query = """
-            WITH team_games AS (
+    try:
+        async def get_team_context(team_id: int):
+            # 1. Season Record & Last 10
+            record_query = """
+                WITH team_games AS (
+                    SELECT 
+                        e.date,
+                        c1.winner,
+                        c1.score as team_score,
+                        c2.score as opponent_score
+                    FROM events e
+                    JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+                    JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+                    JOIN season_types st ON e.season_year = st.season_year 
+                        AND e.date >= st.start_date AND e.date <= st.end_date
+                    WHERE st.type_id = 2 -- Regular Season
+                      AND e.season_year = :year
+                      AND c1.score IS NOT NULL
+                    ORDER BY e.date DESC
+                )
                 SELECT 
-                    e.date,
-                    c1.winner,
-                    c1.score as team_score,
-                    c2.score as opponent_score
-                FROM events e
-                JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
-                JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+                    COUNT(*) as total_games,
+                    SUM(CASE WHEN winner THEN 1 ELSE 0 END) as wins,
+                    SUM(CASE WHEN winner THEN 0 ELSE 1 END) as losses,
+                    (SELECT string_agg(CASE WHEN winner THEN 'W' ELSE 'L' END, '') FROM (SELECT winner FROM team_games LIMIT 10) t) as l10_streak
+                FROM team_games
+            """
+            
+            # 2. Splits vs Handedness
+            splits_query = """
+                SELECT 
+                    a.throws,
+                    COUNT(DISTINCT b.event_id) as games,
+                    ROUND(AVG(team_total_r), 2) as avg_runs,
+                    ROUND(SUM(team_total_h)::numeric / NULLIF(SUM(team_total_ab), 0), 3) as team_avg
+                FROM (
+                    SELECT 
+                        b.event_id,
+                        b.team_id,
+                        SUM(b.ab) as team_total_ab,
+                        SUM(b.h) as team_total_h,
+                        SUM(b.r) as team_total_r
+                    FROM event_boxscores_batting b
+                    GROUP BY b.event_id, b.team_id
+                ) b
+                JOIN event_boxscores_pitching opp_p ON b.event_id = opp_p.event_id AND b.team_id != opp_p.team_id
+                JOIN athletes a ON opp_p.athlete_id = a.athlete_id
+                JOIN events e ON b.event_id = e.event_id
                 JOIN season_types st ON e.season_year = st.season_year 
                     AND e.date >= st.start_date AND e.date <= st.end_date
-                WHERE st.type_id = 2 -- Regular Season
+                WHERE b.team_id = :team_id 
+                  AND opp_p.starter = true 
+                  AND st.type_id = 2
                   AND e.season_year = :year
-                  AND c1.score IS NOT NULL
-                ORDER BY e.date DESC
+                GROUP BY a.throws
+            """
+            
+            record, splits = await asyncio.gather(
+                database.fetch_one(query=record_query, values={"team_id": team_id, "year": year}),
+                database.fetch_all(query=splits_query, values={"team_id": team_id, "year": year})
             )
-            SELECT 
-                COUNT(*) as total_games,
-                SUM(CASE WHEN winner THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN winner THEN 0 ELSE 1 END) as losses,
-                (SELECT string_agg(CASE WHEN winner THEN 'W' ELSE 'L' END, '') FROM (SELECT winner FROM team_games LIMIT 10) t) as l10_streak
-            FROM team_games
-        """
-        
-        # 2. Splits vs Handedness
-        splits_query = """
-            SELECT 
-                a.throws,
-                COUNT(DISTINCT b.event_id) as games,
-                ROUND(AVG(team_total_r), 2) as avg_runs,
-                ROUND(SUM(team_total_h)::numeric / NULLIF(SUM(team_total_ab), 0), 3) as team_avg
-            FROM (
+            
+            return {
+                "record": dict(record) if record else {},
+                "splits": [dict(s) for s in splits]
+            }
+
+        async def get_pitcher_context(athlete_id: int):
+            if not athlete_id: return None
+            
+            # 1. Season Stats
+            stats_query = """
                 SELECT 
-                    b.event_id,
-                    b.team_id,
-                    SUM(b.ab) as team_total_ab,
-                    SUM(b.h) as team_total_h,
-                    SUM(b.r) as team_total_r
-                FROM event_boxscores_batting b
-                GROUP BY b.event_id, b.team_id
-            ) b
-            JOIN event_boxscores_pitching opp_p ON b.event_id = opp_p.event_id AND b.team_id != opp_p.team_id
-            JOIN athletes a ON opp_p.athlete_id = a.athlete_id
-            JOIN events e ON b.event_id = e.event_id
-            JOIN season_types st ON e.season_year = st.season_year 
-                AND e.date >= st.start_date AND e.date <= st.end_date
-            WHERE b.team_id = :team_id 
-              AND opp_p.starter = true 
-              AND st.type_id = 2
-              AND e.season_year = :year
-            GROUP BY a.throws
-        """
+                    COUNT(*) as starts,
+                    SUM(k) as total_k,
+                    SUM(bb) as total_bb,
+                    SUM(er) as total_er,
+                    SUM(h) as total_h,
+                    SUM(CASE 
+                        WHEN ip LIKE '%.1' THEN split_part(ip, '.', 1)::numeric + 0.33
+                        WHEN ip LIKE '%.2' THEN split_part(ip, '.', 1)::numeric + 0.66
+                        ELSE ip::numeric
+                    END) as total_ip
+                FROM event_boxscores_pitching p
+                JOIN events e ON p.event_id = e.event_id
+                JOIN season_types st ON e.season_year = st.season_year 
+                    AND e.date >= st.start_date AND e.date <= st.end_date
+                WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
+            """
+            
+            # 2. Last 5 Starts
+            recent_query = """
+                SELECT 
+                    e.date,
+                    p.ip, p.h, p.r, p.er, p.bb, p.k,
+                    (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = (SELECT team_id FROM event_competitors WHERE event_id = e.event_id AND team_id != p.team_id LIMIT 1) AND t.season_year = :year LIMIT 1) as opponent
+                FROM event_boxscores_pitching p
+                JOIN events e ON p.event_id = e.event_id
+                JOIN season_types st ON e.season_year = st.season_year 
+                    AND e.date >= st.start_date AND e.date <= st.end_date
+                WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
+                ORDER BY e.date DESC
+                LIMIT 5
+            """
+            
+            # 3. Bio (throws)
+            bio_query = "SELECT display_name, throws FROM athletes WHERE athlete_id = :athlete_id"
+            
+            stats, recent, bio = await asyncio.gather(
+                database.fetch_one(query=stats_query, values={"athlete_id": athlete_id, "year": year}),
+                database.fetch_all(query=recent_query, values={"athlete_id": athlete_id, "year": year}),
+                database.fetch_one(query=bio_query, values={"athlete_id": athlete_id})
+            )
+            
+            res = {
+                "bio": dict(bio) if bio else {},
+                "season_stats": dict(stats) if stats else {},
+                "recent_starts": [dict(r) for r in recent]
+            }
+            
+            # Calculate ERA/WHIP if possible
+            if stats and stats['total_ip'] > 0:
+                res["calculated_metrics"] = {
+                    "era": round((stats['total_er'] * 9) / float(stats['total_ip']), 2),
+                    "whip": round((stats['total_h'] + stats['total_bb']) / float(stats['total_ip']), 2),
+                    "k_per_9": round((stats['total_k'] * 9) / float(stats['total_ip']), 2)
+                }
+                
+            return res
+
+        # 1. Fetch Odds
+        odds_query = "SELECT away_money_line, home_money_line, over_under FROM event_odds WHERE event_id = :event_id LIMIT 1"
         
-        record, splits = await asyncio.gather(
-            database.fetch_one(query=record_query, values={"team_id": team_id, "year": year}),
-            database.fetch_all(query=splits_query, values={"team_id": team_id, "year": year})
+        # Run all context gathering in parallel
+        away_task = get_team_context(away_team_id)
+        home_task = get_team_context(home_team_id)
+        away_pitcher_task = get_pitcher_context(away_starter_id)
+        home_pitcher_task = get_pitcher_context(home_starter_id)
+        odds_task = database.fetch_one(query=odds_query, values={"event_id": int(event_id)})
+        
+        away_ctx, home_ctx, away_p_ctx, home_p_ctx, odds = await asyncio.gather(
+            away_task, home_task, away_pitcher_task, home_pitcher_task, odds_task
         )
         
         return {
-            "record": dict(record) if record else {},
-            "splits": [dict(s) for s in splits]
-        }
-
-    async def get_pitcher_context(athlete_id: int):
-        if not athlete_id: return None
-        
-        # 1. Season Stats
-        stats_query = """
-            SELECT 
-                COUNT(*) as starts,
-                SUM(k) as total_k,
-                SUM(bb) as total_bb,
-                SUM(er) as total_er,
-                SUM(h) as total_h,
-                SUM(CASE 
-                    WHEN ip LIKE '%.1' THEN split_part(ip, '.', 1)::numeric + 0.33
-                    WHEN ip LIKE '%.2' THEN split_part(ip, '.', 1)::numeric + 0.66
-                    ELSE ip::numeric
-                END) as total_ip
-            FROM event_boxscores_pitching p
-            JOIN events e ON p.event_id = e.event_id
-            JOIN season_types st ON e.season_year = st.season_year 
-                AND e.date >= st.start_date AND e.date <= st.end_date
-            WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
-        """
-        
-        # 2. Last 5 Starts
-        recent_query = """
-            SELECT 
-                e.date,
-                p.ip, p.h, p.r, p.er, p.bb, p.k,
-                (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = (SELECT team_id FROM event_competitors WHERE event_id = e.event_id AND team_id != p.team_id LIMIT 1) AND t.season_year = :year LIMIT 1) as opponent
-            FROM event_boxscores_pitching p
-            JOIN events e ON p.event_id = e.event_id
-            JOIN season_types st ON e.season_year = st.season_year 
-                AND e.date >= st.start_date AND e.date <= st.end_date
-            WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
-            ORDER BY e.date DESC
-            LIMIT 5
-        """
-        
-        # 3. Bio (throws)
-        bio_query = "SELECT display_name, throws FROM athletes WHERE athlete_id = :athlete_id"
-        
-        stats, recent, bio = await asyncio.gather(
-            database.fetch_one(query=stats_query, values={"athlete_id": athlete_id, "year": year}),
-            database.fetch_all(query=recent_query, values={"athlete_id": athlete_id, "year": year}),
-            database.fetch_one(query=bio_query, values={"athlete_id": athlete_id})
-        )
-        
-        res = {
-            "bio": dict(bio) if bio else {},
-            "season_stats": dict(stats) if stats else {},
-            "recent_starts": [dict(r) for r in recent]
-        }
-        
-        # Calculate ERA/WHIP if possible
-        if stats and stats['total_ip'] > 0:
-            res["calculated_metrics"] = {
-                "era": round((stats['total_er'] * 9) / float(stats['total_ip']), 2),
-                "whip": round((stats['total_h'] + stats['total_bb']) / float(stats['total_ip']), 2),
-                "k_per_9": round((stats['total_k'] * 9) / float(stats['total_ip']), 2)
+            "event_id": event_id,
+            "odds": dict(odds) if odds else {},
+            "away_team": away_ctx,
+            "home_team": home_ctx,
+            "away_starter": away_p_ctx,
+            "home_starter": home_p_ctx,
+            "metadata": {
+                "season": year,
+                "season_type": "Regular Season"
             }
-            
-        return res
-
-    # 1. Fetch Odds
-    odds_query = "SELECT away_money_line, home_money_line, over_under FROM event_odds WHERE event_id = :event_id LIMIT 1"
-    
-    # Run all context gathering in parallel
-    away_task = get_team_context(away_team_id)
-    home_task = get_team_context(home_team_id)
-    away_pitcher_task = get_pitcher_context(away_starter_id)
-    home_pitcher_task = get_pitcher_context(home_starter_id)
-    odds_task = database.fetch_one(query=odds_query, values={"event_id": int(event_id)})
-    
-    away_ctx, home_ctx, away_p_ctx, home_p_ctx, odds = await asyncio.gather(
-        away_task, home_task, away_pitcher_task, home_pitcher_task, odds_task
-    )
-    
-    return {
-        "event_id": event_id,
-        "odds": dict(odds) if odds else {},
-        "away_team": away_ctx,
-        "home_team": home_ctx,
-        "away_starter": away_p_ctx,
-        "home_starter": home_p_ctx,
-        "metadata": {
-            "season": year,
-            "season_type": "Regular Season"
         }
+    except Exception as e:
+        print(f"Error in get_prediction_context: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stats/league")
+async def get_league_stats(year: int = 2024, type: str = "batting", season_type: str = "Regular Season", limit: int = 100):
+    """Get aggregated league-wide player statistics for a specific season."""
+    
+    type_id_map = {
+        "Preseason": 1,
+        "Regular Season": 2,
+        "Postseason": 3,
+        "All": None
     }
+    type_id = type_id_map.get(season_type, 2)
+    type_filter = f" AND st.type_id = {type_id}" if type_id else ""
+    
+    if type == "batting":
+        query = f"""
+            SELECT 
+                b.athlete_id,
+                MAX(p.display_name) as name,
+                MAX(t.abbreviation) as team_abbrev,
+                MAX(t.color) as team_color,
+                MAX(b.team_id) as team_id,
+                COUNT(b.event_id) as g,
+                SUM(b.ab) as ab,
+                SUM(b.r) as r,
+                SUM(b.h) as h,
+                SUM(b.hr) as hr,
+                SUM(b.rbi) as rbi,
+                SUM(b.bb) as bb,
+                SUM(b.k) as k,
+                CASE WHEN SUM(b.ab) > 0 THEN ROUND((SUM(b.h)::numeric / SUM(b.ab)), 3) ELSE 0 END as avg,
+                CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END as obp,
+                CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3)::numeric / SUM(b.ab)), 3) ELSE 0 END as slg,
+                (CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END + 
+                 CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3)::numeric / SUM(b.ab)), 3) ELSE 0 END) as ops
+            FROM event_boxscores_batting b
+            JOIN events e ON b.event_id = e.event_id
+            JOIN athletes p ON b.athlete_id = p.athlete_id
+            JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE e.season_year = :year {type_filter} AND b.ab IS NOT NULL
+            GROUP BY b.athlete_id
+            HAVING SUM(b.ab) > 0
+            ORDER BY ops DESC, hr DESC
+            LIMIT :limit
+        """
+    else:
+        query = f"""
+            SELECT 
+                p_box.athlete_id,
+                MAX(p.display_name) as name,
+                MAX(t.abbreviation) as team_abbrev,
+                MAX(t.color) as team_color,
+                MAX(p_box.team_id) as team_id,
+                COUNT(p_box.event_id) as g,
+                SUM(NULLIF(p_box.ip, '--.--')::numeric) as ip,
+                SUM(p_box.h) as h,
+                SUM(p_box.r) as r,
+                SUM(p_box.er) as er,
+                SUM(p_box.hr) as hr,
+                SUM(p_box.bb) as bb,
+                SUM(p_box.k) as k,
+                SUM(CASE WHEN c.winner = true AND c.team_id = p_box.team_id THEN 1 ELSE 0 END) as w,
+                SUM(CASE WHEN c.winner = false AND c.team_id = p_box.team_id THEN 1 ELSE 0 END) as l,
+                CASE WHEN SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0 THEN ROUND((SUM(p_box.er)::numeric * 9 / SUM(NULLIF(p_box.ip, '--.--')::numeric)), 2) ELSE 0 END as era,
+                CASE WHEN SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0 THEN ROUND(((SUM(p_box.bb) + SUM(p_box.h))::numeric / SUM(NULLIF(p_box.ip, '--.--')::numeric)), 2) ELSE 0 END as whip
+            FROM event_boxscores_pitching p_box
+            JOIN events e ON p_box.event_id = e.event_id
+            JOIN athletes p ON p_box.athlete_id = p.athlete_id
+            JOIN season_teams t ON p_box.team_id = t.team_id AND e.season_year = t.season_year
+            LEFT JOIN event_competitors c ON p_box.event_id = c.event_id AND p_box.team_id = c.team_id
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE e.season_year = :year {type_filter} AND p_box.ip IS NOT NULL AND p_box.ip != '--.--'
+            GROUP BY p_box.athlete_id
+            HAVING SUM(NULLIF(p_box.ip, '--.--')::numeric) > 0
+            ORDER BY era ASC, k DESC
+            LIMIT :limit
+        """
+
+    try:
+        stats = await database.fetch_all(query=query, values={"year": year, "limit": limit})
+        return [dict(s) for s in stats]
+    except Exception as e:
+        print(f"Error fetching league stats: {e}")
+        return []

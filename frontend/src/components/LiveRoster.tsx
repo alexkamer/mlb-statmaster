@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 
-export const LiveRoster = ({ roster, onPlayerClick }: { roster: any[], onPlayerClick: (p: any) => void }) => {
+export const LiveRoster = ({ roster, onPlayerClick }: { roster: any[], onPlayerClick?: (p: any) => void }) => {
   if (!roster || !Array.isArray(roster) || roster.length === 0) return null;
 
   // Group the roster back into the categories (Pitchers, Catchers, etc.)
@@ -28,10 +29,10 @@ export const LiveRoster = ({ roster, onPlayerClick }: { roster: any[], onPlayerC
             </div>
             <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
               {(players as any[]).map((player) => (
-                <div 
+                <Link 
+                  to={`/players/${player.athlete_id}`}
                   key={player.athlete_id} 
-                  onClick={() => onPlayerClick(player)}
-                  className="px-6 py-3 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors group"
+                  className="px-6 py-3 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors group block w-full"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 shadow-sm shrink-0">
@@ -65,7 +66,7 @@ export const LiveRoster = ({ roster, onPlayerClick }: { roster: any[], onPlayerC
                       </span>
                     )}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

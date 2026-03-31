@@ -97,12 +97,14 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
   if (!seasonFilter) return { seasons: [], labels: [], activeCategory: null, availableCategories: [] };
   
   const availableSeasons = seasonFilter.options.map((o: any) => o.value);
-  const activeCategory = categoryFilter?.value || "batting";
+  const activeCategory = category || categoryFilter?.value || "batting";
   const availableCategories = categoryFilter?.options.map((o: any) => o.value) || [];
 
   // Determine standard labels from the base response (current year)
   let baseLabels = baseData.labels || [];
   let baseNames = baseData.names || [];
+  let baseDisplayNames = baseData.displayNames || [];
+  let baseDescriptions = baseData.descriptions || [];
 
   // We want to fetch the "split" -> "Overall" row for EVERY season concurrently
   const seasonPromises = availableSeasons.map(async (season: string) => {
@@ -173,6 +175,8 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
       availableCategories,
       labels: baseLabels,
       names: baseNames,
+      displayNames: baseDisplayNames,
+      descriptions: baseDescriptions,
       seasons: validSeasons
   };
 }

@@ -404,11 +404,12 @@ export const DailyScoreboard = () => {
                                     <img src={p.prob.headshot} className="relative z-10 w-full h-full object-cover mix-blend-multiply" alt={p.prob.name} />
                                   </div>
                                   <div className="flex flex-col flex-1 min-w-0">
-                                    <span className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary group-hover:text-secondary cursor-pointer leading-tight truncate">{p.prob.name}</span>
+                                    <Link to={`/players/${p.prob.id}`} onClick={(e) => e.stopPropagation()} className="text-[clamp(10px,2.5cqi,12px)] xl:text-[clamp(11px,2.5cqi,14px)] font-bold text-primary hover:underline leading-tight truncate w-max block">
+                                      {p.prob.name}
+                                    </Link>
                                     <span className="text-[clamp(9px,2cqi,10px)] xl:text-[clamp(10px,2cqi,12px)] text-slate-500 font-medium leading-tight truncate">ERA {p.prob.era} {p.prob.record}</span>
                                   </div>
-                                </div>
-                              </div>
+                                </div>                              </div>
                            ) : null)}
                          </div>
                        </div>

@@ -4,9 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams, useSearchParams, Link } from 'react-router-dom';
 
-import { PlayerModal } from './components/PlayerModal';
 import { BattingLeaders as TeamLeaders } from './components/BattingLeaders';
 import { LiveRoster } from './components/LiveRoster';
 import { TeamTabs } from './components/TeamTabs';
@@ -20,6 +19,8 @@ import { GamePredictorPage } from './components/GamePredictorPage';
 import { PropsPage } from './components/PropsPage';
 import { PropAnalysisPage } from './components/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
+import { TeamStatsDashboard } from './components/TeamStatsDashboard';
+import { TeamNewsFeed } from './components/TeamNewsFeed';
 import { LiveTicker } from './components/LiveTicker';
 import { useScoreboard } from './context/ScoreboardContext';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
@@ -279,7 +280,7 @@ const HeroSection = ({ team, standing, seasons, selectedYear, onYearChange, espn
           </div>
           {standing?.division_rank && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest opacity-70">League Rank</p>
+              <p className="text-[10px] uppercase tracking-widest opacity-70">Division Rank</p>
               <p className="text-3xl font-headline font-black">{standing.division_rank}<span className="text-sm align-top">{getRankSuffix(standing.division_rank)}</span></p>
             </div>
           )}
@@ -348,30 +349,112 @@ const TeamRecords = ({ espnRecords }: { espnRecords: any }) => {
   );
 };
 
-const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { battingRoster: any[], pitchingRoster: any[], onPlayerClick: (p: any) => void }) => {
+const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick, selectedSeasonType, onSeasonTypeChange }: { battingRoster: any[], pitchingRoster: any[], onPlayerClick?: (p: any) => void, selectedSeasonType?: string, onSeasonTypeChange?: (v: string) => void }) => {
   const [view, setView] = useState<'batting' | 'pitching'>('batting');
+  const [sortField, setSortField] = useState<string>('');
+  const [sortDesc, setSortDesc] = useState<boolean>(true);
+  const [positionFilter, setPositionFilter] = useState<string>('All');
+  const navigate = useNavigate();
   
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDesc(!sortDesc);
+    } else {
+      setSortField(field);
+      setSortDesc(true);
+    }
+  };
+
+  const getSortedData = (data: any[]) => {
+    let filtered = data;
+    if (positionFilter !== 'All') {
+      if (positionFilter === 'Infield') {
+        filtered = filtered.filter(p => ['1B', '2B', '3B', 'SS', 'C'].includes(p.position));
+      } else if (positionFilter === 'Outfield') {
+        filtered = filtered.filter(p => ['LF', 'CF', 'RF', 'OF'].includes(p.position));
+      } else if (positionFilter === 'DH') {
+        filtered = filtered.filter(p => p.position === 'DH');
+      }
+    }
+
+    if (!sortField) return filtered;
+    return [...filtered].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      
+      // Handle numeric parsing
+      if (typeof valA === 'string' && !isNaN(Number(valA))) valA = Number(valA);
+      if (typeof valB === 'string' && !isNaN(Number(valB))) valB = Number(valB);
+      
+      if (valA < valB) return sortDesc ? 1 : -1;
+      if (valA > valB) return sortDesc ? -1 : 1;
+      return 0;
+    });
+  };
+
   // Filter out empty rows (Pitchers with 0 ABs, or Hitters with 0 IPs)
-  const activeBatters = battingRoster.filter(p => p.ab > 0 || p.g > 0);
-  const activePitchers = pitchingRoster.filter(p => p.ip && p.ip !== "0" && p.ip !== "0.0");
+  const activeBatters = getSortedData(battingRoster.filter(p => p.ab > 0 || p.g > 0));
+  const activePitchers = getSortedData(pitchingRoster.filter(p => p.ip && p.ip !== "0" && p.ip !== "0.0"));
+
+  const SortHeader = ({ field, label, align = 'right' }: { field: string, label: string, align?: string }) => (
+    <th 
+      className={`px-4 py-4 cursor-pointer hover:bg-slate-100 transition-colors text-${align}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className={`flex items-center gap-1 justify-${align === 'right' ? 'end' : 'start'}`}>
+        {label}
+        {sortField === field && (
+          <span className="text-secondary text-[8px]">{sortDesc ? '▼' : '▲'}</span>
+        )}
+      </div>
+    </th>
+  );
   
   return (
   <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
-    <div className="bg-primary px-6 py-4 flex justify-between items-center">
-      <h3 className="text-white font-headline font-bold uppercase tracking-wider text-sm">Active Roster Statistics</h3>
-      <div className="flex gap-4">
-        <button 
-          onClick={() => setView('batting')}
-          className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'batting' ? 'text-secondary' : 'text-white/50 hover:text-white'}`}
-        >
-          Batting
-        </button>
-        <button 
-          onClick={() => setView('pitching')}
-          className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'pitching' ? 'text-secondary' : 'text-white/50 hover:text-white'}`}
-        >
-          Pitching
-        </button>
+    <div className="bg-primary px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="flex items-center gap-4">
+        <h3 className="text-white font-headline font-bold uppercase tracking-wider text-sm">Active Roster Statistics</h3>
+        {onSeasonTypeChange && (
+          <select 
+            value={selectedSeasonType}
+            onChange={(e) => onSeasonTypeChange(e.target.value)}
+            className="bg-white/10 text-white border-none rounded px-2 py-1 text-xs font-bold outline-none cursor-pointer hidden md:block"
+          >
+            <option value="All" className="text-primary">All Games</option>
+            <option value="Preseason" className="text-primary">Spring Training</option>
+            <option value="Regular Season" className="text-primary">Regular Season</option>
+            <option value="Postseason" className="text-primary">Postseason</option>
+          </select>
+        )}
+      </div>
+      <div className="flex items-center gap-6">
+        {view === 'batting' && (
+          <select 
+            value={positionFilter}
+            onChange={(e) => setPositionFilter(e.target.value)}
+            className="bg-white/10 text-white border-none rounded px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+          >
+            <option value="All" className="text-primary">All Positions</option>
+            <option value="Infield" className="text-primary">Infield & C</option>
+            <option value="Outfield" className="text-primary">Outfield</option>
+            <option value="DH" className="text-primary">DH</option>
+          </select>
+        )}
+        <div className="flex gap-4">
+          <button 
+            onClick={() => { setView('batting'); setSortField(''); }}
+            className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'batting' ? 'text-secondary' : 'text-white/50 hover:text-white'}`}
+          >
+            Batting
+          </button>
+          <button 
+            onClick={() => { setView('pitching'); setSortField(''); }}
+            className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${view === 'pitching' ? 'text-secondary' : 'text-white/50 hover:text-white'}`}
+          >
+            Pitching
+          </button>
+        </div>
       </div>
     </div>
     <div className="overflow-x-auto">
@@ -379,33 +462,53 @@ const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { batting
         <thead>
           {view === 'batting' ? (
             <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500">
-              <th className="px-6 py-4">Player</th>
-              <th className="px-4 py-4 text-right">G</th>
-              <th className="px-4 py-4 text-right">AB</th>
-              <th className="px-4 py-4 text-right">R</th>
-              <th className="px-4 py-4 text-right">H</th>
-              <th className="px-4 py-4 text-right">HR</th>
-              <th className="px-4 py-4 text-right">RBI</th>
-              <th className="px-4 py-4 text-right">AVG</th>
-              <th className="px-6 py-4 text-right">OPS</th>
+              <SortHeader field="display_name" label="Player" align="left" />
+              <SortHeader field="g" label="G" />
+              <SortHeader field="ab" label="AB" />
+              <SortHeader field="r" label="R" />
+              <SortHeader field="h" label="H" />
+              <SortHeader field="hr" label="HR" />
+              <SortHeader field="rbi" label="RBI" />
+              <SortHeader field="avg" label="AVG" />
+              <th 
+                className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors text-right"
+                onClick={() => handleSort('ops')}
+              >
+                <div className="flex items-center gap-1 justify-end">
+                  OPS
+                  {sortField === 'ops' && (
+                    <span className="text-secondary text-[8px]">{sortDesc ? '▼' : '▲'}</span>
+                  )}
+                </div>
+              </th>
             </tr>
           ) : (
             <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500">
-              <th className="px-6 py-4">Pitcher</th>
-              <th className="px-4 py-4 text-right">G</th>
-              <th className="px-4 py-4 text-right">IP</th>
-              <th className="px-4 py-4 text-right">H</th>
-              <th className="px-4 py-4 text-right">R</th>
-              <th className="px-4 py-4 text-right">ER</th>
-              <th className="px-4 py-4 text-right">BB</th>
-              <th className="px-4 py-4 text-right">K</th>
-              <th className="px-6 py-4 text-right">ERA</th>
+              <SortHeader field="display_name" label="Pitcher" align="left" />
+              <SortHeader field="g" label="G" />
+              <SortHeader field="ip" label="IP" />
+              <SortHeader field="h" label="H" />
+              <SortHeader field="r" label="R" />
+              <SortHeader field="er" label="ER" />
+              <SortHeader field="bb" label="BB" />
+              <SortHeader field="so" label="K" />
+              <th 
+                className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors text-right"
+                onClick={() => handleSort('era')}
+              >
+                <div className="flex items-center gap-1 justify-end">
+                  ERA
+                  {sortField === 'era' && (
+                    <span className="text-secondary text-[8px]">{sortDesc ? '▼' : '▲'}</span>
+                  )}
+                </div>
+              </th>
             </tr>
           )}
         </thead>
         <tbody className="divide-y divide-slate-100">
           {view === 'batting' && activeBatters.map((player) => (
-            <tr key={`b_${player.athlete_id}`} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => onPlayerClick(player)}>
+            <tr key={`b_${player.athlete_id}`} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => navigate(`/players/${player.athlete_id}`)}>
               <td className="px-6 py-4 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-300 shadow-sm shrink-0 flex items-center justify-center text-primary font-black text-[10px]">
                   {player.headshot ? (
@@ -424,7 +527,7 @@ const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { batting
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary group-hover:text-secondary truncate max-w-[120px]" title={player.full_name}>{player.display_name}</p>
+                  <p className="text-sm font-bold text-primary group-hover:text-secondary min-w-max whitespace-nowrap" title={player.full_name}>{player.display_name}</p>
                 </div>
               </td>
               <td className="px-4 py-4 text-right tabular-nums text-sm font-medium">{player.g}</td>
@@ -433,12 +536,12 @@ const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { batting
               <td className="px-4 py-4 text-right tabular-nums text-sm font-medium">{player.h || '0'}</td>
               <td className="px-4 py-4 text-right tabular-nums text-sm font-black">{player.hr || '0'}</td>
               <td className="px-4 py-4 text-right tabular-nums text-sm font-medium">{player.rbi || '0'}</td>
-              <td className="px-4 py-4 text-right tabular-nums text-sm font-bold">{player.avg || '.000'}</td>
-              <td className="px-6 py-4 text-right tabular-nums text-sm font-black text-primary">{player.ops || '.000'}</td>
+              <td className="px-4 py-4 text-right tabular-nums text-sm font-bold">{player.avg ? Number(player.avg).toFixed(3) : '0.000'}</td>
+              <td className="px-6 py-4 text-right tabular-nums text-sm font-black text-primary">{player.ops ? Number(player.ops).toFixed(3) : '0.000'}</td>
             </tr>
           ))}
           {view === 'pitching' && activePitchers.map((player) => (
-            <tr key={`p_${player.athlete_id}`} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => onPlayerClick(player)}>
+            <tr key={`p_${player.athlete_id}`} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => navigate(`/players/${player.athlete_id}`)}>
               <td className="px-6 py-4 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-300 shadow-sm shrink-0 flex items-center justify-center text-primary font-black text-[10px]">
                   {player.headshot ? (
@@ -457,7 +560,7 @@ const RosterTable = ({ battingRoster, pitchingRoster, onPlayerClick }: { batting
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary group-hover:text-secondary truncate max-w-[120px]" title={player.full_name}>{player.display_name}</p>
+                  <p className="text-sm font-bold text-primary group-hover:text-secondary min-w-max whitespace-nowrap" title={player.full_name}>{player.display_name}</p>
                 </div>
               </td>
               <td className="px-4 py-4 text-right tabular-nums text-sm font-medium">{player.g}</td>
@@ -511,7 +614,7 @@ const RecentForm = ({ games = [], teamId, page, meta, onPageChange, isFullPage =
         const seasonType = (game.season_type_name || '').replace(' Season', '');
         
         return (
-          <div key={game.event_id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+          <div key={game.event_id} className={`p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group border-l-4 ${isScheduled ? 'border-l-transparent' : isWin ? 'border-l-emerald-500' : 'border-l-rose-500'}`}>
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-start justify-center min-w-[80px]">
                 <span className="text-xs font-bold text-primary">{fullDate}</span>
@@ -538,7 +641,7 @@ const RecentForm = ({ games = [], teamId, page, meta, onPageChange, isFullPage =
                  <span className="text-xs font-bold text-slate-400">TBD</span>
               ) : (
                 <div className="flex items-center gap-2 justify-end">
-                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${isWin ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${isWin ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                     {isWin ? 'W' : 'L'}
                   </span>
                   <span className="text-sm font-black text-primary tabular-nums">
@@ -628,7 +731,7 @@ const UpcomingSeries = ({ nextGame }: { nextGame: any }) => {
   );
 };
 
-const DiamondArchitecture = ({ depthChart, teamColor, onPlayerClick }: { depthChart: any, teamColor: string, onPlayerClick?: (p: any) => void }) => {
+const DiamondArchitecture = ({ depthChart, teamColor, battingRoster = [], pitchingRoster = [] }: { depthChart: any, teamColor: string, battingRoster?: any[], pitchingRoster?: any[] }) => {
   // We grab the starters safely
   const lf = depthChart['LF'];
   const cf = depthChart['CF'];
@@ -652,11 +755,14 @@ const DiamondArchitecture = ({ depthChart, teamColor, onPlayerClick }: { depthCh
         style.bottom = bottom;
     }
 
+    const athleteId = player.id || player.athlete_id || player.playerId;
+    const bStats = battingRoster.find(r => String(r.athlete_id) === String(athleteId) || String(r.id) === String(athleteId));
+    const pStats = pitchingRoster.find(r => String(r.athlete_id) === String(athleteId) || String(r.id) === String(athleteId));
+
     return (
-      <div className="absolute flex flex-col items-center z-10 -translate-x-1/2 -translate-y-1/2 pointer-events-auto" style={style}>
+      <Link to={`/players/${athleteId}`} className="absolute flex flex-col items-center z-10 -translate-x-1/2 -translate-y-1/2 pointer-events-auto group" style={style}>
         <div 
-          onClick={() => onPlayerClick && onPlayerClick({ ...player, full_name: player.name })}
-          className={`rounded-full bg-white border-4 p-1 shadow-lg group hover:scale-110 transition-transform cursor-pointer ${featured ? 'w-20 h-20' : 'w-16 h-16'}`}
+          className={`rounded-full bg-white border-4 p-1 shadow-lg hover:scale-110 transition-transform cursor-pointer relative ${featured ? 'w-20 h-20' : 'w-16 h-16'}`}
           style={{ borderColor: `#${teamColor || 'b80a2e'}` }}
         >
           <img 
@@ -666,6 +772,30 @@ const DiamondArchitecture = ({ depthChart, teamColor, onPlayerClick }: { depthCh
             referrerPolicy="no-referrer"
             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://a.espncdn.com/i/headshots/nophoto.png'; }}
           />
+          
+          {/* Hover Tooltip */}
+          <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-primary text-white rounded-xl p-3 shadow-xl z-50">
+            <p className="font-bold text-sm text-center mb-1">{player.name}</p>
+            {bStats && !pStats && (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
+                <span className="text-right">AVG:</span><span className="font-bold text-white">{bStats.avg}</span>
+                <span className="text-right">HR:</span><span className="font-bold text-white">{bStats.hr}</span>
+                <span className="text-right">RBI:</span><span className="font-bold text-white">{bStats.rbi}</span>
+                <span className="text-right">OPS:</span><span className="font-bold text-white">{bStats.ops}</span>
+              </div>
+            )}
+            {pStats && (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
+                <span className="text-right">ERA:</span><span className="font-bold text-white">{pStats.era}</span>
+                <span className="text-right">SO:</span><span className="font-bold text-white">{pStats.so}</span>
+                <span className="text-right">WHIP:</span><span className="font-bold text-white">{pStats.whip}</span>
+                <span className="text-right">IP:</span><span className="font-bold text-white">{pStats.ip}</span>
+              </div>
+            )}
+            {(!bStats && !pStats) && <p className="text-xs text-center text-slate-400">No stats available</p>}
+            {/* Arrow */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-primary"></div>
+          </div>
         </div>
         <p className="mt-2 text-[10px] font-black text-white px-2 py-0.5 rounded shadow-sm" style={{ backgroundColor: `#${teamColor || 'b80a2e'}` }}>
           {pos}
@@ -673,7 +803,7 @@ const DiamondArchitecture = ({ depthChart, teamColor, onPlayerClick }: { depthCh
         <p className={`text-[10px] bg-white/80 px-2 py-0.5 rounded-full mt-1 ${featured ? 'font-bold text-primary' : 'font-medium text-slate-700'}`}>
           {player.name}
         </p>
-      </div>
+      </Link>
     );
   };
 
@@ -780,13 +910,12 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   const [teamLeaders, setTeamLeaders] = useState<any[]>([]);
   const [teamStanding, setTeamStanding] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [seasons, setSeasons] = useState<any[]>([]);
   
   // Read state from URL parameters or fall back to defaults
   const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'overview');
   const [selectedYear, setSelectedYear] = useState<number>(Number(searchParams.get('year')) || new Date().getFullYear());
-  const [selectedSeasonType, setSelectedSeasonType] = useState<string>(searchParams.get('type') || 'All');
+  const [selectedSeasonType, setSelectedSeasonType] = useState<string>(searchParams.get('type') || 'Regular Season');
   const [gamesPage, setGamesPage] = useState<number>(Number(searchParams.get('page')) || 1);
 
   // Sync state changes back to the URL
@@ -814,12 +943,18 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   
   // (Removed automated page reset side-effect to support deep-linking)
 
+  // Create variables for the Deep Stats Dashboard to ensure we ONLY use competitive (Regular Season / Postseason) data
+  // Since the user might be viewing "All" games on the overview tab, we need to independently fetch the restricted stats
+  // We'll manage this by fetching them when the stats tab is active, or just do it in the main effect
+  const [competitiveTeamStats, setCompetitiveTeamStats] = useState<any>(null);
+  const [competitivePitchingRoster, setCompetitivePitchingRoster] = useState<any[]>([]);
+
   useEffect(() => {
     async function loadTeamData() {
       if (!selectedTeamId) return;
       setLoading(true);
       try {
-        const [stats, batData, pitchData, gamesResponse, liveRosterData, espnData, depthData, leadersData, standingData] = await Promise.all([
+        const [stats, batData, pitchData, gamesResponse, liveRosterData, espnData, depthData, leadersData, standingData, compStats, compPitch] = await Promise.all([
           fetchTeamStats(selectedTeamId, selectedYear, selectedSeasonType),
           fetchTeamRoster(selectedTeamId, selectedYear, selectedSeasonType),
           fetchTeamPitchingStats(selectedTeamId, selectedYear, selectedSeasonType),
@@ -828,7 +963,10 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
           fetchTeamEspnData(selectedTeamId),
           fetchTeamDepthChart(selectedTeamId),
           fetchTeamLeaders(selectedTeamId, selectedYear, selectedSeasonType),
-          fetchTeamStanding(selectedTeamId, selectedYear)
+          fetchTeamStanding(selectedTeamId, selectedYear),
+          // Fetch strictly competitive stats for the charts
+          fetchTeamStats(selectedTeamId, selectedYear, "Regular Season"),
+          fetchTeamPitchingStats(selectedTeamId, selectedYear, "Regular Season")
         ]);
         setTeamStats(stats);
         setBattingRoster(batData);
@@ -841,6 +979,8 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
         setDepthChart(depthData);
         setTeamLeaders(leadersData);
         setTeamStanding(standingData);
+        setCompetitiveTeamStats(compStats);
+        setCompetitivePitchingRoster(compPitch);
       } catch (e) {
         console.error(e);
       }
@@ -865,23 +1005,32 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
               <div className="lg:col-span-2 space-y-8">
                 <TeamRecords espnRecords={espnRecords} />
                 <StatsGrid stats={teamStats} />
-                <TeamLeaders leaders={teamLeaders} onPlayerClick={setSelectedPlayer} />
+                <TeamLeaders leaders={teamLeaders} />
               </div>
               <div className="space-y-8 flex flex-col">
                 <div className="h-[400px]">
                   <RecentForm games={activeTab === 'overview' ? recentGames.slice(0, 5) : recentGames} teamId={selectedTeamId} page={gamesPage} meta={gamesMeta} onPageChange={setGamesPage} />
                 </div>
                 <UpcomingSeries nextGame={nextGame} />
+                <TeamNewsFeed teamName={selectedTeam.name} />
               </div>
             </div>
           )}
-          {activeTab === 'roster' && (
+        {activeTab === 'roster' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
               <div className="lg:col-span-2">
-                 <RosterTable battingRoster={battingRoster} pitchingRoster={pitchingRoster} onPlayerClick={setSelectedPlayer} />
+                 <RosterTable 
+                   battingRoster={battingRoster} 
+                   pitchingRoster={pitchingRoster} 
+                   selectedSeasonType={selectedSeasonType}
+                   onSeasonTypeChange={(val) => {
+                     setSelectedSeasonType(val);
+                     setGamesPage(1);
+                   }}
+                 />
               </div>
               <div>
-                 <LiveRoster roster={liveRoster} onPlayerClick={setSelectedPlayer} />
+                 <LiveRoster roster={liveRoster} />
               </div>
             </div>
           )}
@@ -910,16 +1059,18 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
           )}
 
           {activeTab === 'stats' && (
-             <div className="opacity-50 text-center py-20 font-headline font-black text-2xl">
-               DEEP STATS DASHBOARD COMING SOON
-             </div>
+             <TeamStatsDashboard 
+               teamStats={competitiveTeamStats} 
+               pitchingRoster={competitivePitchingRoster} 
+               recentGames={recentGames} 
+               teamColor={selectedTeam?.color} 
+             />
           )}
         </div>
         
-        {activeTab === 'overview' && <DiamondArchitecture depthChart={depthChart} teamColor={selectedTeam?.color} onPlayerClick={setSelectedPlayer} />}
+        {activeTab === 'overview' && <DiamondArchitecture depthChart={depthChart} teamColor={selectedTeam?.color} battingRoster={battingRoster} pitchingRoster={pitchingRoster} />}
       </main>
       <Footer />
-      <PlayerModal isOpen={!!selectedPlayer} player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
     </>
   );
 };
