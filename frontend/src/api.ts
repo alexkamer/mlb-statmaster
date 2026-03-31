@@ -431,3 +431,11 @@ export async function fetchSavedProps(date: string, eventIds?: string[]) {
     }
     return response.json();
 }
+
+export async function fetchPredictionContext(eventId: string, awayTeamId: number, homeTeamId: number, awayStarterId?: number, homeStarterId?: number) {
+    let url = `${API_URL}/predictions/context?event_id=${eventId}&away_team_id=${awayTeamId}&home_team_id=${homeTeamId}`;
+    if (awayStarterId) url += `&away_starter_id=${awayStarterId}`;
+    if (homeStarterId) url += `&home_starter_id=${homeStarterId}`;
+    const response = await fetch(url);
+    return response.json();
+}

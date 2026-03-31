@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchGameSummary, fetchRecentGames, fetchPlayerProfile, fetchPlayerGameLogs } from '../api';
+import { fetchGameSummary, fetchRecentGames, fetchPlayerProfile, fetchPlayerGameLogs, fetchPredictionContext } from '../api';
 import { 
     TrendingUp, 
     ArrowLeft, 
@@ -11,7 +11,10 @@ import {
     BarChart2, 
     ShieldAlert,
     Target,
-    Activity
+    Activity,
+    Copy,
+    Check,
+    Cpu
 } from 'lucide-react';
 
 export const GamePredictorPage = () => {
@@ -20,12 +23,14 @@ export const GamePredictorPage = () => {
     
     const [loading, setLoading] = useState(true);
     const [gameData, setGameData] = useState<any>(null);
+    const [predictionContext, setPredictionContext] = useState<any>(null);
     const [awayRecent, setAwayRecent] = useState<any[]>([]);
     const [homeRecent, setHomeRecent] = useState<any[]>([]);
     const [awayStarter, setAwayStarter] = useState<any>(null);
     const [homeStarter, setHomeStarter] = useState<any>(null);
     const [awayStarterLogs, setAwayStarterLogs] = useState<any>(null);
     const [homeStarterLogs, setHomeStarterLogs] = useState<any>(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         if (!gameId) return;
@@ -46,13 +51,20 @@ export const GamePredictorPage = () => {
                     
                     const year = new Date().getFullYear();
 
-                    const [aRecent, hRecent, aStarter, hStarter, aLogs, hLogs] = await Promise.all([
-                        fetchRecentGames(parseInt(awayTeam.id), 10, year, 2), // ONLY Regular Season
-                        fetchRecentGames(parseInt(homeTeam.id), 10, year, 2), // ONLY Regular Season
+                    const [aRecent, hRecent, aStarter, hStarter, aLogs, hLogs, context] = await Promise.all([
+                        fetchRecentGames(parseInt(awayTeam.id), 10, year, 2),
+                        fetchRecentGames(parseInt(homeTeam.id), 10, year, 2),
                         awayProbable ? fetchPlayerProfile(parseInt(awayProbable.id)) : Promise.resolve(null),
                         homeProbable ? fetchPlayerProfile(parseInt(homeProbable.id)) : Promise.resolve(null),
-                        awayProbable ? fetchPlayerGameLogs(parseInt(awayProbable.id), year, 5, 2) : Promise.resolve(null), // ONLY Regular Season
-                        homeProbable ? fetchPlayerGameLogs(parseInt(homeProbable.id), year, 5, 2) : Promise.resolve(null)  // ONLY Regular Season
+                        awayProbable ? fetchPlayerGameLogs(parseInt(awayProbable.id), year, 5, 2) : Promise.resolve(null),
+                        homeProbable ? fetchPlayerGameLogs(parseInt(homeProbable.id), year, 5, 2) : Promise.resolve(null),
+                        fetchPredictionContext(
+                            gameId, 
+                            parseInt(awayTeam.id), 
+                            parseInt(homeTeam.id), 
+                            awayProbable ? parseInt(awayProbable.id) : undefined, 
+                            homeProbable ? parseInt(homeProbable.id) : undefined
+                        )
                     ]);
                     
                     setAwayRecent(aRecent);
@@ -61,6 +73,7 @@ export const GamePredictorPage = () => {
                     setHomeStarter(hStarter);
                     setAwayStarterLogs(aLogs);
                     setHomeStarterLogs(hLogs);
+                    setPredictionContext(context);
                 }
             } catch (e) {
                 console.error(e);
@@ -70,6 +83,23 @@ export const GamePredictorPage = () => {
         
         loadPredictionData();
     }, [gameId]);
+
+    const copyToClipboard = () => {
+        if (!predictionContext) return;
+        
+        const prompt = `You are a high-stakes MLB betting analyst. Analyze the following structured situational data for an upcoming game and provide:
+1. A projected final score.
+2. A win probability for both teams.
+3. A "Deep Analysis" of the pitching matchup and team momentum.
+4. A recommendation for the Moneyline and Over/Under.
+
+DATA PAYLOAD:
+${JSON.stringify(predictionContext, null, 2)}`;
+
+        navigator.clipboard.writeText(prompt);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     if (loading) return (
         <div className="max-w-7xl mx-auto px-4 py-12 flex flex-col items-center justify-center min-h-[600px]">
@@ -372,6 +402,33 @@ export const GamePredictorPage = () => {
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] relative z-10">
                             <Zap className="w-3 h-3 text-secondary" /> 
                             <span>Sharp Signal: {parseFloat(projectedHome) + parseFloat(projectedAway) > 8.5 ? 'OVER 8.5' : 'UNDER 8.5'}</span>
+                        </div>
+                    </div>
+
+                    {/* AI Payload Section */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-white">
+                                <Cpu className="w-5 h-5 text-indigo-400" />
+                                <h3 className="font-headline font-black uppercase tracking-widest text-sm">Deep AI Analysis</h3>
+                            </div>
+                            <button 
+                                onClick={copyToClipboard}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-white/10 text-indigo-300 hover:bg-white/20'}`}
+                            >
+                                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                {copied ? 'Copied' : 'Copy for AI'}
+                            </button>
+                        </div>
+                        <div className="p-6 bg-slate-50">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-4 leading-relaxed">
+                                Copy this data payload into ChatGPT or Claude to get a high-fidelity prediction based on the full situational context.
+                            </p>
+                            <div className="max-h-[300px] overflow-y-auto rounded-lg border border-slate-200 bg-white p-4">
+                                <pre className="text-[10px] text-slate-600 font-mono leading-relaxed">
+                                    {JSON.stringify(predictionContext, null, 2)}
+                                </pre>
+                            </div>
                         </div>
                     </div>
                 </div>

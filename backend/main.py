@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import databases
 import sqlalchemy
+import asyncio
 
 DATABASE_URL = "postgresql:///mlb_db"
 
@@ -1005,3 +1006,173 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
     except Exception as e:
         print(f"Error fetching props: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch props")
+
+@app.get("/api/predictions/context")
+async def get_prediction_context(
+    event_id: str, 
+    away_team_id: int, 
+    home_team_id: int, 
+    away_starter_id: int = None, 
+    home_starter_id: int = None,
+    year: int = 2026
+):
+    """
+    Aggregates comprehensive situational data for an upcoming game.
+    Designed to provide a structured payload for LLM analysis.
+    """
+    
+    async def get_team_context(team_id: int):
+        # 1. Season Record & Last 10
+        record_query = """
+            WITH team_games AS (
+                SELECT 
+                    e.date,
+                    c1.winner,
+                    c1.score as team_score,
+                    c2.score as opponent_score
+                FROM events e
+                JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+                JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+                JOIN season_types st ON e.season_year = st.season_year 
+                    AND e.date >= st.start_date AND e.date <= st.end_date
+                WHERE st.type_id = 2 -- Regular Season
+                  AND e.season_year = :year
+                  AND c1.score IS NOT NULL
+                ORDER BY e.date DESC
+            )
+            SELECT 
+                COUNT(*) as total_games,
+                SUM(CASE WHEN winner THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN winner THEN 0 ELSE 1 END) as losses,
+                (SELECT string_agg(CASE WHEN winner THEN 'W' ELSE 'L' END, '') FROM (SELECT winner FROM team_games LIMIT 10) t) as l10_streak
+            FROM team_games
+        """
+        
+        # 2. Splits vs Handedness
+        splits_query = """
+            SELECT 
+                a.throws,
+                COUNT(DISTINCT b.event_id) as games,
+                ROUND(AVG(team_total_r), 2) as avg_runs,
+                ROUND(SUM(team_total_h)::numeric / NULLIF(SUM(team_total_ab), 0), 3) as team_avg
+            FROM (
+                SELECT 
+                    b.event_id,
+                    b.team_id,
+                    SUM(b.ab) as team_total_ab,
+                    SUM(b.h) as team_total_h,
+                    SUM(b.r) as team_total_r
+                FROM event_boxscores_batting b
+                GROUP BY b.event_id, b.team_id
+            ) b
+            JOIN event_boxscores_pitching opp_p ON b.event_id = opp_p.event_id AND b.team_id != opp_p.team_id
+            JOIN athletes a ON opp_p.athlete_id = a.athlete_id
+            JOIN events e ON b.event_id = e.event_id
+            JOIN season_types st ON e.season_year = st.season_year 
+                AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE b.team_id = :team_id 
+              AND opp_p.starter = true 
+              AND st.type_id = 2
+              AND e.season_year = :year
+            GROUP BY a.throws
+        """
+        
+        record, splits = await asyncio.gather(
+            database.fetch_one(query=record_query, values={"team_id": team_id, "year": year}),
+            database.fetch_all(query=splits_query, values={"team_id": team_id, "year": year})
+        )
+        
+        return {
+            "record": dict(record) if record else {},
+            "splits": [dict(s) for s in splits]
+        }
+
+    async def get_pitcher_context(athlete_id: int):
+        if not athlete_id: return None
+        
+        # 1. Season Stats
+        stats_query = """
+            SELECT 
+                COUNT(*) as starts,
+                SUM(k) as total_k,
+                SUM(bb) as total_bb,
+                SUM(er) as total_er,
+                SUM(h) as total_h,
+                SUM(CASE 
+                    WHEN ip LIKE '%.1' THEN split_part(ip, '.', 1)::numeric + 0.33
+                    WHEN ip LIKE '%.2' THEN split_part(ip, '.', 1)::numeric + 0.66
+                    ELSE ip::numeric
+                END) as total_ip
+            FROM event_boxscores_pitching p
+            JOIN events e ON p.event_id = e.event_id
+            JOIN season_types st ON e.season_year = st.season_year 
+                AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
+        """
+        
+        # 2. Last 5 Starts
+        recent_query = """
+            SELECT 
+                e.date,
+                p.ip, p.h, p.r, p.er, p.bb, p.k,
+                (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = (SELECT team_id FROM event_competitors WHERE event_id = e.event_id AND team_id != p.team_id LIMIT 1) AND t.season_year = :year LIMIT 1) as opponent
+            FROM event_boxscores_pitching p
+            JOIN events e ON p.event_id = e.event_id
+            JOIN season_types st ON e.season_year = st.season_year 
+                AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE p.athlete_id = :athlete_id AND p.starter = true AND st.type_id = 2 AND e.season_year = :year
+            ORDER BY e.date DESC
+            LIMIT 5
+        """
+        
+        # 3. Bio (throws)
+        bio_query = "SELECT display_name, throws FROM athletes WHERE athlete_id = :athlete_id"
+        
+        stats, recent, bio = await asyncio.gather(
+            database.fetch_one(query=stats_query, values={"athlete_id": athlete_id, "year": year}),
+            database.fetch_all(query=recent_query, values={"athlete_id": athlete_id, "year": year}),
+            database.fetch_one(query=bio_query, values={"athlete_id": athlete_id})
+        )
+        
+        res = {
+            "bio": dict(bio) if bio else {},
+            "season_stats": dict(stats) if stats else {},
+            "recent_starts": [dict(r) for r in recent]
+        }
+        
+        # Calculate ERA/WHIP if possible
+        if stats and stats['total_ip'] > 0:
+            res["calculated_metrics"] = {
+                "era": round((stats['total_er'] * 9) / float(stats['total_ip']), 2),
+                "whip": round((stats['total_h'] + stats['total_bb']) / float(stats['total_ip']), 2),
+                "k_per_9": round((stats['total_k'] * 9) / float(stats['total_ip']), 2)
+            }
+            
+        return res
+
+    # 1. Fetch Odds
+    odds_query = "SELECT away_money_line, home_money_line, over_under FROM event_odds WHERE event_id = :event_id LIMIT 1"
+    
+    # Run all context gathering in parallel
+    away_task = get_team_context(away_team_id)
+    home_task = get_team_context(home_team_id)
+    away_pitcher_task = get_pitcher_context(away_starter_id)
+    home_pitcher_task = get_pitcher_context(home_starter_id)
+    odds_task = database.fetch_one(query=odds_query, values={"event_id": int(event_id)})
+    
+    away_ctx, home_ctx, away_p_ctx, home_p_ctx, odds = await asyncio.gather(
+        away_task, home_task, away_pitcher_task, home_pitcher_task, odds_task
+    )
+    
+    return {
+        "event_id": event_id,
+        "odds": dict(odds) if odds else {},
+        "away_team": away_ctx,
+        "home_team": home_ctx,
+        "away_starter": away_p_ctx,
+        "home_starter": home_p_ctx,
+        "metadata": {
+            "season": year,
+            "season_type": "Regular Season"
+        }
+    }
