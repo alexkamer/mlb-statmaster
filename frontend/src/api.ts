@@ -410,3 +410,10 @@ export async function fetchPropBets(gameId: string) {
         return null;
     }
 }
+export async function fetchSavedProps(date: string) {
+    const response = await fetch(`${API_URL}/props/${date}`);
+    if (!response.ok) {
+        throw new Error('Network response was not ok');
+    }
+    return response.json();
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { fetchGameSummary, fetchPropBets } from '../api';
+import { fetchGameSummary, fetchPropBets, fetchPlayerGameLogs } from '../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
@@ -33,6 +33,9 @@ export const GamePage = () => {
   const [loading, setLoading] = React.useState(true);
   const [expandedAtBats, setExpandedAtBats] = React.useState<Set<string>>(new Set());
   const [hoveredProb, setHoveredProb] = React.useState<any>(null);
+  const [playerGameLogs, setPlayerGameLogs] = React.useState<any[]>([]);
+  const [isFetchingLogs, setIsFetchingLogs] = React.useState(false);
+  const [allPlayersLogs, setAllPlayersLogs] = React.useState<Record<string, any>>({});
   
   const toggleAtBat = (abId: string) => {
       setExpandedAtBats(prev => {
@@ -48,6 +51,97 @@ export const GamePage = () => {
   
   let activeTab = searchParams.get("tab") || "boxscore";
   const filterPlays = searchParams.get("filter") === "scoring" ? "scoring" : "all";
+
+  React.useEffect(() => {
+      if (propBets) {
+          const pIds = new Set<string>();
+          propBets.forEach((bet: any) => {
+              const match = bet.athlete?.$ref?.match(/athletes\/(\d+)/);
+              if (match) pIds.add(match[1]);
+          });
+          
+          const fetchAllLogs = async () => {
+              const year = new Date().getFullYear();
+              const logsMap: Record<string, any> = {};
+              const promises = Array.from(pIds).map(async pId => {
+                  try {
+                      const logs = await fetchPlayerGameLogs(parseInt(pId), year);
+                      logsMap[pId] = logs;
+                  } catch (e) {
+                      console.error("Failed to fetch logs for player", pId);
+                  }
+              });
+              await Promise.all(promises);
+              setAllPlayersLogs(logsMap);
+          };
+          fetchAllLogs();
+      }
+  }, [propBets]);
+
+  React.useEffect(() => {
+      async function loadLogs() {
+          if (propFilterPlayer !== 'all' && propFilterType !== 'all') {
+              setIsFetchingLogs(true);
+              const year = new Date().getFullYear();
+              const logs = await fetchPlayerGameLogs(parseInt(propFilterPlayer), year);
+              
+              // Determine if we need batting or pitching logs based on the prop type
+              const p = propFilterType.toLowerCase();
+              let isPitching = (p.includes('strikeout') && !p.includes('batter')) || p.includes('out') || p.includes('allow') || p.includes('earned run');
+              
+              let activeLogs = isPitching ? (logs.pitching || []) : (logs.batting || []);
+              
+              // Filter out games where they didn't play (e.g., 0 ABs and not a starter, or 0 IP)
+              activeLogs = activeLogs.filter((l: any) => {
+                  if (isPitching) return parseFloat(l.ip || '0') > 0;
+                  return (l.ab && parseInt(l.ab) > 0) || (l.pitches_faced && parseInt(l.pitches_faced) > 0);
+              });
+              
+              setPlayerGameLogs(activeLogs.reverse()); // Chronological order for chart (oldest to newest)
+              setIsFetchingLogs(false);
+          } else {
+              setPlayerGameLogs([]);
+          }
+      }
+      loadLogs();
+  }, [propFilterPlayer, propFilterType]);
+
+  const getStatValueFromLog = (log: any, propType: string) => {
+      const p = propType.toLowerCase().trim();
+      
+      if (log.ip !== undefined) {
+          // Pitching
+          if (p === 'total strikeouts' || p === 'strikeouts') return parseInt(log.k || '0');
+          if (p === 'total outs recorded' || p === 'outs recorded') {
+               const ipStr = String(log.ip || '0');
+               const parts = ipStr.split('.');
+               const full = parseInt(parts[0]) || 0;
+               const part = parseInt(parts[1]) || 0;
+               return (full * 3) + part;
+          }
+          if (p === 'total hits allowed' || p === 'hits allowed') return parseInt(log.h || '0');
+          if (p === 'total walks allowed' || p === 'walks allowed') return parseInt(log.bb || '0');
+          if (p === 'earned runs allowed') return parseInt(log.er || '0');
+          if (p === 'total runs allowed' || p === 'runs allowed') return parseInt(log.r || '0');
+          if (p === 'total home runs allowed') return parseInt(log.hr || '0');
+          return null;
+      }
+      
+      if (log.ab !== undefined) {
+          // Batting
+          if (p === 'total home runs' || p === 'home runs milestones') return parseInt(log.hr || '0');
+          if (p === 'total hits' || p === 'hits milestones') return parseInt(log.h || '0');
+          if (p === 'total rbis' || p === 'rbis milestones') return parseInt(log.rbi || '0');
+          if (p === 'total runs scored' || p === 'runs milestones') return parseInt(log.r || '0');
+          if (p === 'total hits + runs + rbis' || p === 'hits + runs + rbis milestones') {
+              return parseInt(log.h || '0') + parseInt(log.r || '0') + parseInt(log.rbi || '0');
+          }
+          if (p === 'total walks (batter)' || p === 'walks (batter) milestones') return parseInt(log.bb || '0');
+          if (p === 'strikeouts (batter) milestones' || p === 'total strikeouts (batter)') return parseInt(log.k || '0');
+          return null;
+      }
+      return null;
+  };
 
   const handleTabChange = (tab: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -67,7 +161,10 @@ export const GamePage = () => {
       setLoading(true);
       const [summary, props] = await Promise.all([fetchGameSummary(gameId), fetchPropBets(gameId)]);
       setData(summary);
-      if (props && props.items) setPropBets(props.items);
+      if (props && props.items) {
+          const playerProps = props.items.filter((item: any) => item.athlete?.$ref);
+          setPropBets(playerProps);
+      }
       setLoading(false);
     }
     loadData();
@@ -1084,9 +1181,28 @@ export const GamePage = () => {
                                               const found = r.roster?.find((entry: any) => entry.athlete?.id === id);
                                               if (found) {
                                                   name = found.athlete.displayName;
-                                                  // Rosters array usually matches away/home order. We can infer team via roster loop
                                                   const isAwayRoster = r.team?.id === awayTeam?.team?.id;
                                                   teamAbbr = isAwayRoster ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                              }
+                                          });
+                                      }
+                                      if (teamAbbr === "UNK" && data.boxscore?.players) {
+                                          data.boxscore.players.forEach((teamStats: any) => {
+                                              teamStats.statistics?.forEach((statGroup: any) => {
+                                                  const found = statGroup.athletes?.find((entry: any) => entry.athlete?.id === id);
+                                                  if (found) {
+                                                      name = found.athlete.displayName;
+                                                      teamAbbr = teamStats.team?.abbreviation || "UNK";
+                                                  }
+                                              });
+                                          });
+                                      }
+                                      if (teamAbbr === "UNK") {
+                                          [awayTeam, homeTeam].forEach((teamData: any) => {
+                                              const probable = teamData?.probables?.[0]?.athlete;
+                                              if (probable && probable.id === id) {
+                                                  name = probable.displayName;
+                                                  teamAbbr = teamData?.team?.abbreviation || "UNK";
                                               }
                                           });
                                       }
@@ -1123,12 +1239,30 @@ export const GamePage = () => {
                                       
                                       // Respect previous filters
                                       let teamAbbr = "UNK";
-                                      if (data.rosters && pId) {
-                                          data.rosters.forEach((r: any) => {
-                                              if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
-                                                  teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
-                                              }
-                                          });
+                                      if (pId) {
+                                          if (data.rosters) {
+                                              data.rosters.forEach((r: any) => {
+                                                  if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                      teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                                  }
+                                              });
+                                          }
+                                          if (teamAbbr === "UNK" && data.boxscore?.players) {
+                                              data.boxscore.players.forEach((teamStats: any) => {
+                                                  teamStats.statistics?.forEach((statGroup: any) => {
+                                                      if (statGroup.athletes?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                          teamAbbr = teamStats.team?.abbreviation || "UNK";
+                                                      }
+                                                  });
+                                              });
+                                          }
+                                          if (teamAbbr === "UNK") {
+                                              [awayTeam, homeTeam].forEach((teamData: any) => {
+                                                  if (teamData?.probables?.[0]?.athlete?.id === pId) {
+                                                      teamAbbr = teamData?.team?.abbreviation || "UNK";
+                                                  }
+                                              });
+                                          }
                                       }
                                       
                                       if (
@@ -1163,12 +1297,30 @@ export const GamePage = () => {
                                       const pId = match ? match[1] : null;
                                       
                                       let teamAbbr = "UNK";
-                                      if (data.rosters && pId) {
-                                          data.rosters.forEach((r: any) => {
-                                              if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
-                                                  teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
-                                              }
-                                          });
+                                      if (pId) {
+                                          if (data.rosters) {
+                                              data.rosters.forEach((r: any) => {
+                                                  if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                      teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                                  }
+                                              });
+                                          }
+                                          if (teamAbbr === "UNK" && data.boxscore?.players) {
+                                              data.boxscore.players.forEach((teamStats: any) => {
+                                                  teamStats.statistics?.forEach((statGroup: any) => {
+                                                      if (statGroup.athletes?.some((entry: any) => entry.athlete?.id === pId)) {
+                                                          teamAbbr = teamStats.team?.abbreviation || "UNK";
+                                                      }
+                                                  });
+                                              });
+                                          }
+                                          if (teamAbbr === "UNK") {
+                                              [awayTeam, homeTeam].forEach((teamData: any) => {
+                                                  if (teamData?.probables?.[0]?.athlete?.id === pId) {
+                                                      teamAbbr = teamData?.team?.abbreviation || "UNK";
+                                                  }
+                                              });
+                                          }
                                       }
                                       
                                       if (
@@ -1206,12 +1358,30 @@ export const GamePage = () => {
                           const pId = match ? match[1] : null;
                           
                           let teamAbbr = "UNK";
-                          if (data.rosters && pId) {
-                              data.rosters.forEach((r: any) => {
-                                  if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
-                                      teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
-                                  }
-                              });
+                          if (pId) {
+                              if (data.rosters) {
+                                  data.rosters.forEach((r: any) => {
+                                      if (r.roster?.some((entry: any) => entry.athlete?.id === pId)) {
+                                          teamAbbr = r.team?.id === awayTeam?.team?.id ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                      }
+                                  });
+                              }
+                              if (teamAbbr === "UNK" && data.boxscore?.players) {
+                                  data.boxscore.players.forEach((teamStats: any) => {
+                                      teamStats.statistics?.forEach((statGroup: any) => {
+                                          if (statGroup.athletes?.some((entry: any) => entry.athlete?.id === pId)) {
+                                              teamAbbr = teamStats.team?.abbreviation || "UNK";
+                                          }
+                                      });
+                                  });
+                              }
+                              if (teamAbbr === "UNK") {
+                                  [awayTeam, homeTeam].forEach((teamData: any) => {
+                                      if (teamData?.probables?.[0]?.athlete?.id === pId) {
+                                          teamAbbr = teamData?.team?.abbreviation || "UNK";
+                                      }
+                                  });
+                              }
                           }
                           
                           if (propFilterTeam !== 'all' && propFilterTeam !== teamAbbr) return false;
@@ -1224,91 +1394,168 @@ export const GamePage = () => {
                       
                       if (filteredBets.length === 0) return <div className="p-8 text-center text-slate-500 font-bold">No matching prop bets for these filters.</div>;
 
-                      // Group by type.name
-                      const grouped = filteredBets.reduce((acc: any, item: any) => {
-                          const typeName = item.type?.name || "Other";
-                          if (!acc[typeName]) acc[typeName] = [];
-                          acc[typeName].push(item);
-                          return acc;
-                      }, {});
-
-                      return Object.keys(grouped).map((groupName, gIdx) => {
-                          const items = grouped[groupName];
+                      // Process into table rows
+                      const tableRowsMap = new Map<string, any>();
+                      
+                      filteredBets.forEach((bet: any) => {
+                          const ref = bet.athlete?.$ref;
+                          const match = ref?.match(/athletes\/(\d+)/);
+                          const pId = match ? match[1] : null;
+                          if (!pId) return;
                           
-                          // Group by athlete
-                          const athleteGroups = items.reduce((acc: any, item: any) => {
-                              const ref = item.athlete?.$ref;
-                              if (!ref) return acc;
-                              const match = ref.match(/athletes\/(\d+)/);
-                              const athleteId = match ? match[1] : "unknown";
-                              if (!acc[athleteId]) acc[athleteId] = [];
-                              acc[athleteId].push(item);
-                              return acc;
-                          }, {});
-
-                          return (
-                              <div key={gIdx} className="border-b border-slate-200 last:border-0">
-                                  <div className="bg-slate-100/50 px-6 py-3 border-y border-slate-200 mt-[-1px]">
-                                      <h4 className="font-bold text-sm text-slate-800 uppercase tracking-widest">{groupName}</h4>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                                      {Object.keys(athleteGroups).map((athleteId, aIdx) => {
-                                          const aItems = athleteGroups[athleteId];
-                                          // Find athlete from boxscore/rosters for name
-                                          let athleteName = "Player " + athleteId;
-                                          let headshot = `https://a.espncdn.com/i/headshots/mlb/players/full/${athleteId}.png`;
-                                          
-                                          if (data.rosters) {
-                                              data.rosters.forEach((r: any) => {
-                                                  const found = r.roster?.find((entry: any) => entry.athlete?.id === athleteId);
-                                                  if (found) athleteName = found.athlete.displayName;
-                                              });
+                          const targetVal = bet.current?.target?.displayValue || bet.current?.target?.value || 'N/A';
+                          const typeName = bet.type?.name || "Other";
+                          
+                          const rowKey = `${pId}-${typeName}-${targetVal}`;
+                          
+                          if (!tableRowsMap.has(rowKey)) {
+                              let athleteName = "Player " + pId;
+                              let teamAbbr = "UNK";
+                              
+                              if (data.rosters) {
+                                  data.rosters.forEach((r: any) => {
+                                      const found = r.roster?.find((entry: any) => entry.athlete?.id === pId);
+                                      if (found) {
+                                          athleteName = found.athlete.displayName;
+                                          const isAwayRoster = r.team?.id === awayTeam?.team?.id;
+                                          teamAbbr = isAwayRoster ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                      }
+                                  });
+                              }
+                              if (teamAbbr === "UNK" && data.boxscore?.players) {
+                                  data.boxscore.players.forEach((teamStats: any) => {
+                                      teamStats.statistics?.forEach((statGroup: any) => {
+                                          const found = statGroup.athletes?.find((entry: any) => entry.athlete?.id === pId);
+                                          if (found) {
+                                              athleteName = found.athlete.displayName;
+                                              teamAbbr = teamStats.team?.abbreviation || "UNK";
                                           }
+                                      });
+                                  });
+                              }
+                              if (teamAbbr === "UNK") {
+                                  [awayTeam, homeTeam].forEach((teamData: any) => {
+                                      const probable = teamData?.probables?.[0]?.athlete;
+                                      if (probable && probable.id === pId) {
+                                          athleteName = probable.displayName;
+                                          teamAbbr = teamData?.team?.abbreviation || "UNK";
+                                      }
+                                  });
+                              }
 
-                                          return (
-                                              <div key={aIdx} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors border-b md:border-b-0 border-slate-100">
-                                                  <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
-                                                      <img src={headshot} alt={athleteName} className="w-full h-full object-cover bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                                                  </div>
-                                                  <div className="flex-1 min-w-0">
-                                                      <Link to={`/players/${athleteId}`} className="font-bold text-primary hover:underline truncate block">{athleteName}</Link>
-                                                      <div className="flex flex-col gap-1 mt-2">
-                                                          {aItems.map((bet: any, bIdx: number) => {
-                                                              // Group by target value to figure out if it's an Over/Under pair
-                                                              const targetVal = bet.current?.target?.value;
-                                                              const siblingsWithSameTarget = aItems.filter((i: any) => i.current?.target?.value === targetVal);
-                                                              
-                                                              let label = "Alt";
-                                                              
-                                                              if (siblingsWithSameTarget.length === 2) {
-                                                                  // It's a standard over/under line
-                                                                  // We assume the first one is the Over and the second is the Under (which is standard from DraftKings/ESPN)
-                                                                  const idxInSiblings = siblingsWithSameTarget.indexOf(bet);
-                                                                  label = idxInSiblings === 0 ? "Over" : "Under";
-                                                              } else if (bet.current?.target?.displayValue && String(bet.current?.target?.displayValue).includes("+")) {
-                                                                  // It's a milestone like "1+"
-                                                                  label = "Yes";
-                                                              } else {
-                                                                  // Alternate line, usually means "Over" because sportsbooks don't typically offer alternate Unders
-                                                                  label = "Over";
-                                                              }
-
-                                                              return (
-                                                                  <div key={bIdx} className="flex items-center justify-between text-xs bg-slate-100 rounded px-2 py-1">
-                                                                      <span className="font-bold text-slate-600 uppercase tracking-widest text-[9px]">{label} {bet.current?.target?.displayValue}</span>
-                                                                      <span className="font-black text-primary">{bet.odds?.american?.value}</span>
-                                                                  </div>
-                                                              );
-                                                          })}
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                          );
-                                      })}
-                                  </div>
-                              </div>
-                          );
+                              tableRowsMap.set(rowKey, {
+                                  game: `${awayTeam?.team?.abbreviation} @ ${homeTeam?.team?.abbreviation}`,
+                                  team: teamAbbr,
+                                  name: athleteName,
+                                  playerId: pId,
+                                  propType: typeName,
+                                  propLine: targetVal,
+                                  overOdds: '-',
+                                  underOdds: '-',
+                                  bets: []
+                              });
+                          }
+                          
+                          tableRowsMap.get(rowKey).bets.push(bet);
                       });
+
+                      const tableRows = Array.from(tableRowsMap.values()).map(row => {
+                          if (row.bets.length === 2) {
+                              row.overOdds = row.bets[0].odds?.american?.displayValue || row.bets[0].odds?.american?.value || '-';
+                              row.underOdds = row.bets[1].odds?.american?.displayValue || row.bets[1].odds?.american?.value || '-';
+                          } else if (row.bets.length === 1) {
+                              const bet = row.bets[0];
+                              const isYes = String(row.propLine).includes("+");
+                              if (isYes) {
+                                  row.overOdds = bet.odds?.american?.displayValue || bet.odds?.american?.value || '-';
+                              } else {
+                                  row.overOdds = bet.odds?.american?.displayValue || bet.odds?.american?.value || '-';
+                              }
+                          }
+                          
+                          row.l10 = '-';
+                          const logs = allPlayersLogs[row.playerId];
+                          if (logs) {
+                              const p = row.propType.toLowerCase();
+                              let isPitching = (p.includes('strikeout') && !p.includes('batter')) || p.includes('out') || p.includes('allow') || p.includes('earned run');
+                              let activeLogs = isPitching ? (logs.pitching || []) : (logs.batting || []);
+                              
+                              activeLogs = activeLogs.filter((l: any) => {
+                                  if (isPitching) return parseFloat(l.ip || '0') > 0;
+                                  return (l.ab && parseInt(l.ab) > 0) || (l.pitches_faced && parseInt(l.pitches_faced) > 0);
+                              });
+                              
+                              const last10 = activeLogs.slice(0, 10);
+                              if (last10.length > 0) {
+                                  let overCount = 0;
+                                  let target = parseFloat(String(row.propLine).replace('+', ''));
+                                  if (!isNaN(target)) {
+                                      let validCount = 0;
+                                      last10.forEach((log: any) => {
+                                          const val = getStatValueFromLog(log, row.propType);
+                                          if (val !== null) {
+                                              validCount++;
+                                              if (String(row.propLine).includes('+')) {
+                                                  if (val >= target) overCount++;
+                                              } else {
+                                                  if (val > target) overCount++;
+                                              }
+                                          }
+                                      });
+                                      if (validCount > 0) {
+                                          row.l10 = `${overCount} / ${validCount}`;
+                                      } else {
+                                          row.l10 = '-';
+                                      }
+                                  }
+                              }
+                          }
+                          
+                          return row;
+                      });
+
+                      return (
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse whitespace-nowrap">
+                                  <thead>
+                                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                                          <th className="p-4">Game</th>
+                                          <th className="p-4">Team</th>
+                                          <th className="p-4">Name</th>
+                                          <th className="p-4">Prop Type</th>
+                                          <th className="p-4">Prop Line</th>
+                                          <th className="p-4 text-center">L10 Over</th>
+                                          <th className="p-4 text-right">Over Odds</th>
+                                          <th className="p-4 text-right">Under Odds</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 text-sm">
+                                      {tableRows.map((row, idx) => (
+                                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                              <td className="p-4 font-medium text-slate-500">{row.game}</td>
+                                              <td className="p-4 font-bold text-slate-700">{row.team}</td>
+                                              <td className="p-4">
+                                                  <Link to={`/players/${row.playerId}`} className="font-bold text-primary hover:underline">{row.name}</Link>
+                                              </td>
+                                              <td className="p-4 text-slate-600">{row.propType}</td>
+                                              <td className="p-4 font-black text-slate-800">{row.propLine}</td>
+                                              <td className="p-4 text-center">
+                                                  {row.l10 === '-' ? (
+                                                      <span className="text-slate-400">-</span>
+                                                  ) : (
+                                                      <span className={`font-bold ${parseInt(row.l10.split(' ')[0]) >= 6 ? 'text-emerald-600' : parseInt(row.l10.split(' ')[0]) <= 4 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                                          {row.l10}
+                                                      </span>
+                                                  )}
+                                              </td>
+                                              <td className="p-4 text-right font-bold text-emerald-600">{row.overOdds}</td>
+                                              <td className="p-4 text-right font-bold text-rose-600">{row.underOdds}</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                      );
                   })()}
               </div>
           </div>

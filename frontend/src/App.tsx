@@ -16,6 +16,7 @@ import { PlayerPage } from './components/PlayerPage';
 import { LeagueLeadersPage } from './components/LeagueLeadersPage';
 import { LeaguePlayersPage } from './components/LeaguePlayersPage';
 import { GamePage } from './components/GamePage';
+import { PropsPage } from './components/PropsPage';
 import { HomePage } from './components/HomePage';
 import { LiveTicker } from './components/LiveTicker';
 import { useScoreboard } from './context/ScoreboardContext';
@@ -166,6 +167,7 @@ const TopNav = () => {
       </button>
       {[
         { label: 'Live Scores', icon: Activity, path: '/' },
+        { label: 'Prop Bets', icon: TrendingUp, path: '/props' },
         { label: 'League Leaders', icon: Trophy, path: '/leaders' },
         { label: 'Transactions', icon: ArrowLeftRight, path: '#' },
         { label: 'Injury Report', icon: Activity, path: '#' },
@@ -577,7 +579,7 @@ const UpcomingSeries = ({ nextGame }: { nextGame: any }) => {
     return (
       <div className="bg-[#002d62] rounded-xl p-6 text-white overflow-hidden relative h-32 flex items-center justify-center opacity-80">
         <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center">
-          <CalendarIcon className="w-8 h-8 opacity-50 mb-2" />
+          <Calendar className="w-8 h-8 opacity-50 mb-2" />
           <p className="text-xs font-bold uppercase tracking-widest text-slate-300">No Scheduled Games</p>
         </div>
       </div>
@@ -593,7 +595,7 @@ const UpcomingSeries = ({ nextGame }: { nextGame: any }) => {
   return (
     <div className="bg-[#002d62] rounded-xl p-6 text-white overflow-hidden relative shadow-lg">
       <div className="absolute -top-4 -right-4 p-4 opacity-10">
-        <CalendarIcon className="w-32 h-32" />
+        <Calendar className="w-32 h-32" />
       </div>
       <h3 className="font-headline font-black uppercase tracking-wider text-xs mb-6 text-slate-300">Up Next</h3>
       
@@ -963,6 +965,15 @@ const AppContent = () => {
           </>
         } />
         <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} />} />
+        <Route path="/props" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 transition-all duration-300">
+              <PropsPage />
+            </main>
+            <Footer />
+          </>
+        } />
         <Route path="/schedule" element={
           <>
             <Header selectedTeamId={null} />

@@ -884,3 +884,33 @@ async def get_league_stats(year: int = 2024, type: str = "batting", season_type:
     except Exception as e:
         print(f"Error fetching league stats: {e}")
         return []
+
+@app.get("/api/props/{date}")
+async def get_daily_props(date: str):
+    """Get all saved player props for a specific date (YYYYMMDD)."""
+    try:
+        # Fetch the games for that date to filter the props
+        import httpx
+        url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            event_ids = [int(event["id"]) for event in data.get("events", [])]
+            
+        if not event_ids:
+            return []
+
+        query = """
+            SELECT 
+                id, event_id, athlete_id, prop_type, prop_line, over_odds, under_odds, last_updated
+            FROM player_props
+            WHERE event_id = ANY(:event_ids)
+        """
+        
+        props = await database.fetch_all(query=query, values={"event_ids": event_ids})
+        return [dict(p) for p in props]
+    except Exception as e:
+        print(f"Error fetching props: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch props")
