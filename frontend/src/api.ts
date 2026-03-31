@@ -177,8 +177,8 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
 
 
 
-export async function fetchPlayerGameLogs(playerId: number, year: number) {
-  const response = await fetch(`${API_URL}/players/${playerId}/gamelog?year=${year}`);
+export async function fetchPlayerGameLogs(playerId: number, year: number, limit: number = 20) {
+  const response = await fetch(`${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`);
   if (!response.ok) return { batting: [], pitching: [] };
   return await response.json();
 }

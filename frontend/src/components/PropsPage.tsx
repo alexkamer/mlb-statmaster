@@ -14,6 +14,8 @@ export const PropsPage = () => {
     const [propFilterTeam, setPropFilterTeam] = useState<string>('all');
     const [propFilterPlayer, setPropFilterPlayer] = useState<string>('all');
     const [propFilterType, setPropFilterType] = useState<string>('all');
+    const [l10TrendMode, setL10TrendMode] = useState<'over' | 'under'>('over');
+    const [hitRateFilter, setHitRateFilter] = useState<string>('all');
     
     // Prevent auto-refreshing when ScoreboardContext interval updates todayEvents
     const [fetchedDate, setFetchedDate] = useState<string>('');
@@ -52,7 +54,9 @@ export const PropsPage = () => {
                     const bet: any = {
                         _gameId: String(sp.event_id),
                         _awayTeam: event.competitions[0].competitors.find((c: any) => c.homeAway === 'away')?.team?.abbreviation,
+                        _awayTeamId: event.competitions[0].competitors.find((c: any) => c.homeAway === 'away')?.team?.id,
                         _homeTeam: event.competitions[0].competitors.find((c: any) => c.homeAway === 'home')?.team?.abbreviation,
+                        _homeTeamId: event.competitions[0].competitors.find((c: any) => c.homeAway === 'home')?.team?.id,
                         _athleteName: sp.athlete_name || `Player ${sp.athlete_id}`,
                         _teamAbbrev: sp.team_abbrev || 'UNK',
                         athlete: { $ref: `athletes/${sp.athlete_id}` },
@@ -187,11 +191,26 @@ export const PropsPage = () => {
         if (!tableRowsMap.has(rowKey)) {
             let athleteName = bet._athleteName || "Player " + pId;
             let teamAbbr = bet._teamAbbrev || "UNK";
+            
+            let opponentAbbr = "UNK";
+            let opponentId = null;
+            let isHome = teamAbbr === bet._homeTeam;
+            
+            if (isHome) {
+                opponentAbbr = bet._awayTeam;
+                opponentId = bet._awayTeamId;
+            } else {
+                opponentAbbr = bet._homeTeam;
+                opponentId = bet._homeTeamId;
+            }
 
             tableRowsMap.set(rowKey, {
                 gameId: bet._gameId,
                 game: `${bet._awayTeam} @ ${bet._homeTeam}`,
                 team: teamAbbr,
+                opponent: opponentAbbr,
+                opponentId: opponentId,
+                isHome: isHome,
                 name: athleteName,
                 playerId: pId,
                 propType: typeName,
@@ -234,41 +253,38 @@ export const PropsPage = () => {
             
             const last10 = activeLogs.slice(0, 10);
             if (last10.length > 0) {
-                let overCount = 0;
+                let hitCount = 0;
+                let validCount = 0;
                 
                 if (p === 'to record win') {
-                    let validCount = 0;
                     last10.forEach((log: any) => {
                         const val = getStatValueFromLog(log, row.propType);
                         if (val !== null) {
                             validCount++;
-                            if (val === 1) overCount++;
+                            const isWin = val === 1;
+                            if (l10TrendMode === 'over' ? isWin : !isWin) hitCount++;
                         }
                     });
-                    if (validCount > 0) {
-                        row.l10 = `${overCount} / ${validCount}`;
-                    }
                 } else {
                     let target = parseFloat(String(row.propLine).replace('+', ''));
                     if (!isNaN(target)) {
-                        let validCount = 0;
                         last10.forEach((log: any) => {
                             const val = getStatValueFromLog(log, row.propType);
                             if (val !== null) {
                                 validCount++;
-                                if (String(row.propLine).includes('+')) {
-                                    if (val >= target) overCount++;
-                                } else {
-                                    if (val > target) overCount++;
-                                }
+                                const isOver = String(row.propLine).includes('+') ? val >= target : val > target;
+                                if (l10TrendMode === 'over' ? isOver : !isOver) hitCount++;
                             }
                         });
-                        if (validCount > 0) {
-                            row.l10 = `${overCount} / ${validCount}`;
-                        } else {
-                            row.l10 = '-';
-                        }
                     }
+                }
+
+                if (validCount > 0) {
+                    row.l10 = `${hitCount} / ${validCount}`;
+                    row.hitRate = hitCount / validCount;
+                } else {
+                    row.l10 = '-';
+                    row.hitRate = 0;
                 }
             }
         }
@@ -281,6 +297,12 @@ export const PropsPage = () => {
         if (propFilterTeam !== 'all' && row.team !== propFilterTeam) return false;
         if (propFilterPlayer !== 'all' && row.playerId !== propFilterPlayer) return false;
         if (propFilterType !== 'all' && row.propType !== propFilterType) return false;
+        
+        if (hitRateFilter !== 'all') {
+            const threshold = parseInt(hitRateFilter) / 100;
+            if (!row.hitRate || row.hitRate < threshold) return false;
+        }
+        
         return true;
     });
 
@@ -384,6 +406,36 @@ export const PropsPage = () => {
                             ))}
                         </select>
                     </div>
+                    <div className="flex flex-col">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Min Hit Rate</label>
+                        <select 
+                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            value={hitRateFilter}
+                            onChange={(e) => setHitRateFilter(e.target.value)}
+                        >
+                            <option value="all">All</option>
+                            <option value="70">70%+</option>
+                            <option value="80">80%+</option>
+                            <option value="90">90%+</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Trend Mode</label>
+                        <div className="flex bg-white rounded border border-slate-200 p-0.5">
+                            <button
+                                onClick={() => setL10TrendMode('over')}
+                                className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all ${l10TrendMode === 'over' ? 'bg-primary text-white' : 'text-slate-400'}`}
+                            >
+                                Over
+                            </button>
+                            <button
+                                onClick={() => setL10TrendMode('under')}
+                                className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all ${l10TrendMode === 'under' ? 'bg-primary text-white' : 'text-slate-400'}`}
+                            >
+                                Under
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div className="overflow-x-auto">
@@ -392,10 +444,11 @@ export const PropsPage = () => {
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-widest text-slate-500 font-bold">
                                 <th className="p-4">Game</th>
                                 <th className="p-4">Team</th>
+                                <th className="p-4">Opponent</th>
                                 <th className="p-4">Name</th>
                                 <th className="p-4">Prop Type</th>
                                 <th className="p-4">Prop Line</th>
-                                <th className="p-4 text-center">L10 Over</th>
+                                <th className="p-4 text-center">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'}</th>
                                 <th className="p-4 text-right">Over Odds</th>
                                 <th className="p-4 text-right">Under Odds</th>
                             </tr>
@@ -411,6 +464,18 @@ export const PropsPage = () => {
                                         <Link to={`/games/${row.gameId}?tab=props`} onClick={(e) => e.stopPropagation()} className="font-medium text-slate-500 hover:text-primary hover:underline">{row.game}</Link>
                                     </td>
                                     <td className="p-4 font-bold text-slate-700">{row.team}</td>
+                                    <td className="p-4">
+                                        <div className="flex items-center gap-2">
+                                            {row.opponentId && (
+                                                <img 
+                                                    src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.opponentId}.png`} 
+                                                    alt={row.opponent} 
+                                                    className="w-5 h-5 object-contain"
+                                                />
+                                            )}
+                                            <span className="font-bold text-slate-700">{row.opponent}</span>
+                                        </div>
+                                    </td>
                                     <td className="p-4">
                                         <Link to={`/players/${row.playerId}`} onClick={(e) => e.stopPropagation()} className="font-bold text-primary hover:underline">{row.name}</Link>
                                     </td>
@@ -431,7 +496,7 @@ export const PropsPage = () => {
                             ))}
                             {tableRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
+                                    <td colSpan={9} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
                                 </tr>
                             )}
                         </tbody>

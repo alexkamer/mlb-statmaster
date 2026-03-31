@@ -78,6 +78,8 @@ async def process_props(event_id, items):
             target = item.get("current", {}).get("target", {}).get("value")
             
         target_str = str(target) if target is not None else "N/A"
+        if p_type == "To Record Win" and target_str == "N/A":
+            target_str = "0.5"
         
         key = f"{a_id}_{p_type}_{target_str}"
         if key not in grouped:

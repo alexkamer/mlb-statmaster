@@ -754,7 +754,13 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
             (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_abbrev,
             (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_id,
-            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away
+            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away,
+            (SELECT 
+                CASE 
+                    WHEN ec.home_away = 'home' THEN (SELECT home_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
+                    ELSE (SELECT away_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
+                END
+             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = b.team_id) as team_money_line
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
@@ -785,7 +791,13 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15):
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
             (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
             (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
-            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away
+            (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
+            (SELECT 
+                CASE 
+                    WHEN ec.home_away = 'home' THEN (SELECT home_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
+                    ELSE (SELECT away_money_line FROM event_odds eo WHERE eo.event_id = e.event_id LIMIT 1)
+                END
+             FROM event_competitors ec WHERE ec.event_id = e.event_id AND ec.team_id = p.team_id) as team_money_line
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date

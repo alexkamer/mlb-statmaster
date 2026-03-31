@@ -380,6 +380,13 @@ def update_game_data():
                                         'pitches_faced': safe_int(stat_dict.get('#P'))
                                     })
                                 elif stat_name == "pitching":
+                                    # Look for 'W' in notes
+                                    recorded_win = False
+                                    notes = athlete_stats.get('notes', [])
+                                    for note in notes:
+                                        if note.get('type') == 'pitchingDecision' and note.get('text', '').startswith('W'):
+                                            recorded_win = True
+                                            
                                     global_pitching.append({
                                         'event_pitching_id': f"{event_id}_{athlete_id}",
                                         'event_id': event_id,
@@ -393,7 +400,8 @@ def update_game_data():
                                         'bb': safe_int(stat_dict.get('BB')),
                                         'k': safe_int(stat_dict.get('K')),
                                         'hr': safe_int(stat_dict.get('HR')),
-                                        'pitches': safe_int(stat_dict.get('PC'))
+                                        'pitches': safe_int(stat_dict.get('PC')),
+                                        'recorded_win': recorded_win
                                     })
                                     
                     # 4. PLAYS
@@ -453,6 +461,7 @@ def update_game_data():
             df_p = pd.DataFrame(global_pitching).drop_duplicates('event_pitching_id')
             for col in ['h', 'r', 'er', 'bb', 'k', 'hr', 'pitches']:
                 df_p[col] = df_p[col].astype('Int64')
+            df_p['recorded_win'] = df_p['recorded_win'].astype('boolean')
             execute_upsert(df_p, 'event_boxscores_pitching', ['event_pitching_id'])
             
         if global_plays:
