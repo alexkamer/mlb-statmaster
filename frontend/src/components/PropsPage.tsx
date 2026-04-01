@@ -70,6 +70,17 @@ export const PropsPage = () => {
         }, { replace: true });
     }, [propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, l10TrendMode, hitRateFilter, edgeFilter, showOnlyUpcoming, scoreboardDate, setSearchParams]);
 
+    const resetFilters = () => {
+        setPropFilterGame('all');
+        setPropFilterTeam('all');
+        setPropFilterPlayer('all');
+        setPropFilterType('all');
+        setL10TrendMode('over');
+        setHitRateFilter('all');
+        setEdgeFilter('all');
+        setShowOnlyUpcoming(false);
+    };
+
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -580,7 +591,7 @@ export const PropsPage = () => {
                     <div className="flex flex-col">
                         <h1 className="font-headline font-black text-3xl uppercase tracking-widest text-slate-800">Daily Prop Bets</h1>
                         <div className="flex items-center gap-1 text-sm font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                            <button onClick={() => changeScoreboardDate(-1)} className="hover:text-primary p-0.5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                            <button onClick={() => { changeScoreboardDate(-1); resetFilters(); }} className="hover:text-primary p-0.5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
                             <div className="relative group">
                                 <span className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">{displayDateToday}</span>
                                 <input
@@ -591,11 +602,12 @@ export const PropsPage = () => {
                                         if (e.target.value) {
                                             const [y, m, d] = e.target.value.split('-').map(Number);
                                             setScoreboardDate(new Date(y, m - 1, d));
+                                            resetFilters();
                                         }
                                     }}
                                 />
                             </div>
-                            <button onClick={() => changeScoreboardDate(1)} className="hover:text-primary p-0.5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                            <button onClick={() => { changeScoreboardDate(1); resetFilters(); }} className="hover:text-primary p-0.5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                     </div>
                 </div>
