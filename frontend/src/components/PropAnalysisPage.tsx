@@ -33,6 +33,7 @@ export const PropAnalysisPage = () => {
     const [opponentSplitDataMode, setOpponentSplitDataMode] = useState(false);
     const [splitOuts, setSplitOuts] = useState<number>(18);
     const [opponentSplitLogs, setOpponentSplitLogs] = useState<any[]>([]);
+    const [positionFilter, setPositionFilter] = useState<string>('all');
     const [bvpData, setBvpData] = useState<any>(null);
     const [opposingPitcher, setOpposingPitcher] = useState<any>(null);
 
@@ -369,7 +370,7 @@ export const PropAnalysisPage = () => {
             )}
 
 
-            {initialOpponentId && initialOpponentId !== 'undefined' && initialOpponentId !== 'null' && isPitching && (
+            {initialOpponentId && initialOpponentId !== 'undefined' && initialOpponentId !== 'null' && (
                 <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
                     <button 
                         onClick={() => { setOpponentDataMode(false); setOpponentSplitDataMode(false); }}
@@ -536,23 +537,82 @@ export const PropAnalysisPage = () => {
                         })()}
                     </div>
                 </div>
-            ) : opponentDataMode && isPitching ? (
+            ) : opponentDataMode ? (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-6 border-b border-slate-200 bg-slate-50">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
-                            How {initialOpponentAbbrev} Defends <span className="text-emerald-600">{propType}</span>
-                        </h2>
-                        <p className="text-sm text-slate-500 font-medium mt-1">
-                            Analyzing how opposing {propType.toLowerCase().includes('strikeout') || propType.toLowerCase().includes('out') || propType.toLowerCase().includes('run') || propType.toLowerCase().includes('win') ? 'Starting Pitchers' : 'Starting Batters'} perform against the {initialOpponentAbbrev}.
-                        </p>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
+                                    <span className="text-emerald-600">{propType}</span> vs {initialOpponentAbbrev}
+                                </h2>
+                                <p className="text-sm text-slate-500 font-medium mt-1">
+                                    Analyzing historical {propType} by opposing {isPitching ? 'Starting Pitchers' : (positionFilter !== 'all' ? positionFilter + 's' : 'Starting Batters')} against {initialOpponentAbbrev}.
+                                </p>
+                            </div>
+                            
+                            {!isPitching && (
+                                <div className="flex bg-white rounded-md border border-slate-200 p-1 shadow-sm w-fit">
+                                    <button 
+                                        onClick={() => setPositionFilter('all')}
+                                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors ${positionFilter === 'all' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        All Batters
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            const getAbbrev = (pos: string) => {
+                                                const p = pos.toLowerCase();
+                                                if (p.includes('shortstop')) return 'SS';
+                                                if (p.includes('first base')) return '1B';
+                                                if (p.includes('second base')) return '2B';
+                                                if (p.includes('third base')) return '3B';
+                                                if (p.includes('catcher')) return 'C';
+                                                if (p.includes('left field')) return 'LF';
+                                                if (p.includes('center field')) return 'CF';
+                                                if (p.includes('right field')) return 'RF';
+                                                if (p.includes('designated hitter')) return 'DH';
+                                                if (p.includes('pitcher')) return 'P';
+                                                return '';
+                                            };
+                                            setPositionFilter(getAbbrev(player?.position || ''));
+                                        }}
+                                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors ${positionFilter !== 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        disabled={!player?.position}
+                                    >
+                                        Only {(() => {
+                                            const getAbbrev = (pos: string) => {
+                                                const p = pos.toLowerCase();
+                                                if (p.includes('shortstop')) return 'SS';
+                                                if (p.includes('first base')) return '1B';
+                                                if (p.includes('second base')) return '2B';
+                                                if (p.includes('third base')) return '3B';
+                                                if (p.includes('catcher')) return 'C';
+                                                if (p.includes('left field')) return 'LF';
+                                                if (p.includes('center field')) return 'CF';
+                                                if (p.includes('right field')) return 'RF';
+                                                if (p.includes('designated hitter')) return 'DH';
+                                                if (p.includes('pitcher')) return 'P';
+                                                return '';
+                                            };
+                                            return getAbbrev(player?.position || '') || 'Same Pos';
+                                        })()}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="p-6">
                         {(() => {
                             const p = propType.toLowerCase();
                             
+                            // Apply position filter if batter
+                            const filteredLogs = (!isPitching && positionFilter !== 'all') 
+                                ? opponentLogs.filter(log => log.position === positionFilter)
+                                : opponentLogs;
+
                             // Map logs to values
-                            const values = opponentLogs.map(log => {
+                            const values = filteredLogs.map(log => {
                                 let val = 0;
                                 if (isPitching) {
                                     if (p === 'total strikeouts' || p === 'strikeouts') val = parseInt(log.k || '0');

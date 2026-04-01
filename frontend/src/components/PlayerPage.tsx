@@ -52,7 +52,7 @@ export const PlayerPage = () => {
             console.warn("Backend team mapping unavailable");
         }
         
-        console.log("Loaded teamHistory:", teamHistory);
+        
         
         // Failsafe: if backend is unreachable, at least use the ESPN base abbreviation
         if (!teamHistory["default"] && espnBase.athlete.team?.abbreviation) {

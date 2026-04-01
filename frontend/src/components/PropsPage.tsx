@@ -156,7 +156,7 @@ export const PropsPage = () => {
                     const logsMap: Record<string, any> = {};
                     chunkMaps.forEach(chunkMap => Object.assign(logsMap, chunkMap));
                     
-                    console.log("logsMap keys:", Object.keys(logsMap).length);
+                    
                     setAllPlayersLogs(logsMap);
                 } catch (e) {
                     console.error("Batch fetch failed", e);
@@ -165,7 +165,8 @@ export const PropsPage = () => {
                 }
             };
             fetchAllLogs();
-        } else if (!loading) {
+        } else {
+            // If propBets is empty (e.g. no props loaded today), we must still stop loading!
             setLoading(false);
         }
     }, [propBets]);
@@ -309,14 +310,40 @@ export const PropsPage = () => {
         row.edge = null;
         row.sequence = [];
         row.statAvg = null;
+        row.actualResult = null;
+        row.resultStatus = null;
 
         const logs = allPlayersLogs[row.playerId];
         if (logs) {
             const p = row.propType.toLowerCase();
             let isPitching = (p.includes('strikeout') && !p.includes('batter')) || p.includes('out') || p.includes('allow') || p.includes('earned run') || p.includes('win');
-            let activeLogs = isPitching ? (logs.pitching || []) : (logs.batting || []);
             
-            activeLogs = activeLogs.filter((l: any) => {
+            const rawLogs = isPitching ? (logs.pitching || []) : (logs.batting || []);
+            
+            const currentGameLog = rawLogs.find((l: any) => String(l.event_id) === String(row.gameId));
+            if (currentGameLog) {
+                const val = getStatValueFromLog(currentGameLog, row.propType);
+                if (val !== null) {
+                    row.actualResult = val;
+                    if (p === 'to record win') {
+                        row.resultStatus = val === 1 ? 'OVER' : 'UNDER';
+                    } else {
+                        const target = parseFloat(String(row.propLine).replace('+', ''));
+                        if (!isNaN(target)) {
+                            const isPlus = String(row.propLine).includes('+');
+                            if (isPlus) {
+                                row.resultStatus = val >= target ? 'OVER' : 'UNDER';
+                            } else {
+                                if (val > target) row.resultStatus = 'OVER';
+                                else if (val < target) row.resultStatus = 'UNDER';
+                                else row.resultStatus = 'PUSH';
+                            }
+                        }
+                    }
+                }
+            }
+
+            let activeLogs = rawLogs.filter((l: any) => {
                 // Exclude today's game from the historical L10/Edge calculation if it's already in the DB
                 if (String(l.event_id) === String(row.gameId)) return false;
                 
@@ -370,7 +397,57 @@ export const PropsPage = () => {
                     if (relevantOdds !== '-') {
                         const impliedProb = calculateImpliedProbability(relevantOdds);
                         if (impliedProb !== null) {
-                            row.edge = row.hitRate - impliedProb;
+                            // Model: 40% Season Baseline + 60% L10 Form
+                            // Opponent adjust can be added later if opponent team data is prefetched.
+                            let seasonRate = row.hitRate; // Default to L10 if no season data
+                            
+                            const sData = isPitching ? logs.season_pitching : logs.season_batting;
+                            if (sData && sData.g > 0) {
+                                let sHits = 0;
+                                const games = sData.g;
+                                
+                                // Map prop types to season aggregate totals
+                                let sTotal = 0;
+                                if (p === 'to record win') sTotal = sData.w || 0;
+                                else if (p.includes('strikeout')) sTotal = sData.k || 0;
+                                else if (p === 'total outs recorded' || p === 'outs recorded') sTotal = sData.outs_recorded || 0;
+                                else if (p === 'total bases') sTotal = (sData.singles || 0) + ((sData.d || 0) * 2) + ((sData.t || 0) * 3) + ((sData.hr || 0) * 4);
+                                else if (p === 'hits + runs + rbis') sTotal = (sData.h || 0) + (sData.r || 0) + (sData.rbi || 0);
+                                else if (p.includes('home run')) sTotal = sData.hr || 0;
+                                else if (p.includes('single')) sTotal = sData.singles || 0;
+                                else if (p.includes('double')) sTotal = sData.d || 0;
+                                else if (p.includes('triple')) sTotal = sData.t || 0;
+                                else if (p === 'hits' || p === 'total hits') sTotal = sData.h || 0;
+                                else if (p.includes('run') && !p.includes('home') && !p.includes('earned')) sTotal = sData.r || 0;
+                                else if (p.includes('rbi')) sTotal = sData.rbi || 0;
+                                else if (p.includes('stolen')) sTotal = sData.sb || 0;
+                                else if (p.includes('walk') && isPitching) sTotal = sData.bb || 0;
+                                else if (p.includes('earned run') && isPitching) sTotal = sData.er || 0;
+                                else if (p.includes('hit') && isPitching) sTotal = sData.h || 0;
+                                
+                                // Estimate the probability of hitting the line based on mean.
+                                // If they average 2.0 and line is 1.5, prob is roughly over 50%.
+                                // For an exact calculation we'd need distribution, but a linear approximation works for a blended true edge.
+                                const sAvg = sTotal / games;
+                                const target = p === 'to record win' ? 0.5 : parseFloat(String(row.propLine).replace('+', ''));
+                                
+                                if (!isNaN(target)) {
+                                    // A simple sigmoid/logistic function to translate a per-game average vs target into a probability [0, 1]
+                                    // E.g., if target is 1.5 and avg is 1.5, prob = 50%.
+                                    // If avg is 2.5, prob approaches 80%.
+                                    const diff = sAvg - target;
+                                    const estimatedProb = 1 / (1 + Math.exp(-diff * 2)); // scale factor 2
+                                    
+                                    if (l10TrendMode === 'over') {
+                                        seasonRate = estimatedProb;
+                                    } else {
+                                        seasonRate = 1 - estimatedProb;
+                                    }
+                                }
+                            }
+                            
+                            const trueProb = (seasonRate * 0.4) + (row.hitRate * 0.6);
+                            row.edge = trueProb - impliedProb;
                         }
                     }
                 } else {
@@ -422,6 +499,12 @@ export const PropsPage = () => {
             } else if (sortConfig.key === 'l10') {
                 aVal = a.hitRate;
                 bVal = b.hitRate;
+            } else if (sortConfig.key === 'avg') {
+                aVal = a.statAvg === null ? -999 : parseFloat(a.statAvg);
+                bVal = b.statAvg === null ? -999 : parseFloat(b.statAvg);
+            } else if (sortConfig.key === 'actualResult') {
+                aVal = a.actualResult === null ? -999 : a.actualResult;
+                bVal = b.actualResult === null ? -999 : b.actualResult;
             } else if (sortConfig.key === 'overOdds') {
                 aVal = a.overOdds === '-' ? -999 : parseInt(a.overOdds);
                 bVal = b.overOdds === '-' ? -999 : parseInt(b.overOdds);
@@ -455,7 +538,7 @@ export const PropsPage = () => {
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="bg-primary/10 p-3 rounded-2xl">
                         <TrendingUp className="w-8 h-8 text-primary" />
@@ -465,6 +548,37 @@ export const PropsPage = () => {
                         <p className="text-slate-500 font-medium">Player prop odds and L10 trends across all games.</p>
                     </div>
                 </div>
+                
+                {(() => {
+                    const actualOvers = tableRows.filter(r => r.resultStatus === 'OVER').length;
+                    const actualUnders = tableRows.filter(r => r.resultStatus === 'UNDER').length;
+                    const actualPushes = tableRows.filter(r => r.resultStatus === 'PUSH').length;
+                    const totalResults = actualOvers + actualUnders + actualPushes;
+                    
+                    if (totalResults === 0) return null;
+                    
+                    return (
+                        <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Live Results</div>
+                            <div className="flex gap-1">
+                                <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                                    <span className="text-[10px] font-bold text-emerald-600/70">O</span>
+                                    <span className="font-black text-emerald-700 text-sm">{actualOvers}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
+                                    <span className="text-[10px] font-bold text-rose-600/70">U</span>
+                                    <span className="font-black text-rose-700 text-sm">{actualUnders}</span>
+                                </div>
+                                {actualPushes > 0 && (
+                                    <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                                        <span className="text-[10px] font-bold text-slate-500">P</span>
+                                        <span className="font-black text-slate-700 text-sm">{actualPushes}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -596,11 +710,14 @@ export const PropsPage = () => {
                                 <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('propLine')}>
                                     <div className="flex items-center gap-1.5">Prop Line {sortConfig.key === 'propLine' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
                                 </th>
-                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('l10')}>
-                                    <div className="flex items-center justify-center gap-1.5">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'} {sortConfig.key === 'l10' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('actualResult')}>
+                                    <div className="flex items-center gap-1.5">Actual {sortConfig.key === 'actualResult' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
                                 </th>
                                 <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('avg')}>
                                     <div className="flex items-center justify-center gap-1.5">AVG {sortConfig.key === 'avg' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('l10')}>
+                                    <div className="flex items-center justify-center gap-1.5">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'} {sortConfig.key === 'l10' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
                                 </th>
                                 <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('edge')}>
                                     <div className="flex items-center justify-center gap-1.5">Edge {sortConfig.key === 'edge' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
@@ -640,6 +757,50 @@ export const PropsPage = () => {
                                     </td>
                                     <td className="p-4 text-slate-600">{row.propType}</td>
                                     <td className="p-4 font-black text-slate-800">{row.propLine}</td>
+                                    <td className="p-4">
+                                        {row.actualResult === null ? (
+                                            <span className="text-slate-300 font-medium">-</span>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-bold text-slate-800">{row.actualResult}</span>
+                                                {row.resultStatus && (
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-sm ${
+                                                        row.resultStatus === 'OVER' ? 'bg-emerald-500 text-white' :
+                                                        row.resultStatus === 'UNDER' ? 'bg-rose-500 text-white' :
+                                                        'bg-slate-200 text-slate-600'
+                                                    }`}>
+                                                        {row.resultStatus}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        {row.statAvg === null ? (
+                                            <span className="text-slate-400">-</span>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <span className="font-bold text-slate-700 text-sm">{row.statAvg}</span>
+                                                {(() => {
+                                                    const avg = parseFloat(row.statAvg);
+                                                    const target = parseFloat(String(row.propLine).replace('+', ''));
+                                                    if (isNaN(target)) return null;
+                                                    const diff = avg - target;
+                                                    if (diff === 0) return <span className="text-[9px] font-black text-slate-400">EVEN</span>;
+                                                    
+                                                    const diffAbs = Math.abs(diff).toFixed(1);
+                                                    const isOver = diff > 0;
+                                                    const isTrendAligned = (l10TrendMode === 'over' && isOver) || (l10TrendMode === 'under' && !isOver);
+                                                    
+                                                    return (
+                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isOver ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {isOver ? '+' : '-'}{diffAbs}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-center">
                                         {row.l10 === '-' ? (
                                             <span className="text-slate-400">-</span>
@@ -650,13 +811,6 @@ export const PropsPage = () => {
                                                 </span>
                                                 <Sparkline sequence={row.sequence} />
                                             </div>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        {row.statAvg === null ? (
-                                            <span className="text-slate-400">-</span>
-                                        ) : (
-                                            <span className="font-bold text-slate-600">{row.statAvg}</span>
                                         )}
                                     </td>
                                     <td className="p-4 text-center">
@@ -689,7 +843,7 @@ export const PropsPage = () => {
                             ))}
                             {tableRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
+                                    <td colSpan={9} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
                                 </tr>
                             )}
                         </tbody>

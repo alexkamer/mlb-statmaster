@@ -933,7 +933,48 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = 2024, limit: in
         batting_logs = await database.fetch_all(query=batting_query, values={"limit": limit, "p_ids": p_ids})
         pitching_logs = await database.fetch_all(query=pitching_query, values={"limit": limit, "p_ids": p_ids})
         
-        result_map = {pid: {"batting": [], "pitching": []} for pid in p_ids}
+        # Calculate season totals for context weighting
+        season_batting_query = f"""
+            SELECT 
+                b.athlete_id,
+                COUNT(b.event_id) as g,
+                SUM(b.ab) as ab, SUM(b.r) as r, SUM(b.h) as h, SUM(b.hr) as hr, SUM(b.rbi) as rbi, SUM(b.bb) as bb, SUM(b.k) as k, SUM(b.sb) as sb,
+                SUM(COALESCE(b.d, 0)) as d, SUM(COALESCE(b.t, 0)) as t,
+                SUM(b.pitches_faced) as pitches_faced,
+                SUM(COALESCE(b.h, 0) - COALESCE(b.d, 0) - COALESCE(b.t, 0) - COALESCE(b.hr, 0)) as singles
+            FROM event_boxscores_batting b
+            JOIN events e ON b.event_id = e.event_id
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            WHERE b.athlete_id = ANY(:p_ids) AND b.starter = true AND {type_filter} AND e.season_year = :year
+            GROUP BY b.athlete_id
+        """
+        
+        season_pitching_query = f"""
+            SELECT 
+                p.athlete_id,
+                COUNT(p.event_id) as g,
+                SUM(p.h) as h, SUM(p.r) as r, SUM(p.er) as er, SUM(p.hr) as hr, SUM(p.bb) as bb, SUM(p.k) as k, SUM(p.pitches) as pitches,
+                SUM(CASE WHEN c.winner = true AND c.team_id = p.team_id THEN 1 ELSE 0 END) as w,
+                SUM(CAST(SPLIT_PART(COALESCE(NULLIF(p.ip, '--.--'), '0.0'), '.', 1) AS INTEGER) * 3 + CAST(SPLIT_PART(COALESCE(NULLIF(p.ip, '--.--'), '0.0'), '.', 2) AS INTEGER)) as outs_recorded
+            FROM event_boxscores_pitching p
+            JOIN events e ON p.event_id = e.event_id
+            LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+            LEFT JOIN event_competitors c ON e.event_id = c.event_id AND p.team_id = c.team_id
+            WHERE p.athlete_id = ANY(:p_ids) AND p.starter = true AND {type_filter} AND e.season_year = :year
+            GROUP BY p.athlete_id
+        """
+        
+        season_batting_stats = await database.fetch_all(query=season_batting_query, values={"p_ids": p_ids, "year": year})
+        season_pitching_stats = await database.fetch_all(query=season_pitching_query, values={"p_ids": p_ids, "year": year})
+        
+        result_map = {pid: {"batting": [], "pitching": [], "season_batting": None, "season_pitching": None} for pid in p_ids}
+        
+        for sb in season_batting_stats:
+            result_map[sb['athlete_id']]['season_batting'] = dict(sb)
+            
+        for sp in season_pitching_stats:
+            result_map[sp['athlete_id']]['season_pitching'] = dict(sp)
+        
         
         for b in batting_logs:
             d = dict(b)
