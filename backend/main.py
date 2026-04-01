@@ -877,6 +877,96 @@ async def get_player_profile(player_id: int):
 
 
 
+
+@app.get("/api/players/gamelogs/batch")
+async def get_batch_player_gamelogs(player_ids: str, year: int = 2024, limit: int = 15):
+    """Get game logs for multiple players at once to prevent connection pooling bottlenecks."""
+    try:
+        p_ids = [int(p) for p in player_ids.split(",") if p.strip().isdigit()]
+        if not p_ids:
+            return {}
+            
+        type_filter = "st.type_id IN (2, 3)"
+        
+        # We need the last N logs per player. The easiest way without complex window functions in SQLite is:
+        # Actually, Postgres supports ROW_NUMBER(). Since we use Postgres:
+        
+        batting_query = """
+            WITH RankedBatting AS (
+                SELECT 
+                    b.athlete_id,
+                    st.type_id as season_type,
+                    e.event_id,
+                    e.date,
+                    e.short_name,
+                    b.team_id,
+                    b.starter,
+                    b.ab, b.r, b.h, b.hr, b.rbi, b.bb, b.k, b.sb, 
+                    COALESCE(b.d, 0) as d, COALESCE(b.t, 0) as t,
+                    b.pitches_faced,
+                    (COALESCE(b.h, 0) - COALESCE(b.d, 0) - COALESCE(b.t, 0) - COALESCE(b.hr, 0)) as singles,
+                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as team_score,
+                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_score,
+                    (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
+                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_abbrev,
+                    (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_id,
+                    (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away,
+                    ROW_NUMBER() OVER(PARTITION BY b.athlete_id ORDER BY e.date DESC) as rn
+                FROM event_boxscores_batting b
+                JOIN events e ON b.event_id = e.event_id
+                LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+                WHERE b.athlete_id = ANY(:p_ids) AND b.starter = true AND __TYPE_FILTER__
+            )
+            SELECT * FROM RankedBatting WHERE rn <= :limit
+        """.replace("__TYPE_FILTER__", type_filter)
+        
+        pitching_query = """
+            WITH RankedPitching AS (
+                SELECT 
+                    p.athlete_id,
+                    st.type_id as season_type,
+                    e.event_id,
+                    e.date,
+                    e.short_name,
+                    p.team_id,
+                    p.starter,
+                    p.ip, p.h, p.r, p.er, p.hr, p.bb, p.k, p.pitches,
+                    COALESCE(p.recorded_win, false) as recorded_win,
+                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as team_score,
+                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_score,
+                    (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
+                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
+                    (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
+                    (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
+                    ROW_NUMBER() OVER(PARTITION BY p.athlete_id ORDER BY e.date DESC) as rn
+                FROM event_boxscores_pitching p
+                JOIN events e ON p.event_id = e.event_id
+                LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+                WHERE p.athlete_id = ANY(:p_ids) AND p.starter = true AND __TYPE_FILTER__
+            )
+            SELECT * FROM RankedPitching WHERE rn <= :limit
+        """.replace("__TYPE_FILTER__", type_filter)
+
+        batting_logs = await database.fetch_all(query=batting_query, values={"limit": limit, "p_ids": p_ids})
+        pitching_logs = await database.fetch_all(query=pitching_query, values={"limit": limit, "p_ids": p_ids})
+        
+        result_map = {pid: {"batting": [], "pitching": []} for pid in p_ids}
+        
+        for b in batting_logs:
+            d = dict(b)
+            d.pop('rn', None)
+            result_map[d['athlete_id']]["batting"].append(d)
+            
+        for p in pitching_logs:
+            d = dict(p)
+            d.pop('rn', None)
+            result_map[d['athlete_id']]["pitching"].append(d)
+            
+        return result_map
+    except Exception as e:
+        print(f"Batch Gamlogs Error: {e}")
+        return {}
+
 @app.get("/api/players/{player_id}/gamelog")
 async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, season_type_id: int = None):
     """Get a player's game-by-game logs for a specific season, or last N games if year is omitted."""
@@ -1096,25 +1186,20 @@ from typing import Optional
 
 @app.get("/api/props/{date}")
 async def get_daily_props(date: str, event_ids: Optional[str] = None):
-    """Get all saved player props for a specific date (YYYYMMDD) and optionally filter by event_ids."""
+    """Get all saved player props for a specific date (YYYYMMDD)."""
     try:
-        e_ids = []
+        formatted_date = f"{date[0:4]}-{date[4:6]}-{date[6:8]}"
+        
+        where_clause = "e.date::text LIKE :date_like"
+        values = {"date_like": f"{formatted_date}%"}
+        
         if event_ids:
             e_ids = [int(eid) for eid in event_ids.split(",") if eid.strip()]
-        else:
-            # Fallback to ESPN if event_ids are not provided
-            import httpx
-            url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date}"
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    e_ids = [int(event["id"]) for event in data.get("events", [])]
-            
-        if not e_ids:
-            return []
-
-        query = """
+            if e_ids:
+                where_clause = "pp.event_id = ANY(:event_ids)"
+                values = {"event_ids": e_ids}
+        
+        query = f"""
             SELECT 
                 pp.id, pp.event_id, pp.athlete_id, pp.prop_type, pp.prop_line, pp.over_odds, pp.under_odds, pp.last_updated,
                 a.display_name as athlete_name,
@@ -1127,29 +1212,18 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
                         ORDER BY sr.season_year DESC
                         LIMIT 1
                     ),
-                    (
-                        SELECT t.abbreviation
-                        FROM event_boxscores_batting b
-                        JOIN season_teams t ON b.team_id = t.team_id
-                        WHERE b.athlete_id = pp.athlete_id
-                        ORDER BY b.event_id DESC
-                        LIMIT 1
-                    ),
-                    (
-                        SELECT t.abbreviation
-                        FROM event_boxscores_pitching p
-                        JOIN season_teams t ON p.team_id = t.team_id
-                        WHERE p.athlete_id = pp.athlete_id
-                        ORDER BY p.event_id DESC
-                        LIMIT 1
-                    )
-                ) as team_abbrev
+                    'UNK'
+                ) as team_abbrev,
+                (SELECT t2.abbreviation FROM event_competitors c1 JOIN season_teams t2 ON c1.season_team_id = t2.season_team_id WHERE c1.event_id = pp.event_id AND c1.home_away = 'away' LIMIT 1) as _awayTeam,
+                (SELECT c1.team_id FROM event_competitors c1 WHERE c1.event_id = pp.event_id AND c1.home_away = 'away' LIMIT 1) as _awayTeamId,
+                (SELECT t2.abbreviation FROM event_competitors c2 JOIN season_teams t2 ON c2.season_team_id = t2.season_team_id WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeam,
+                (SELECT c2.team_id FROM event_competitors c2 WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeamId
             FROM player_props pp
-            LEFT JOIN athletes a ON pp.athlete_id = a.athlete_id
-            WHERE pp.event_id = ANY(:event_ids)
+            JOIN athletes a ON pp.athlete_id = a.athlete_id
+            JOIN events e ON pp.event_id = e.event_id
+            WHERE {where_clause}
         """
-        
-        props = await database.fetch_all(query=query, values={"event_ids": e_ids})
+        props = await database.fetch_all(query=query, values=values)
         return [dict(p) for p in props]
     except Exception as e:
         print(f"Error fetching props: {e}")

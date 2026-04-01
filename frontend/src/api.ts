@@ -462,3 +462,11 @@ export async function fetchOpponentBattingSplits(teamId: number, outs: number, y
   if (!response.ok) return [];
   return await response.json();
 }
+
+export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number, limit: number = 15) {
+  if (!playerIds || playerIds.length === 0) return {};
+  const url = `${API_URL}/players/gamelogs/batch?player_ids=${playerIds.join(',')}&year=${year}&limit=${limit}`;
+  const response = await fetch(url);
+  if (!response.ok) return {};
+  return await response.json();
+}

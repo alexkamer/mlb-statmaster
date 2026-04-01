@@ -23,36 +23,42 @@ export const PropsPage = () => {
 
     useEffect(() => {
         const loadAllProps = async () => {
-            // Calculate today's date directly
-            const today = new Date();
-            const y = today.getFullYear();
-            const m = String(today.getMonth() + 1).padStart(2, '0');
-            const d = String(today.getDate()).padStart(2, '0');
-            const searchDate = `${y}${m}${d}`;
+            if (!events || events.length === 0) {
+                if (!todayEvents || todayEvents.length === 0) return;
+            }
             
-            if (fetchedDate === searchDate && propBets.length > 0) return; 
+            const targetEvents = (events && events.length > 0) ? events : todayEvents;
+            const currentDateStr = targetEvents[0]?.date ? targetEvents[0].date.split('T')[0] : 'unknown';
             
-            setFetchedDate(searchDate);
+            if (fetchedDate === currentDateStr && propBets.length > 0) return; 
+            
+            setFetchedDate(currentDateStr);
             setLoading(true);
             
             const allBets: any[] = [];
             
             try {
-                // Fetch saved props from backend for this date directly!
-                // No need to pass eventIds or wait for ESPN.
-                const savedProps = await fetchSavedProps(searchDate);
+                const searchDate = currentDateStr.replace(/-/g, '');
+                const eventIds = targetEvents.map((e: any) => e.id);
+                const savedProps = await fetchSavedProps(searchDate, eventIds);
 
                 // Transform saved props back into the format the UI expects
                 savedProps.forEach((sp: any) => {
                     const pt = sp.prop_type ? sp.prop_type.toLowerCase() : '';
                     if (pt.includes('milestones') || pt === 'to record win') return;
                     
+                    const event = targetEvents.find((e: any) => e.id === String(sp.event_id));
+                    if (!event) return;
+
+                    const awayComp = event.competitions[0].competitors.find((c: any) => c.homeAway === 'away');
+                    const homeComp = event.competitions[0].competitors.find((c: any) => c.homeAway === 'home');
+                    
                     const bet: any = {
                         _gameId: String(sp.event_id),
-                        _awayTeam: sp._awayteam || sp._awayTeam || 'AWY',
-                        _awayTeamId: sp._awayteamid || sp._awayTeamId || null,
-                        _homeTeam: sp._hometeam || sp._homeTeam || 'HME',
-                        _homeTeamId: sp._hometeamid || sp._homeTeamId || null,
+                        _awayTeam: awayComp?.team?.abbreviation || sp._awayteam || 'AWY',
+                        _awayTeamId: awayComp?.team?.id || sp._awayteamid || null,
+                        _homeTeam: homeComp?.team?.abbreviation || sp._hometeam || 'HME',
+                        _homeTeamId: homeComp?.team?.id || sp._hometeamid || null,
                         _athleteName: sp.athlete_name || `Player ${sp.athlete_id}`,
                         _teamAbbrev: sp.team_abbrev || 'UNK',
                         athlete: { $ref: `athletes/${sp.athlete_id}` },
