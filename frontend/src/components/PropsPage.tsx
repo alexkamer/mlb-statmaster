@@ -500,7 +500,7 @@ export const PropsPage = () => {
                                 <tr 
                                     key={idx} 
                                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/props/analysis?playerId=${row.playerId}&propType=${encodeURIComponent(row.propType)}&propLine=${row.propLine}`)}
+                                    onClick={() => navigate(`/props/analysis?playerId=${row.playerId}&propType=${encodeURIComponent(row.propType)}&propLine=${row.propLine}&opponentId=${row.opponentId}&opponentAbbrev=${row.opponent}&isHome=${row.isHome}`)}
                                 >
                                     <td className="p-4">
                                         <Link to={`/games/${row.gameId}?tab=props`} onClick={(e) => e.stopPropagation()} className="font-medium text-slate-500 hover:text-primary hover:underline">{row.game}</Link>

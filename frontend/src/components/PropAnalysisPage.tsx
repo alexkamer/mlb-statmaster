@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchPlayerGameLogs, fetchPlayerPropsAvailable } from '../api';
+import { fetchPlayerGameLogs, fetchPlayerPropsAvailable, fetchOpponentStarters, fetchOpponentBatters, fetchOpponentBattingSplits } from '../api';
 import { TrendingUp, ArrowLeft, BarChart2, Trophy, LayoutList, BarChart3 } from 'lucide-react';
 import { 
     BarChart, 
@@ -24,6 +24,16 @@ export const PropAnalysisPage = () => {
     const initialViewLimit = parseInt(searchParams.get('limit') || '20');
     const initialViewMode = (searchParams.get('view') as 'table' | 'chart') || 'table';
     const initialHand = searchParams.get('hand') || 'all';
+    const initialOpponentId = searchParams.get('opponentId') || null;
+    const initialOpponentAbbrev = searchParams.get('opponentAbbrev') || '';
+    const initialIsHome = searchParams.get('isHome') === 'true';
+    const [opponentDataMode, setOpponentDataMode] = useState(false);
+    const [opponentLogs, setOpponentLogs] = useState<any[]>([]);
+    const [opponentSplitDataMode, setOpponentSplitDataMode] = useState(false);
+    const [splitOuts, setSplitOuts] = useState<number>(18);
+    const [opponentSplitLogs, setOpponentSplitLogs] = useState<any[]>([]);
+
+
 
     const [playerId, setPlayerId] = useState(initialPlayerId);
     const [propType, setPropType] = useState(initialPropType);
@@ -32,9 +42,15 @@ export const PropAnalysisPage = () => {
     const [viewMode, setViewMode] = useState<'table' | 'chart'>(initialViewMode);
     const [pitcherHandFilter, setPitcherHandFilter] = useState(initialHand);
 
+    const pName = propType.toLowerCase().trim();
+    const isPitching = (pName.includes('strikeout') && !pName.includes('batter')) || pName.includes('out') || pName.includes('allow') || pName.includes('earned run') || pName.includes('win');
+
+
     const [player, setPlayer] = useState<any>(null);
     const [gameLogs, setGameLogs] = useState<any[]>([]);
     const [availableProps, setAvailableProps] = useState<{type: string, line: string}[]>([]);
+    const [expectedOuts, setExpectedOuts] = useState<number | null>(null);
+
     const [loading, setLoading] = useState(false);
 
     // Filters
@@ -79,10 +95,31 @@ export const PropAnalysisPage = () => {
                     .sort((a: any, b: any) => a.type.localeCompare(b.type));
                     
                 setAvailableProps(cleanedProps.length > 0 ? cleanedProps : [{ type: propType, line: propLine }]);
-                
-                // Determine if pitching or batting prop
-                const p = propType.toLowerCase();
-                const isPitching = (p.includes('strikeout') && !p.includes('batter')) || p.includes('out') || p.includes('allow') || p.includes('earned run') || p.includes('win');
+                // Identify Expected Outs
+                const outsProp = propsData.find((p: any) => p.prop_type.toLowerCase() === 'outs recorded' || p.prop_type.toLowerCase() === 'pitching outs');
+                if (outsProp) {
+                    setExpectedOuts(parseFloat(outsProp.prop_line));
+                } else {
+                    setExpectedOuts(null);
+                }
+
+                // Fetch Opponent Context if opponentId is provided
+                if (initialOpponentId && initialOpponentId !== "undefined" && initialOpponentId !== "null") {
+                    const opId = parseInt(initialOpponentId);
+                    if (!isNaN(opId)) {
+                        if (isPitching) {
+                            const starters = await fetchOpponentStarters(opId, year);
+                            setOpponentLogs(starters);
+                            
+                            const splits = await fetchOpponentBattingSplits(opId, 18, year);
+                            setOpponentSplitLogs(splits);
+                            setSplitOuts(18);
+                        } else {
+                            const batters = await fetchOpponentBatters(opId, year);
+                            setOpponentLogs(batters);
+                        }
+                    }
+                }
                 
                 let activeLogs = isPitching ? (logsData.pitching || []) : (logsData.batting || []);
                 activeLogs = activeLogs.filter((l: any) => {
@@ -118,6 +155,12 @@ export const PropAnalysisPage = () => {
         if (viewLimit) params.set('limit', viewLimit.toString());
         if (viewMode) params.set('view', viewMode);
         if (pitcherHandFilter !== 'all') params.set('hand', pitcherHandFilter);
+        
+        // Preserve opponent context
+        if (initialOpponentId) params.set('opponentId', initialOpponentId);
+        if (initialOpponentAbbrev) params.set('opponentAbbrev', initialOpponentAbbrev);
+        if (searchParams.get('isHome') !== null) params.set('isHome', searchParams.get('isHome')!);
+        
         setSearchParams(params, { replace: true });
     }, [playerId, propType, propLine, viewLimit, viewMode, pitcherHandFilter, setSearchParams]);
 
@@ -254,7 +297,386 @@ export const PropAnalysisPage = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+
+            {initialOpponentId && initialOpponentId !== 'undefined' && initialOpponentId !== 'null' && isPitching && (
+                <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
+                    <button 
+                        onClick={() => { setOpponentDataMode(false); setOpponentSplitDataMode(false); }}
+                        className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-lg transition-colors ${!opponentDataMode && !opponentSplitDataMode ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                    >
+                        Player Trends
+                    </button>
+                    <button 
+                        onClick={() => { setOpponentDataMode(true); setOpponentSplitDataMode(false); }}
+                        className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-lg transition-colors ${opponentDataMode && !opponentSplitDataMode ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                    >
+                        Vs. {initialOpponentAbbrev}
+                    </button>
+                    {isPitching && (
+                        <button 
+                            onClick={() => { setOpponentDataMode(false); setOpponentSplitDataMode(true); }}
+                            className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-lg transition-colors ${opponentSplitDataMode ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                            {initialOpponentAbbrev} Splits
+                        </button>
+                    )}
+                </div>
+            )}
+
+
+            {opponentSplitDataMode && isPitching ? (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-200 bg-indigo-50">
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
+                            How {initialOpponentAbbrev} Hits Through <span className="text-indigo-600">{splitOuts} Outs</span>
+                        </h2>
+                        <p className="text-sm text-slate-500 font-medium mt-1">
+                            Analyzing the total offensive output of {initialOpponentAbbrev} up until they record exactly {splitOuts} outs in the game.
+                        </p>
+                    </div>
+                    
+                    <div className="p-6">
+                        <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Cutoff (Outs)</label>
+                            <input 
+                                type="range" 
+                                min="3" max="27" step="1" 
+                                value={splitOuts}
+                                onChange={async (e) => {
+                                    const v = parseInt(e.target.value);
+                                    setSplitOuts(v);
+                                    if (initialOpponentId) {
+                                        const year = new Date().getFullYear();
+                                        const splits = await fetchOpponentBattingSplits(parseInt(initialOpponentId), v, year);
+                                        setOpponentSplitLogs(splits);
+                                    }
+                                }}
+                                className="w-full accent-indigo-600" 
+                            />
+                            <span className="text-lg font-black text-indigo-700 w-8 text-center">{splitOuts}</span>
+                        </div>
+                        
+                        {(() => {
+                            const p = propType.toLowerCase();
+                            const target = parseFloat(String(propLine).replace('+', ''));
+                            const isPlus = String(propLine).includes('+');
+
+                            const values = opponentSplitLogs.map(log => {
+                                let val = 0;
+                                if (p === 'total strikeouts' || p === 'strikeouts') val = log.k;
+                                if (p === 'total hits allowed' || p === 'hits allowed') val = log.h;
+                                if (p === 'total walks allowed' || p === 'walks allowed') val = log.bb;
+                                if (p === 'earned runs allowed' || p === 'total runs allowed' || p === 'runs allowed') val = log.r; 
+                                if (p === 'total home runs allowed') val = log.hr;
+                                return { ...log, val };
+                            });
+
+                            const hits = values.filter(v => isPlus ? v.val >= target : v.val > target).length;
+                            const total = values.length;
+                            const hitRate = total > 0 ? Math.round((hits / total) * 100) : 0;
+                            const avg = total > 0 ? (values.reduce((sum, v) => sum + v.val, 0) / total).toFixed(2) : '0';
+
+                            const expectedOpponentLocation = initialIsHome ? 'away' : 'home';
+                            const splitValues = values.filter(v => v.home_away === expectedOpponentLocation);
+                            const splitHits = splitValues.filter(v => isPlus ? v.val >= target : v.val > target).length;
+                            const splitTotal = splitValues.length;
+                            const splitHitRate = splitTotal > 0 ? Math.round((splitHits / splitTotal) * 100) : 0;
+                            const splitAvg = splitTotal > 0 ? (splitValues.reduce((sum, v) => sum + v.val, 0) / splitTotal).toFixed(2) : '0';
+                            
+                            return (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Opponent Achieves {propLine}+</p>
+                                            <p className={`text-3xl font-black font-headline ${hitRate >= 60 ? 'text-indigo-600' : hitRate <= 40 ? 'text-rose-600' : 'text-slate-700'}`}>
+                                                {hitRate}%
+                                            </p>
+                                            <p className="text-xs text-slate-400 font-medium mt-1">{hits} of {total} games</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Avg {propType} Allowed</p>
+                                            <p className="text-3xl font-black font-headline text-slate-700">
+                                                {avg}
+                                            </p>
+                                            <p className="text-xs text-slate-400 font-medium mt-1">In first {splitOuts} outs</p>
+                                        </div>
+                                        <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 mb-1">{initialOpponentAbbrev} at {expectedOpponentLocation.toUpperCase()}</p>
+                                            <p className="text-3xl font-black font-headline text-indigo-700">
+                                                {splitAvg} <span className="text-sm text-indigo-600/70 font-bold">AVG</span>
+                                            </p>
+                                            <p className="text-xs text-indigo-600/70 font-bold mt-1">{splitHitRate}% Hit Rate ({splitHits}/{splitTotal})</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] uppercase font-black tracking-wider">
+                                                <tr>
+                                                    <th className="p-4">Date</th>
+                                                    <th className="p-4 text-center">Game</th>
+                                                    <th className="p-4 bg-indigo-50 text-indigo-700 text-center">{propType} (First {splitOuts} Outs)</th>
+                                                    <th className="p-4 text-center">AB</th>
+                                                    <th className="p-4 text-center">H</th>
+                                                    <th className="p-4 text-center">R</th>
+                                                    <th className="p-4 text-center">BB</th>
+                                                    <th className="p-4 text-center">K</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {values.slice(0, 30).map((v, i) => {
+                                                    const isHit = isPlus ? v.val >= target : v.val > target;
+                                                    return (
+                                                        <tr key={i} className="hover:bg-slate-50">
+                                                            <td className="p-4 text-slate-500 font-medium">{new Date(v.date).toLocaleDateString()}</td>
+                                                            <td className="p-4 text-center">
+                                                                <div className="flex items-center justify-center gap-1.5 bg-slate-100 rounded-md px-2 py-1 mx-auto w-max">
+                                                                    <img 
+                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.home_away === 'home' ? v.opp_id : initialOpponentId}.png`}
+                                                                        alt="Away"
+                                                                        className="w-4 h-4 object-contain"
+                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
+                                                                    />
+                                                                    <span className="text-[10px] font-black text-slate-400">@</span>
+                                                                    <img 
+                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.home_away === 'home' ? initialOpponentId : v.opp_id}.png`}
+                                                                        alt="Home"
+                                                                        className="w-4 h-4 object-contain"
+                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            <td className={`p-4 text-center font-black ${isHit ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                                                                {v.val}
+                                                            </td>
+                                                            <td className="p-4 text-center text-slate-600">{v.ab}</td>
+                                                            <td className="p-4 text-center text-slate-600">{v.h}</td>
+                                                            <td className="p-4 text-center text-slate-600">{v.r}</td>
+                                                            <td className="p-4 text-center text-slate-600">{v.bb}</td>
+                                                            <td className="p-4 text-center text-slate-600">{v.k}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            ) : opponentDataMode && isPitching ? (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-200 bg-slate-50">
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
+                            How {initialOpponentAbbrev} Defends <span className="text-emerald-600">{propType}</span>
+                        </h2>
+                        <p className="text-sm text-slate-500 font-medium mt-1">
+                            Analyzing how opposing {propType.toLowerCase().includes('strikeout') || propType.toLowerCase().includes('out') || propType.toLowerCase().includes('run') || propType.toLowerCase().includes('win') ? 'Starting Pitchers' : 'Starting Batters'} perform against the {initialOpponentAbbrev}.
+                        </p>
+                    </div>
+
+                    <div className="p-6">
+                        {(() => {
+                            const p = propType.toLowerCase();
+                            
+                            // Map logs to values
+                            const values = opponentLogs.map(log => {
+                                let val = 0;
+                                if (isPitching) {
+                                    if (p === 'total strikeouts' || p === 'strikeouts') val = parseInt(log.k || '0');
+                                    if (p === 'total outs recorded' || p === 'outs recorded') {
+                                         const ipStr = String(log.ip || '0');
+                                         const parts = ipStr.split('.');
+                                         val = (parseInt(parts[0]) || 0) * 3 + (parseInt(parts[1]) || 0);
+                                    }
+                                    if (p === 'total hits allowed' || p === 'hits allowed') val = parseInt(log.h || '0');
+                                    if (p === 'total walks allowed' || p === 'walks allowed') val = parseInt(log.bb || '0');
+                                    if (p === 'earned runs allowed') val = parseInt(log.er || '0');
+                                    if (p === 'total runs allowed' || p === 'runs allowed') val = parseInt(log.r || '0');
+                                    if (p === 'total home runs allowed') val = parseInt(log.hr || '0');
+                                } else {
+                                    const h = parseInt(log.h || '0');
+                                    const r = parseInt(log.r || '0');
+                                    const rbi = parseInt(log.rbi || '0');
+                                    const hr = parseInt(log.hr || '0');
+                                    const bb = parseInt(log.bb || '0');
+                                    const k = parseInt(log.k || '0');
+                                    const sb = parseInt(log.sb || '0');
+                                    const d = parseInt(log.d || '0');
+                                    const t = parseInt(log.t || '0');
+                                    const singles = parseInt(log.singles || '0');
+                                    const tb = singles + (d * 2) + (t * 3) + (hr * 4);
+
+                                    if (p === 'total home runs' || p === 'home runs milestones') val = hr;
+                                    if (p === 'total hits' || p === 'hits milestones') val = h;
+                                    if (p === 'total rbis' || p === 'rbis milestones') val = rbi;
+                                    if (p === 'total runs scored' || p === 'runs milestones') val = r;
+                                    if (p === 'total hits + runs + rbis' || p === 'hits + runs + rbis milestones') val = h + r + rbi;
+                                    if (p === 'total walks (batter)' || p === 'walks (batter) milestones') val = bb;
+                                    if (p === 'strikeouts (batter) milestones' || p === 'total strikeouts (batter)') val = k;
+                                    if (p === 'doubles milestones' || p === 'total doubles' || p === 'total doubles hit') val = d;
+                                    if (p === 'singles milestones' || p === 'total singles' || p === 'total singles hit') val = singles;
+                                    if (p === 'stolen bases milestones' || p === 'total stolen bases') val = sb;
+                                    if (p === 'total bases milestones' || p === 'total bases') val = tb;
+                                }
+                                return { ...log, val };
+                            });
+
+                            const target = parseFloat(String(propLine).replace('+', ''));
+                            const isPlus = String(propLine).includes('+');
+
+                            const hits = values.filter(v => isPlus ? v.val >= target : v.val > target).length;
+                            const total = values.length;
+                            const hitRate = total > 0 ? Math.round((hits / total) * 100) : 0;
+                            const avg = total > 0 ? (values.reduce((sum, v) => sum + v.val, 0) / total).toFixed(2) : '0';
+
+                            // Split by upcoming location
+                            // If player isHome, then opponent is Away
+                            const expectedOpponentLocation = initialIsHome ? 'away' : 'home';
+                            const splitValues = values.filter(v => v.opponent_home_away === expectedOpponentLocation);
+                            const splitHits = splitValues.filter(v => isPlus ? v.val >= target : v.val > target).length;
+                            const splitTotal = splitValues.length;
+                            const splitHitRate = splitTotal > 0 ? Math.round((splitHits / splitTotal) * 100) : 0;
+                            const splitAvg = splitTotal > 0 ? (splitValues.reduce((sum, v) => sum + v.val, 0) / splitTotal).toFixed(2) : '0';
+                            
+                            // Projection for Pitchers based on Outs
+                            let expectedProj = null;
+                            if (isPitching && expectedOuts && expectedOuts > 0) {
+                                let totalStat = 0;
+                                let totalOuts = 0;
+                                values.forEach(v => {
+                                    totalStat += v.val;
+                                    const ipStr = String(v.ip || '0');
+                                    const parts = ipStr.split('.');
+                                    totalOuts += (parseInt(parts[0]) || 0) * 3 + (parseInt(parts[1]) || 0);
+                                });
+                                if (totalOuts > 0) {
+                                    expectedProj = ((totalStat / totalOuts) * expectedOuts).toFixed(2);
+                                }
+                            }
+
+                            return (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Opponent Hit Rate ({propLine})</p>
+                                            <p className={`text-3xl font-black font-headline ${hitRate >= 60 ? 'text-emerald-600' : hitRate <= 40 ? 'text-rose-600' : 'text-slate-700'}`}>
+                                                {hitRate}%
+                                            </p>
+                                            <p className="text-xs text-slate-400 font-medium mt-1">{hits} of {total} games</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Overall Average</p>
+                                            <p className="text-3xl font-black font-headline text-slate-700">
+                                                {avg}
+                                            </p>
+                                            <p className="text-xs text-slate-400 font-medium mt-1">Per {isPitching ? 'Starter' : 'Starter'}</p>
+                                        </div>
+                                        <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-1">{initialOpponentAbbrev} at {expectedOpponentLocation.toUpperCase()}</p>
+                                            <p className="text-3xl font-black font-headline text-emerald-700">
+                                                {splitAvg} <span className="text-sm text-emerald-600/70 font-bold">AVG</span>
+                                            </p>
+                                            <p className="text-xs text-emerald-600/70 font-bold mt-1">{splitHitRate}% Hit Rate ({splitHits}/{splitTotal})</p>
+                                        </div>
+                                        {isPitching && expectedOuts && (
+                                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 mb-1">Projected via {expectedOuts} Outs</p>
+                                                <p className="text-3xl font-black font-headline text-indigo-700">
+                                                    {expectedProj || '-'}
+                                                </p>
+                                                <p className="text-xs text-indigo-600/70 font-bold mt-1">Expected {propType}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Data Table */}
+                                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] uppercase font-black tracking-wider">
+                                                <tr>
+                                                    <th className="p-4">Date</th>
+                                                    <th className="p-4">{isPitching ? 'Pitcher' : 'Batter'}</th>
+                                                    <th className="p-4 text-center">Game</th>
+                                                    <th className="p-4 bg-emerald-50 text-emerald-700 text-center">{propType}</th>
+                                                    {isPitching ? (
+                                                        <>
+                                                            <th className="p-4 text-center">IP</th>
+                                                            <th className="p-4 text-center">K</th>
+                                                            <th className="p-4 text-center">BB</th>
+                                                            <th className="p-4 text-center">H</th>
+                                                            <th className="p-4 text-center">ER</th>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <th className="p-4 text-center">AB</th>
+                                                            <th className="p-4 text-center">H</th>
+                                                            <th className="p-4 text-center">HR</th>
+                                                            <th className="p-4 text-center">RBI</th>
+                                                        </>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {values.slice(0, 30).map((v, i) => {
+                                                    const isHit = isPlus ? v.val >= target : v.val > target;
+                                                    return (
+                                                        <tr key={i} className="hover:bg-slate-50">
+                                                            <td className="p-4 text-slate-500 font-medium">{new Date(v.date).toLocaleDateString()}</td>
+                                                            <td className="p-4 font-bold text-slate-700">
+                                                                {isPitching ? v.pitcher_name : v.batter_name} <span className="text-xs text-slate-400 font-normal">({isPitching ? v.pitcher_team : v.batter_team})</span>
+                                                            </td>
+                                                            
+                                                            <td className="p-4 text-center">
+                                                                <div className="flex items-center justify-center gap-1.5 bg-slate-100 rounded-md px-2 py-1 mx-auto w-max">
+                                                                    <img 
+                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.opponent_home_away === 'home' ? (isPitching ? v.pitcher_team_id : v.batter_team_id) : initialOpponentId}.png`}
+                                                                        alt="Away"
+                                                                        className="w-4 h-4 object-contain"
+                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
+                                                                    />
+                                                                    <span className="text-[10px] font-black text-slate-400">@</span>
+                                                                    <img 
+                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.opponent_home_away === 'home' ? initialOpponentId : (isPitching ? v.pitcher_team_id : v.batter_team_id)}.png`}
+                                                                        alt="Home"
+                                                                        className="w-4 h-4 object-contain"
+                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
+                                                                    />
+                                                                </div>
+                                                            </td>
+
+                                                            <td className={`p-4 text-center font-black ${isHit ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
+                                                                {v.val}
+                                                            </td>
+                                                            {isPitching ? (
+                                                                <>
+                                                                    <td className="p-4 text-center text-slate-600">{v.ip}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.k}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.bb}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.h}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.er}</td>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <td className="p-4 text-center text-slate-600">{v.ab}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.h}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.hr}</td>
+                                                                    <td className="p-4 text-center text-slate-600">{v.rbi}</td>
+                                                                </>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            ) : (            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center gap-8">
                     {/* Player Info */}
                     <div className="flex items-center gap-4 min-w-[250px]">
@@ -653,6 +1075,7 @@ export const PropAnalysisPage = () => {
                     )}
                 </div>
             </div>
+            )} 
         </div>
     );
 };

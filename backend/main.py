@@ -355,6 +355,145 @@ async def get_seasons():
     return await database.fetch_all(query=query)
 
 
+
+@app.get("/api/teams/{team_id}/opponents/starters")
+async def get_team_opponent_starters(team_id: int, year: int = 2024, limit: int = 50):
+    """Get the recent starting pitchers that have played against this team."""
+    query = """
+        SELECT 
+            p.athlete_id, a.display_name as pitcher_name,
+            e.date,
+            e.event_id,
+            t.abbreviation as pitcher_team,
+            p.team_id as pitcher_team_id,
+            c1.home_away as opponent_home_away,
+            p.ip, p.h, p.r, p.er, p.bb, p.k, p.hr, p.pitches
+        FROM event_boxscores_pitching p
+        JOIN events e ON p.event_id = e.event_id
+        JOIN athletes a ON p.athlete_id = a.athlete_id
+        JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+        JOIN season_teams t ON p.team_id = t.team_id AND t.season_year = :year
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        WHERE p.team_id != :team_id AND p.starter = true AND e.season_year = :year AND st.type_id IN (2, 3)
+        ORDER BY e.date DESC
+        LIMIT :limit
+    """
+    return await database.fetch_all(query=query, values={"team_id": team_id, "year": year, "limit": limit})
+
+@app.get("/api/teams/{team_id}/opponents/batters")
+async def get_team_opponent_batters(team_id: int, year: int = 2024, limit: int = 400):
+    """Get the recent starting batters that have played against this team."""
+    query = """
+        SELECT 
+            b.athlete_id, a.display_name as batter_name,
+            e.date,
+            e.event_id,
+            t.abbreviation as batter_team,
+            b.team_id as batter_team_id,
+            pos.abbreviation as position,
+            c1.home_away as opponent_home_away,
+            b.ab, b.r, b.h, b.rbi, b.hr, b.bb, b.k, b.sb, COALESCE(b.d, 0) as d, COALESCE(b.t, 0) as t,
+            b.pitches_faced,
+            (COALESCE(b.h, 0) - COALESCE(b.d, 0) - COALESCE(b.t, 0) - COALESCE(b.hr, 0)) as singles
+        FROM event_boxscores_batting b
+        JOIN events e ON b.event_id = e.event_id
+        JOIN athletes a ON b.athlete_id = a.athlete_id
+        JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+        JOIN season_teams t ON b.team_id = t.team_id AND t.season_year = :year
+        LEFT JOIN positions pos ON b.position_id = pos.position_id
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        WHERE b.team_id != :team_id AND b.starter = true AND e.season_year = :year AND st.type_id IN (2, 3)
+        ORDER BY e.date DESC
+        LIMIT :limit
+    """
+    return await database.fetch_all(query=query, values={"team_id": team_id, "year": year, "limit": limit})
+
+
+@app.get("/api/teams/{team_id}/splits/batting")
+async def get_team_batting_splits_by_outs(team_id: int, outs: int = 15, year: int = 2024):
+    """Get team batting logs strictly up to a certain number of outs in each game."""
+    query = """
+        SELECT e.event_id, e.date, c1.home_away, c2.team_id as opp_team, p.inning, p.play_type_text, p.text,
+        (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = c2.team_id AND t.season_year = e.season_year LIMIT 1) as opp_abbrev
+        FROM event_plays p
+        JOIN events e ON p.event_id = e.event_id
+        JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+        JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
+        WHERE e.season_year = :year AND p.play_type_text IN ('Start Inning', 'Play Result')
+        AND st.type_id IN (2, 3)
+        ORDER BY e.event_id, p.play_id ASC
+    """
+    plays = await database.fetch_all(query=query, values={"team_id": team_id, "year": year})
+    
+    games_stats = {}
+    current_batting = False
+    
+    for p in plays:
+        eid = p['event_id']
+        if eid not in games_stats:
+            games_stats[eid] = {
+                'event_id': eid,
+                'date': p['date'],
+                'opp_id': p['opp_team'],
+                'opp_abbrev': p['opp_abbrev'],
+                'home_away': p['home_away'],
+                'outs': 0, 'ab': 0, 'h': 0, 'hr': 0, 'r': 0, 'bb': 0, 'k': 0, 'singles': 0, 'doubles': 0, 'triples': 0,
+                'done': False
+            }
+            
+        gs = games_stats[eid]
+        if gs['done']: continue
+        
+        if p['play_type_text'] == 'Start Inning':
+            if 'Top of' in p['text']:
+                current_batting = (gs['home_away'] == 'away')
+            elif 'Bottom of' in p['text']:
+                current_batting = (gs['home_away'] == 'home')
+            
+        if p['play_type_text'] == 'Play Result' and current_batting:
+            t = p['text'].lower()
+            
+            outs_on_play = 0
+            if "triple play" in t: outs_on_play = 3
+            elif "double play" in t: outs_on_play = 2
+            elif any(k in t for k in [" struck out", " flied out", " grounded out", " lined out", " popped out", " fouled out", " caught stealing", " picked off", " out at first", " out at second", " out at third", " out at home", " out on batter's", " interference", " sacrifice fly"]):
+                outs_on_play = 1
+                
+            if " struck out" in t and (" caught stealing" in t or " out at " in t):
+                outs_on_play = 2
+                
+            runs_on_play = t.count(" scored") + (1 if " homered" in t else 0)
+            
+            k = 1 if " struck out" in t else 0
+            bb = 1 if " walked" in t or " intentionally walked" in t else 0
+            hr = 1 if " homered" in t else 0
+            single = 1 if " singled" in t or "infield single" in t else 0
+            double = 1 if " doubled" in t else 0
+            triple = 1 if " tripled" in t else 0
+            h = hr + single + double + triple
+            ab = 1 if (h > 0 or any(k in t for k in [" struck out", " flied out", " grounded out", " lined out", " popped out", " fouled out", " flied into", " grounded into", " lined into", " popped into", " reached on error", " reached on fielder's choice", " reached on catcher's interference"])) else 0
+            
+            if gs['outs'] < outs:
+                gs['outs'] += outs_on_play
+                gs['r'] += runs_on_play
+                gs['h'] += h
+                gs['hr'] += hr
+                gs['k'] += k
+                gs['bb'] += bb
+                gs['singles'] += single
+                gs['doubles'] += double
+                gs['triples'] += triple
+                gs['ab'] += ab
+                
+                if gs['outs'] >= outs:
+                    gs['done'] = True
+                    
+    # Format and return as list, sorted by date descending
+    result_list = list(games_stats.values())
+    result_list.sort(key=lambda x: x['date'], reverse=True)
+    return result_list
+
 @app.get("/api/teams/{team_id}/espn_data")
 async def get_team_espn_data(team_id: int):
     """Fetch the team's next scheduled game, records, and standing summary directly from ESPN."""

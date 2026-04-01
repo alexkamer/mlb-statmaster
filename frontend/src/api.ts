@@ -443,3 +443,22 @@ export async function fetchPredictionContext(eventId: string, awayTeamId: number
     const response = await fetch(url);
     return response.json();
 }
+
+export async function fetchOpponentStarters(teamId: number, year: number) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/opponents/starters?year=${year}`);
+  if (!response.ok) return [];
+  return await response.json();
+}
+
+export async function fetchOpponentBatters(teamId: number, year: number) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/opponents/batters?year=${year}`);
+  if (!response.ok) return [];
+  return await response.json();
+}
+
+
+export async function fetchOpponentBattingSplits(teamId: number, outs: number, year: number) {
+  const response = await fetch(`${API_URL}/teams/${teamId}/splits/batting?outs=${outs}&year=${year}`);
+  if (!response.ok) return [];
+  return await response.json();
+}
