@@ -605,32 +605,78 @@ export const PropsPage = () => {
                     const actualUnders = tableRows.filter(r => r.resultStatus === 'UNDER').length;
                     const actualPushes = tableRows.filter(r => r.resultStatus === 'PUSH').length;
                     const totalResults = actualOvers + actualUnders + actualPushes;
-                    
+
                     if (totalResults === 0) return null;
-                    
+
+                    let overProfit = 0;
+                    let underProfit = 0;
+
+                    tableRows.forEach(r => {
+                        if (!r.resultStatus) return;
+
+                        const calcWin = (oddsStr: string) => {
+                            if (!oddsStr || oddsStr === '-') return 0;
+                            const odds = parseInt(oddsStr);
+                            if (isNaN(odds)) return 0;
+                            if (odds > 0) return (odds / 100);
+                            return (100 / Math.abs(odds));
+                        };
+
+                        if (r.overOdds && r.overOdds !== '-') {
+                            if (r.resultStatus === 'OVER') overProfit += calcWin(r.overOdds);
+                            else if (r.resultStatus === 'UNDER') overProfit -= 1;
+                        }
+
+                        if (r.underOdds && r.underOdds !== '-') {
+                            if (r.resultStatus === 'UNDER') underProfit += calcWin(r.underOdds);
+                            else if (r.resultStatus === 'OVER') underProfit -= 1;
+                        }
+                    });
+
+                    const formatMoney = (val: number) => {
+                        const isNeg = val < 0;
+                        const formatted = Math.abs(val).toFixed(2);
+                        return isNeg ? `-$${formatted}` : `+$${formatted}`;
+                    };
+
                     return (
-                        <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Live Results</div>
-                            <div className="flex gap-1">
-                                <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
-                                    <span className="text-[10px] font-bold text-emerald-600/70">O</span>
-                                    <span className="font-black text-emerald-700 text-sm">{actualOvers}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
-                                    <span className="text-[10px] font-bold text-rose-600/70">U</span>
-                                    <span className="font-black text-rose-700 text-sm">{actualUnders}</span>
-                                </div>
-                                {actualPushes > 0 && (
-                                    <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                                        <span className="text-[10px] font-bold text-slate-500">P</span>
-                                        <span className="font-black text-slate-700 text-sm">{actualPushes}</span>
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Live Results</div>
+                                <div className="flex gap-1">
+                                    <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                                        <span className="text-[10px] font-bold text-emerald-600/70">O</span>
+                                        <span className="font-black text-emerald-700 text-sm">{actualOvers}</span>
                                     </div>
-                                )}
+                                    <div className="flex items-center gap-1.5 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
+                                        <span className="text-[10px] font-bold text-rose-600/70">U</span>
+                                        <span className="font-black text-rose-700 text-sm">{actualUnders}</span>
+                                    </div>
+                                    {actualPushes > 0 && (
+                                        <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                                            <span className="text-[10px] font-bold text-slate-500">P</span>
+                                            <span className="font-black text-slate-700 text-sm">{actualPushes}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">If $1 on all</div>
+                                <div className="flex gap-1">
+                                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${overProfit > 0 ? 'bg-emerald-50 border-emerald-100' : overProfit < 0 ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-200'}`}>
+                                        <span className={`text-[10px] font-bold ${overProfit > 0 ? 'text-emerald-600/70' : overProfit < 0 ? 'text-rose-600/70' : 'text-slate-500'}`}>O</span>
+                                        <span className={`font-black text-sm tabular-nums ${overProfit > 0 ? 'text-emerald-700' : overProfit < 0 ? 'text-rose-700' : 'text-slate-700'}`}>{formatMoney(overProfit)}</span>
+                                    </div>
+                                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${underProfit > 0 ? 'bg-emerald-50 border-emerald-100' : underProfit < 0 ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-200'}`}>
+                                        <span className={`text-[10px] font-bold ${underProfit > 0 ? 'text-emerald-600/70' : underProfit < 0 ? 'text-rose-600/70' : 'text-slate-500'}`}>U</span>
+                                        <span className={`font-black text-sm tabular-nums ${underProfit > 0 ? 'text-emerald-700' : underProfit < 0 ? 'text-rose-700' : 'text-slate-700'}`}>{formatMoney(underProfit)}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     );
-                })()}
-            </div>
+                })()}            </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row flex-wrap gap-4">
