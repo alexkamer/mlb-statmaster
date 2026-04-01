@@ -72,6 +72,9 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
     let isInitialLoadOrDateChange = true;
     
     const fetchScores = async () => {
+      // Don't poll if the document is hidden and we already loaded once
+      if (document.visibilityState === 'hidden' && !isInitialLoadOrDateChange) return;
+
       if (isInitialLoadOrDateChange) setIsLoadingScores(true);
       
       try {
@@ -91,17 +94,24 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
         
         setDisplayDateToday(scoreboardDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
 
-        // Parallel Fetch
-        const [dateRes, todayRes] = await Promise.all([
-          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`),
-          fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${scoreboardString}`)
-        ]);
+        if (dateString === scoreboardString) {
+            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`);
+            const data = await res.json();
+            setEvents(data?.events || []);
+            setTodayEvents(data?.events || []);
+        } else {
+            // Parallel Fetch
+            const [dateRes, todayRes] = await Promise.all([
+              fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateString}`),
+              fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${scoreboardString}`)
+            ]);
 
-        const dateData = await dateRes.json();
-        const todayData = await todayRes.json();
+            const dateData = await dateRes.json();
+            const todayData = await todayRes.json();
 
-        setEvents(dateData?.events || []);
-        setTodayEvents(todayData?.events || []);
+            setEvents(dateData?.events || []);
+            setTodayEvents(todayData?.events || []);
+        }
 
       } catch (err) {
         console.error("Error fetching scoreboard:", err);
@@ -115,7 +125,17 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
 
     fetchScores();
     const intervalId = setInterval(fetchScores, 15000); // 15 seconds
-    return () => clearInterval(intervalId);
+    
+    // Also re-fetch immediately when the tab becomes visible again
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') fetchScores();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+        clearInterval(intervalId);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [currentDate, scoreboardDate]);
 
   return (

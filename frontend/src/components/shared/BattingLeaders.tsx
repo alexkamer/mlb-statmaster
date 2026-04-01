@@ -1,3 +1,4 @@
+import { SafeImage } from './SafeImage';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -25,15 +26,12 @@ export const BattingLeaders = ({ leaders, onPlayerClick }: { leaders: any[], onP
         
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-slate-200 overflow-hidden border-2 border-slate-200 shadow-sm shrink-0 flex items-center justify-center text-primary font-black text-xs group-hover:scale-105 transition-transform">
-            <img 
+            <SafeImage 
               src={leader.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} 
               alt={leader.name} 
               className="w-full h-full object-cover object-top bg-white" 
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                 e.currentTarget.onerror = null; 
-                 e.currentTarget.src = 'https://a.espncdn.com/i/headshots/nophoto.png';
-              }}
+              fallbackSrc="https://a.espncdn.com/i/headshots/nophoto.png"
             />
           </div>
           <div className="min-w-0 flex-1">

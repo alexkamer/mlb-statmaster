@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Calendar as CalendarIcon, TrendingUp, BarChart2, Play, Ticket } from 'lucide-react';
-import { LiveTicker } from './LiveTicker';
-import { DailyScoreboard } from './DailyScoreboard';
+import { LiveTicker } from './shared/LiveTicker';
+import { DailyScoreboard } from './shared/DailyScoreboard';
 
 const LeagueLeaders = () => {
   const [leaders, setLeaders] = useState<any[]>([]);

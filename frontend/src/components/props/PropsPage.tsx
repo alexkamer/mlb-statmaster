@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs, fetchBatchPlayerGameLogs } from '../api';
+import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs, fetchBatchPlayerGameLogs } from '../../api';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TrendingUp, ArrowUpDown, ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useScoreboard } from '../context/ScoreboardContext';
+import { useScoreboard } from '../../context/ScoreboardContext';
 
 const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
     if (!sequence || sequence.length === 0) return null;

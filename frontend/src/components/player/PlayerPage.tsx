@@ -1,7 +1,8 @@
+import { SafeImage } from '../shared/SafeImage';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile, fetchPlayerGameLogs } from '../api';
+import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile, fetchPlayerGameLogs } from '../../api';
 
 export const PlayerPage = () => {
   const { playerId } = useParams();
@@ -254,12 +255,12 @@ export const PlayerPage = () => {
           {/* Player Photo */}
           <div className="relative group shrink-0">
             <div className="w-64 h-80 bg-slate-100 rounded-xl overflow-hidden shadow-2xl border-4 border-white transform hover:rotate-2 transition-transform duration-300 flex items-center justify-center text-4xl text-slate-300 font-black">
-              <img 
+              <SafeImage 
                 src={bio.headshot} 
                 alt={bio.first_name} 
                 className="w-full h-full object-cover object-top"
                 referrerPolicy="no-referrer"
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://a.espncdn.com/i/headshots/nophoto.png'; }}
+                fallbackSrc="https://a.espncdn.com/i/headshots/nophoto.png"
               />
             </div>
             {espnBase.displayJersey && (
@@ -420,11 +421,11 @@ export const PlayerPage = () => {
                                 {row.teamsObj.map((t: any, i: number) => (
                                     <React.Fragment key={t.id}>
                                         <Link to={`/teams/${t.id}`} className="flex items-center gap-1.5 hover:bg-slate-100 px-1 py-1 rounded transition-colors group">
-                                            <img 
+                                            <SafeImage 
                                               src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${t.abbrev.toLowerCase()}.png`} 
                                               className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
                                               alt={t.abbrev} 
-                                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                              hideOnError
                                             />
                                             <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{t.abbrev}</span>
                                         </Link>
@@ -583,11 +584,11 @@ export const PlayerPage = () => {
                                                 <span>{oppPrefix}</span>
                                                 {log.opponent_id && log.opponent_abbrev ? (
                                                     <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
-                                                        <img 
+                                                        <SafeImage 
                                                           src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
                                                           className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
                                                           alt={log.opponent_abbrev} 
-                                                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                          hideOnError
                                                         />
                                                         <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
                                                     </Link>
@@ -673,11 +674,11 @@ export const PlayerPage = () => {
                                                 <span>{oppPrefix}</span>
                                                 {log.opponent_id && log.opponent_abbrev ? (
                                                     <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
-                                                        <img 
+                                                        <SafeImage 
                                                           src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
                                                           className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
                                                           alt={log.opponent_abbrev} 
-                                                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                          hideOnError
                                                         />
                                                         <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
                                                     </Link>

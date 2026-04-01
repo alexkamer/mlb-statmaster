@@ -1,6 +1,7 @@
+import { SafeImage } from '../shared/SafeImage';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { fetchLeagueLeaders } from '../api';
+import { fetchLeagueLeaders } from '../../api';
 
 export const LeagueLeadersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,7 +92,7 @@ export const LeagueLeadersPage = () => {
                                <span className="font-black text-xl text-slate-300 w-4 group-hover:text-primary transition-colors">{lIdx + 1}</span>
                                <div className="w-10 h-10 rounded-full border-2 overflow-hidden shrink-0 shadow-sm relative bg-slate-200 group-hover:scale-110 transition-transform" style={{ borderColor: `#${leader.teamColor}` }}>
                                    <img src={leader.headshot} alt={leader.name} className="w-full h-full object-cover object-top bg-white" referrerPolicy="no-referrer" />
-                                   <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${leader.teamId}.png`} className="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full border border-slate-200 object-contain" alt="team" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                   <SafeImage src={`https://a.espncdn.com/i/teamlogos/mlb/500/${leader.teamId}.png`} className="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full border border-slate-200 object-contain" alt="team" hideOnError />
                                </div>
                                <div className="flex-1 min-w-0">
                                    <p className="font-bold text-sm text-primary truncate group-hover:text-secondary transition-colors" style={{ color: `#${leader.teamColor}` }}>{leader.name}</p>
@@ -130,7 +131,7 @@ export const LeagueLeadersPage = () => {
                                <span className="font-black text-xl text-slate-300 w-4 group-hover:text-primary transition-colors">{lIdx + 1}</span>
                                <div className="w-10 h-10 rounded-full border-2 overflow-hidden shrink-0 shadow-sm relative bg-slate-200 group-hover:scale-110 transition-transform" style={{ borderColor: `#${leader.teamColor}` }}>
                                    <img src={leader.headshot} alt={leader.name} className="w-full h-full object-cover object-top bg-white" referrerPolicy="no-referrer" />
-                                   <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${leader.teamId}.png`} className="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full border border-slate-200 object-contain" alt="team" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                   <SafeImage src={`https://a.espncdn.com/i/teamlogos/mlb/500/${leader.teamId}.png`} className="absolute bottom-0 right-0 w-4 h-4 bg-white rounded-full border border-slate-200 object-contain" alt="team" hideOnError />
                                </div>
                                <div className="flex-1 min-w-0">
                                    <p className="font-bold text-sm text-primary truncate group-hover:text-secondary transition-colors" style={{ color: `#${leader.teamColor}` }}>{leader.name}</p>

@@ -1,3 +1,4 @@
+import { SafeImage } from './components/shared/SafeImage';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -6,22 +7,23 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, useSearchParams, Link } from 'react-router-dom';
 
-import { BattingLeaders as TeamLeaders } from './components/BattingLeaders';
-import { LiveRoster } from './components/LiveRoster';
-import { TeamTabs } from './components/TeamTabs';
-import { TeamsPage } from './components/TeamsPage';
-import { SchedulePage } from './components/SchedulePage';
-import { PlayerPage } from './components/PlayerPage';
-import { LeagueLeadersPage } from './components/LeagueLeadersPage';
-import { LeaguePlayersPage } from './components/LeaguePlayersPage';
-import { GamePage } from './components/GamePage';
-import { GamePredictorPage } from './components/GamePredictorPage';
-import { PropsPage } from './components/PropsPage';
-import { PropAnalysisPage } from './components/PropAnalysisPage';
+import { BattingLeaders as TeamLeaders } from './components/shared/BattingLeaders';
+import { LiveRoster } from './components/team/LiveRoster';
+import { TeamTabs } from './components/team/TeamTabs';
+import { TeamsPage } from './components/team/TeamsPage';
+import { SchedulePage } from './components/league/SchedulePage';
+import { PlayerPage } from './components/player/PlayerPage';
+import { LeagueLeadersPage } from './components/league/LeagueLeadersPage';
+import { LeaguePlayersPage } from './components/player/LeaguePlayersPage';
+import { GamePage } from './components/game/GamePage';
+import { GamePredictorPage } from './components/game/GamePredictorPage';
+import { PropsPage } from './components/props/PropsPage';
+import { PropAnalysisPage } from './components/props/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
-import { TeamStatsDashboard } from './components/TeamStatsDashboard';
-import { TeamNewsFeed } from './components/TeamNewsFeed';
-import { LiveTicker } from './components/LiveTicker';
+import { TeamStatsDashboard } from './components/team/TeamStatsDashboard';
+import { TeamNewsFeed } from './components/team/TeamNewsFeed';
+import { LiveTicker } from './components/shared/LiveTicker';
+import { SearchBar } from './components/shared/SearchBar';
 import { useScoreboard } from './context/ScoreboardContext';
 import { fetchTeams, fetchTeamStats, fetchTeamRoster, fetchTeamPitchingStats, fetchPaginatedTeamGames, fetchLiveTeamRoster, fetchTeamEspnData, fetchTeamDepthChart, fetchTeamLeaders, fetchTeamStanding } from './api';
 import {
@@ -225,12 +227,7 @@ const Header = ({ selectedTeamId }: { selectedTeamId: number | null }) => {
       <LiveTicker />
       <div className="flex items-center gap-4 shrink-0">
         <div className="relative hidden sm:block">
-          <input 
-            className="bg-[#002d62] border-none text-white text-xs px-4 py-2 rounded-lg w-64 focus:ring-1 focus:ring-secondary transition-all outline-none" 
-            placeholder="Search league..." 
-            type="text"
-          />
-          <Search className="absolute right-3 top-2 w-4 h-4 text-slate-400" />
+          <SearchBar />
         </div>
 
         <button className="text-white hover:bg-[#002d62] p-2 rounded-full transition-all duration-200">
@@ -765,12 +762,12 @@ const DiamondArchitecture = ({ depthChart, teamColor, battingRoster = [], pitchi
           className={`rounded-full bg-white border-4 p-1 shadow-lg hover:scale-110 transition-transform cursor-pointer relative ${featured ? 'w-20 h-20' : 'w-16 h-16'}`}
           style={{ borderColor: `#${teamColor || 'b80a2e'}` }}
         >
-          <img 
+          <SafeImage 
             src={player.headshot || 'https://a.espncdn.com/i/headshots/nophoto.png'} 
             alt={player.name} 
             className="w-full h-full rounded-full object-contain bg-white" 
             referrerPolicy="no-referrer"
-            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://a.espncdn.com/i/headshots/nophoto.png'; }}
+            fallbackSrc="https://a.espncdn.com/i/headshots/nophoto.png"
           />
           
           {/* Hover Tooltip */}

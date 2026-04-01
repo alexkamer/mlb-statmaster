@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ChevronRight, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
-import { useScoreboard } from '../context/ScoreboardContext';
+import { useScoreboard } from '../../context/ScoreboardContext';
 
 export const LiveTicker = () => {
   const { events } = useScoreboard();

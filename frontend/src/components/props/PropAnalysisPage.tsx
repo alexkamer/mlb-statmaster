@@ -1,6 +1,12 @@
+import { SafeImage } from '../shared/SafeImage';
+import { PlayerTrendTab } from './PlayerTrendTab';
+import { OpponentHistoryTab } from './OpponentHistoryTab';
+import { OpponentSplitTab } from './OpponentSplitTab';
+import { OpponentBattingSplitsTab } from './OpponentBattingSplitsTab';
+import { BvpTab } from './BvpTab';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchPlayerGameLogs, fetchPlayerPropsAvailable, fetchOpponentStarters, fetchOpponentBatters, fetchOpponentBattingSplits, fetchGameSummary, fetchBvpStats } from '../api';
+import { fetchPlayerGameLogs, fetchPlayerPropsAvailable, fetchOpponentStarters, fetchOpponentBatters, fetchOpponentBattingSplits, fetchGameSummary, fetchBvpStats } from '../../api';
 import { TrendingUp, ArrowLeft, BarChart2, Trophy, LayoutList, BarChart3, Swords } from 'lucide-react';
 import { 
     BarChart, 
@@ -397,146 +403,18 @@ export const PropAnalysisPage = () => {
 
 
             {opponentSplitDataMode && isPitching ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200 bg-indigo-50">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
-                            How {initialOpponentAbbrev} Hits Through <span className="text-indigo-600">{splitOuts} Outs</span>
-                        </h2>
-                        <p className="text-sm text-slate-500 font-medium mt-1">
-                            Analyzing the total offensive output of {initialOpponentAbbrev} up until they record exactly {splitOuts} outs in the game.
-                        </p>
-                    </div>
-                    
-                    <div className="p-6">
-                        <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Cutoff (Outs)</label>
-                            <input 
-                                type="range" 
-                                min="3" max="27" step="1" 
-                                value={splitOuts}
-                                onChange={async (e) => {
-                                    const v = parseInt(e.target.value);
-                                    setSplitOuts(v);
-                                    if (initialOpponentId) {
-                                        const year = new Date().getFullYear();
-                                        const splits = await fetchOpponentBattingSplits(parseInt(initialOpponentId), v, year);
-                                        setOpponentSplitLogs(splits);
-                                    }
-                                }}
-                                className="w-full accent-indigo-600" 
-                            />
-                            <span className="text-lg font-black text-indigo-700 w-8 text-center">{splitOuts}</span>
-                        </div>
-                        
-                        {(() => {
-                            const p = propType.toLowerCase();
-                            const target = parseFloat(String(propLine).replace('+', ''));
-                            const isPlus = String(propLine).includes('+');
-
-                            const values = opponentSplitLogs.map(log => {
-                                let val = 0;
-                                if (p === 'total strikeouts' || p === 'strikeouts') val = log.k;
-                                if (p === 'total hits allowed' || p === 'hits allowed') val = log.h;
-                                if (p === 'total walks allowed' || p === 'walks allowed') val = log.bb;
-                                if (p === 'earned runs allowed' || p === 'total runs allowed' || p === 'runs allowed') val = log.r; 
-                                if (p === 'total home runs allowed') val = log.hr;
-                                return { ...log, val };
-                            });
-
-                            const hits = values.filter(v => isPlus ? v.val >= target : v.val > target).length;
-                            const total = values.length;
-                            const hitRate = total > 0 ? Math.round((hits / total) * 100) : 0;
-                            const avg = total > 0 ? (values.reduce((sum, v) => sum + v.val, 0) / total).toFixed(2) : '0';
-
-                            const expectedOpponentLocation = initialIsHome ? 'away' : 'home';
-                            const splitValues = values.filter(v => v.home_away === expectedOpponentLocation);
-                            const splitHits = splitValues.filter(v => isPlus ? v.val >= target : v.val > target).length;
-                            const splitTotal = splitValues.length;
-                            const splitHitRate = splitTotal > 0 ? Math.round((splitHits / splitTotal) * 100) : 0;
-                            const splitAvg = splitTotal > 0 ? (splitValues.reduce((sum, v) => sum + v.val, 0) / splitTotal).toFixed(2) : '0';
-                            
-                            return (
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Opponent Achieves {propLine}+</p>
-                                            <p className={`text-3xl font-black font-headline ${hitRate >= 60 ? 'text-indigo-600' : hitRate <= 40 ? 'text-rose-600' : 'text-slate-700'}`}>
-                                                {hitRate}%
-                                            </p>
-                                            <p className="text-xs text-slate-400 font-medium mt-1">{hits} of {total} games</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Avg {propType} Allowed</p>
-                                            <p className="text-3xl font-black font-headline text-slate-700">
-                                                {avg}
-                                            </p>
-                                            <p className="text-xs text-slate-400 font-medium mt-1">In first {splitOuts} outs</p>
-                                        </div>
-                                        <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 mb-1">{initialOpponentAbbrev} at {expectedOpponentLocation.toUpperCase()}</p>
-                                            <p className="text-3xl font-black font-headline text-indigo-700">
-                                                {splitAvg} <span className="text-sm text-indigo-600/70 font-bold">AVG</span>
-                                            </p>
-                                            <p className="text-xs text-indigo-600/70 font-bold mt-1">{splitHitRate}% Hit Rate ({splitHits}/{splitTotal})</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                                        <table className="w-full text-left text-sm">
-                                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] uppercase font-black tracking-wider">
-                                                <tr>
-                                                    <th className="p-4">Date</th>
-                                                    <th className="p-4 text-center">Game</th>
-                                                    <th className="p-4 bg-indigo-50 text-indigo-700 text-center">{propType} (First {splitOuts} Outs)</th>
-                                                    <th className="p-4 text-center">AB</th>
-                                                    <th className="p-4 text-center">H</th>
-                                                    <th className="p-4 text-center">R</th>
-                                                    <th className="p-4 text-center">BB</th>
-                                                    <th className="p-4 text-center">K</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {values.slice(0, 30).map((v, i) => {
-                                                    const isHit = isPlus ? v.val >= target : v.val > target;
-                                                    return (
-                                                        <tr key={i} className="hover:bg-slate-50">
-                                                            <td className="p-4 text-slate-500 font-medium">{new Date(v.date).toLocaleDateString()}</td>
-                                                            <td className="p-4 text-center">
-                                                                <div className="flex items-center justify-center gap-1.5 bg-slate-100 rounded-md px-2 py-1 mx-auto w-max">
-                                                                    <img 
-                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.home_away === 'home' ? v.opp_id : initialOpponentId}.png`}
-                                                                        alt="Away"
-                                                                        className="w-4 h-4 object-contain"
-                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
-                                                                    />
-                                                                    <span className="text-[10px] font-black text-slate-400">@</span>
-                                                                    <img 
-                                                                        src={`https://a.espncdn.com/i/teamlogos/mlb/500/${v.home_away === 'home' ? initialOpponentId : v.opp_id}.png`}
-                                                                        alt="Home"
-                                                                        className="w-4 h-4 object-contain"
-                                                                        onError={(e) => e.currentTarget.style.display = 'none'}
-                                                                    />
-                                                                </div>
-                                                            </td>
-                                                            <td className={`p-4 text-center font-black ${isHit ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
-                                                                {v.val}
-                                                            </td>
-                                                            <td className="p-4 text-center text-slate-600">{v.ab}</td>
-                                                            <td className="p-4 text-center text-slate-600">{v.h}</td>
-                                                            <td className="p-4 text-center text-slate-600">{v.r}</td>
-                                                            <td className="p-4 text-center text-slate-600">{v.bb}</td>
-                                                            <td className="p-4 text-center text-slate-600">{v.k}</td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                </div>
+                <OpponentBattingSplitsTab 
+                    propType={propType}
+                    propLine={propLine}
+                    opponentSplitLogs={opponentSplitLogs}
+                    initialIsHome={initialIsHome}
+                    splitOuts={splitOuts}
+                    setSplitOuts={setSplitOuts}
+                    initialOpponentId={initialOpponentId}
+                    initialOpponentAbbrev={initialOpponentAbbrev}
+                    fetchOpponentBattingSplits={fetchOpponentBattingSplits}
+                    setOpponentSplitLogs={setOpponentSplitLogs}
+                />
             ) : opponentDataMode ? (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-6 border-b border-slate-200 bg-slate-50">

@@ -6,6 +6,23 @@ import databases
 import sqlalchemy
 from sqlalchemy.dialects.postgresql import insert
 
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+
+os.makedirs('logs', exist_ok=True)
+logger = logging.getLogger('scraper_props')
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = RotatingFileHandler('logs/scraper_props.log', maxBytes=5*1024*1024, backupCount=3)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+
+
 DATABASE_URL = "postgresql:///mlb_db"
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -50,7 +67,7 @@ async def fetch_props_for_event(event_id, client):
             return []
         return data["items"]
     except Exception as e:
-        print(f"Error fetching props for {event_id}: {e}")
+        logger.error(f"Error fetching props for {event_id}: {e}")
         return []
 
 def extract_athlete_id(ref_url):
@@ -141,18 +158,26 @@ async def process_props(event_id, items):
 
 async def main():
     await setup_db()
-    print("Fetching today's events...")
+    logger.info("Fetching today's events...")
     event_ids = await get_daily_events()
-    print(f"Found {len(event_ids)} events.")
+    logger.info(f"Found {len(event_ids)} events.")
     
-    async with httpx.AsyncClient() as client:
-        for eid in event_ids:
-            items = await fetch_props_for_event(eid, client)
+    async with httpx.AsyncClient(limits=httpx.Limits(max_connections=50)) as client:
+        # Fetch all props in parallel
+        tasks = [fetch_props_for_event(eid, client) for eid in event_ids]
+        results = await asyncio.gather(*tasks)
+        
+        # Process and insert all props in parallel
+        process_tasks = []
+        for eid, items in zip(event_ids, results):
             if items:
-                print(f"Event {eid}: Found {len(items)} prop items.")
-                await process_props(eid, items)
+                logger.info(f"Event {eid}: Found {len(items)} prop items.")
+                process_tasks.append(process_props(eid, items))
             else:
-                print(f"Event {eid}: No props found (might be live/finished).")
+                logger.info(f"Event {eid}: No props found (might be live/finished).")
+                
+        if process_tasks:
+            await asyncio.gather(*process_tasks)
                 
     await database.disconnect()
 

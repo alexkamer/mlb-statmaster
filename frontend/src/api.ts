@@ -1,77 +1,94 @@
-const API_URL = "http://localhost:8000/api";
+export const API_URL = "http://localhost:8000/api";
 
-export async function fetchTeams(year = 2024) {
-  const response = await fetch(`${API_URL}/teams?year=${year}`);
-  return response.json();
+const cache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+async function fetchWithCache(url: string) {
+  const now = Date.now();
+  if (cache.has(url)) {
+    const cached = cache.get(url)!;
+    if (now - cached.timestamp < CACHE_DURATION) {
+      return cached.data;
+    }
+  }
+  
+  const response = await fetch(url);
+  if (!response.ok) {
+    if (response.status === 404) throw new Error("Not found");
+    throw new Error("Failed to fetch");
+  }
+  
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  
+  cache.set(url, { data, timestamp: now });
+  return data;
 }
 
-export async function fetchTeamStats(teamId: number, year = 2024, seasonType = "All") {
-  const response = await fetch(`${API_URL}/teams/${teamId}/stats?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
-  return response.json();
+export async function fetchTeams(year = new Date().getFullYear()) {
+  return fetchWithCache(`${API_URL}/teams?year=${year}`);
 }
 
-export async function fetchTeamRoster(teamId: number, year = 2024, seasonType = "All") {
-  const response = await fetch(`${API_URL}/teams/${teamId}/roster?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
-  return response.json();
+export async function fetchTeamStats(teamId: number, year = new Date().getFullYear(), seasonType = "All") {
+  return fetchWithCache(`${API_URL}/teams/${teamId}/stats?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
 }
 
-export async function fetchRecentGames(teamId: number, limit = 5, year = 2024, seasonTypeId?: number) {
+export async function fetchTeamRoster(teamId: number, year = new Date().getFullYear(), seasonType = "All") {
+  return fetchWithCache(`${API_URL}/teams/${teamId}/roster?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
+}
+
+export async function fetchRecentGames(teamId: number, limit = 5, year = new Date().getFullYear(), seasonTypeId?: number) {
   let url = `${API_URL}/teams/${teamId}/recent_games?limit=${limit}&year=${year}`;
   if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
-  const response = await fetch(url);
-  return response.json();
-}export async function fetchPaginatedTeamGames(teamId: number, year = 2024, page = 1, limit = 20, seasonType = "All") {
-  const response = await fetch(`${API_URL}/teams/${teamId}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
-  return response.json();
+  return fetchWithCache(url);
+}export async function fetchPaginatedTeamGames(teamId: number, year = new Date().getFullYear(), page = 1, limit = 20, seasonType = "All") {
+  return fetchWithCache(`${API_URL}/teams/${teamId}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
 }
 
-export async function fetchAllGames(year = 2024, page = 1, limit = 50, seasonType = "All") {
-  const response = await fetch(`${API_URL}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
-  return response.json();
+export async function fetchAllGames(year = new Date().getFullYear(), page = 1, limit = 50, seasonType = "All") {
+  return fetchWithCache(`${API_URL}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
 }
 export async function fetchLiveTeamRoster(teamId: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/live_roster`);
-  return response.json();
+  return fetchWithCache(`${API_URL}/teams/${teamId}/live_roster`);
 }
 export async function fetchSeasons() {
-  const response = await fetch(`${API_URL}/seasons`);
-  return response.json();
+  return fetchWithCache(`${API_URL}/seasons`);
 }
-export async function fetchTeamPitchingStats(teamId: number, year = 2024, seasonType = "All") {
-  const response = await fetch(`${API_URL}/teams/${teamId}/roster/pitching?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
-  return response.json();
+export async function fetchTeamPitchingStats(teamId: number, year = new Date().getFullYear(), seasonType = "All") {
+  return fetchWithCache(`${API_URL}/teams/${teamId}/roster/pitching?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
 }
 export async function fetchTeamEspnData(teamId: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/espn_data`);
-  if (!response.ok) return {};
-  const text = await response.text();
-  return text ? JSON.parse(text) : {};
+  try {
+    return await fetchWithCache(`${API_URL}/teams/${teamId}/espn_data`);
+  } catch {
+    return {};
+  }
 }
 export async function fetchTeamDepthChart(teamId: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/depthchart`);
-  if (!response.ok) return {};
-  const text = await response.text();
-  return text ? JSON.parse(text) : {};
+  try {
+    return await fetchWithCache(`${API_URL}/teams/${teamId}/depthchart`);
+  } catch {
+    return {};
+  }
 }
-export async function fetchTeamLeaders(teamId: number, year = 2024, seasonType = "All") {
-  const response = await fetch(`${API_URL}/teams/${teamId}/leaders?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
-  if (!response.ok) return [];
-  const text = await response.text();
-  return text ? JSON.parse(text) : [];
+export async function fetchTeamLeaders(teamId: number, year = new Date().getFullYear(), seasonType = "All") {
+  try {
+    return await fetchWithCache(`${API_URL}/teams/${teamId}/leaders?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
+  } catch {
+    return [];
+  }
 }
-export async function fetchTeamStanding(teamId: number, year = 2024) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/standing?year=${year}`);
-  if (!response.ok) return null;
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
+export async function fetchTeamStanding(teamId: number, year = new Date().getFullYear()) {
+  try {
+    return await fetchWithCache(`${API_URL}/teams/${teamId}/standing?year=${year}`);
+  } catch {
+    return null;
+  }
 }
-
 
 export async function fetchPlayerProfile(playerId: number) {
   try {
-      const response = await fetch(`${API_URL}/players/${playerId}`);
-      if (!response.ok) return {};
-      return await response.json();
+      return await fetchWithCache(`${API_URL}/players/${playerId}`);
   } catch(e) {
       console.error("Backend fetch error:", e);
       return {};
@@ -81,14 +98,15 @@ export async function fetchPlayerProfile(playerId: number) {
 export async function fetchEspnSplits(playerId: number, category?: string) {
   // 1. Initial fetch to get filters and available seasons
   const baseParams = category ? `?category=${category}` : "";
-  const baseRes = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/athletes/${playerId}/splits${baseParams}`);
-  
-  if (!baseRes.ok) {
-    if (baseRes.status === 404) throw new Error("Splits not found");
-    throw new Error("Failed to fetch splits");
+  let baseData;
+  try {
+      baseData = await fetchWithCache(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/athletes/${playerId}/splits${baseParams}`);
+  } catch (e) {
+      throw new Error("Failed to fetch splits");
   }
   
-  const baseData = await baseRes.json();
+  if (!baseData || !baseData.filters) return { seasons: [], labels: [], activeCategory: null, availableCategories: [] };
+
   
   // Extract configuration from filters
   const seasonFilter = baseData.filters.find((f: any) => f.name === "season");
@@ -109,9 +127,8 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
   // We want to fetch the "split" -> "Overall" row for EVERY season concurrently
   const seasonPromises = availableSeasons.map(async (season: string) => {
       try {
-        const res = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/athletes/${playerId}/splits?season=${season}&category=${activeCategory}`);
-        if (!res.ok) return null;
-        const data = await res.json();
+        const data = await fetchWithCache(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/athletes/${playerId}/splits?season=${season}&category=${activeCategory}`);
+        if (!data) return null;
         
         // Find the "split" category which contains the "Overall" summary for that year
         const splitCat = data.splitCategories?.find((cat: any) => cat.name === "split" || cat.name === "general");
@@ -124,10 +141,9 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
         let teamAbbrev = "MLB";
         let teamsObj: any[] = [];
         try {
-            const coreRes = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/athletes/${playerId}?lang=en&region=us`);
-            if (coreRes.ok) {
-                const coreData = await coreRes.json();
-                let teamRefs = [];
+            const coreData = await fetchWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/athletes/${playerId}?lang=en&region=us`);
+            if (coreData) {
+                let teamRefs: any[] = [];
                 if (coreData.teams && coreData.teams.length > 0) {
                     teamRefs = coreData.teams;
                 } else if (coreData.team && coreData.team["$ref"]) {
@@ -137,17 +153,18 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
                 if (teamRefs.length > 0) {
                     // They might have played for multiple teams. Fetch the abbreviation and ID for each ref.
                     const teamPromises = teamRefs.map(async (t: any) => {
-                        const tRes = await fetch(t["$ref"].replace("http://", "https://"));
-                        if (tRes.ok) {
-                            const tData = await tRes.json();
-                            return { id: tData.id, abbrev: tData.abbreviation };
-                        }
+                        try {
+                            const tData = await fetchWithCache(t["$ref"].replace("http://", "https://"));
+                            if (tData) {
+                                return { id: tData.id, abbrev: tData.abbreviation };
+                            }
+                        } catch (e) {}
                         return null;
                     });
                     const resolvedTeams = await Promise.all(teamPromises);
                     const validTeams = resolvedTeams.filter(Boolean);
                     if (validTeams.length > 0) {
-                        teamAbbrev = validTeams.map(t => t.abbrev).join("/");
+                        teamAbbrev = validTeams.map((t: any) => t.abbrev).join("/");
                         teamsObj = validTeams;
                     }
                 }
@@ -186,24 +203,20 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
 export async function fetchPlayerGameLogs(playerId: number, year: number, limit: number = 20, seasonTypeId?: number) {
   let url = `${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`;
   if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
-  const response = await fetch(url);
-  if (!response.ok) return { batting: [], pitching: [] };
-  return await response.json();
+  return await fetchWithCache(url);
+  
+  
 }
 
 export async function fetchPlayerPropsAvailable(playerId: number) {
-  const response = await fetch(`${API_URL}/players/${playerId}/props`);
-  if (!response.ok) return [];
-  return await response.json();
+  return await fetchWithCache(`${API_URL}/players/${playerId}/props`);
+  
+  
 }
 
 export async function fetchLeagueLeaders(year: number = new Date().getFullYear()) {
   try {
-    // Determine the active season from our local DB, otherwise fallback
-    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${year}/types/2/leaders?lang=en&region=us`);
-    if (!res.ok) return [];
-    
-    const data = await res.json();
+    const data = await fetchWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${year}/types/2/leaders?lang=en&region=us`);
     if (!data.categories) return [];
     
     // We only need a select few categories, but let's grab them and resolve the athlete/team details
@@ -221,22 +234,16 @@ export async function fetchLeagueLeaders(year: number = new Date().getFullYear()
             
             try {
                 if (leader.athlete && leader.athlete["$ref"]) {
-                    const athRes = await fetch(leader.athlete["$ref"].replace("http://", "https://"));
-                    if (athRes.ok) {
-                        const athData = await athRes.json();
-                        id = athData.id;
-                        name = athData.shortName || athData.displayName || athData.fullName;
-                        headshot = athData.headshot?.href || headshot;
-                    }
+                    const athData = await fetchWithCache(leader.athlete["$ref"].replace("http://", "https://"));
+                    id = athData.id;
+                    name = athData.shortName || athData.displayName || athData.fullName;
+                    headshot = athData.headshot?.href || headshot;
                 }
                 
                 if (leader.team && leader.team["$ref"]) {
-                    const teamRes = await fetch(leader.team["$ref"].replace("http://", "https://"));
-                    if (teamRes.ok) {
-                        const teamData = await teamRes.json();
-                        teamId = teamData.id;
-                        teamColor = teamData.color || teamColor;
-                    }
+                    const teamData = await fetchWithCache(leader.team["$ref"].replace("http://", "https://"));
+                    teamId = teamData.id;
+                    teamColor = teamData.color || teamColor;
                 }
             } catch(e) {
                 console.error("Failed resolving leader detail", e);
@@ -268,18 +275,15 @@ export async function fetchLeagueLeaders(year: number = new Date().getFullYear()
 
 
 export async function fetchLeagueAggregatedStats(year: number, type: "batting" | "pitching", seasonType: string = "Regular Season", limit: number = 100) {
-    const res = await fetch(`${API_URL}/stats/league?year=${year}&type=${type}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`);
-    if (!res.ok) return [];
-    return await res.json();
+    return await fetchWithCache(`${API_URL}/stats/league?year=${year}&type=${type}&season_type=${encodeURIComponent(seasonType)}&limit=${limit}`);
+    
+    
 }
 
 
-export async function fetchLiveEspnLeaders(year: number = 2026, category: string = "avg", limit: number = 100) {
+export async function fetchLiveEspnLeaders(year: number = new Date().getFullYear(), category: string = "avg", limit: number = 100) {
     try {
-        const res = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${year}/types/2/leaders?limit=${limit}`);
-        if (!res.ok) return [];
-        
-        const data = await res.json();
+        const data = await fetchWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${year}/types/2/leaders?limit=${limit}`);
         if (!data.categories) return [];
         
         const targetCategory = data.categories.find((c: any) => c.name === category);
@@ -295,23 +299,17 @@ export async function fetchLiveEspnLeaders(year: number = 2026, category: string
             
             try {
                 if (leader.athlete && leader.athlete["$ref"]) {
-                    const athRes = await fetch(leader.athlete["$ref"].replace("http://", "https://"));
-                    if (athRes.ok) {
-                        const athData = await athRes.json();
-                        id = athData.id;
-                        name = athData.shortName || athData.displayName || athData.fullName;
-                        headshot = athData.headshot?.href || headshot;
-                    }
+                    const athData = await fetchWithCache(leader.athlete["$ref"].replace("http://", "https://"));
+                    id = athData.id;
+                    name = athData.shortName || athData.displayName || athData.fullName;
+                    headshot = athData.headshot?.href || headshot;
                 }
                 
                 if (leader.team && leader.team["$ref"]) {
-                    const teamRes = await fetch(leader.team["$ref"].replace("http://", "https://"));
-                    if (teamRes.ok) {
-                        const teamData = await teamRes.json();
-                        teamId = teamData.id;
-                        teamAbbrev = teamData.abbreviation;
-                        teamColor = teamData.color || teamColor;
-                    }
+                    const teamData = await fetchWithCache(leader.team["$ref"].replace("http://", "https://"));
+                    teamId = teamData.id;
+                    teamAbbrev = teamData.abbreviation;
+                    teamColor = teamData.color || teamColor;
                 }
             } catch(e) {
                 console.error("Failed resolving leader detail", e);
@@ -337,22 +335,20 @@ export async function fetchLiveEspnLeaders(year: number = 2026, category: string
 }
 
 
-export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory: string = "OPS", sortDirection: "asc" | "desc" = "desc", view: "batting" | "pitching" = "batting", limit: number = 100) {
+export async function fetchLiveEspnStatistics(year: number = new Date().getFullYear(), sortCategory: string = "OPS", sortDirection: "asc" | "desc" = "desc", view: "batting" | "pitching" = "batting", limit: number = 100) {
     try {
         // ESPN uses specific sort keys for this endpoint
         const sortParam = `${view}.${sortCategory}:${sortDirection}`;
         
         // seasontype=2 is Regular Season. 
         // We will default to Regular Season for this massive table to match ESPN exactly.
-        const res = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/statistics/byathlete?season=${year}&limit=${limit}&sort=${sortParam}&seasontype=2`);
-        if (!res.ok) return [];
-        
-        const data = await res.json();
-        if (!data.athletes) return [];
+        const data = await fetchWithCache(`https://site.web.api.espn.com/apis/common/v3/sports/baseball/mlb/statistics/byathlete?season=${year}&limit=${limit}&sort=${sortParam}&seasontype=2`);
+        if (!data || !data.athletes) return [];
         
         // Grab the category index structure from the root payload
         const rootBatting = data.categories?.find((c: any) => c.name === "batting");
         const rootPitching = data.categories?.find((c: any) => c.name === "pitching");
+
         
         const batNames = rootBatting?.names || [];
         const pitchNames = rootPitching?.names || [];
@@ -405,9 +401,9 @@ export async function fetchLiveEspnStatistics(year: number = 2026, sortCategory:
 
 export async function fetchGameSummary(gameId: string) {
     try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`);
-        if (!res.ok) return null;
-        return await res.json();
+        return await fetchWithCache(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${gameId}`);
+        
+        
     } catch(e) {
         console.error("Failed to fetch game summary", e);
         return null;
@@ -416,9 +412,9 @@ export async function fetchGameSummary(gameId: string) {
 
 export async function fetchPropBets(gameId: string) {
     try {
-        const res = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${gameId}/competitions/${gameId}/odds/100/propBets?lang=en&region=us&limit=1000`);
-        if (!res.ok) return null;
-        return await res.json();
+        return await fetchWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${gameId}/competitions/${gameId}/odds/100/propBets?lang=en&region=us&limit=1000`);
+        
+        
     } catch(e) {
         console.error("Failed to fetch prop bets", e);
         return null;
@@ -429,50 +425,45 @@ export async function fetchSavedProps(date: string, eventIds?: string[]) {
     if (eventIds && eventIds.length > 0) {
         url += `?event_ids=${eventIds.join(',')}`;
     }
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error('Network response was not ok');
-    }
-    return response.json();
+    return await fetchWithCache(url);
 }
 
 export async function fetchPredictionContext(eventId: string, awayTeamId: number, homeTeamId: number, awayStarterId?: number, homeStarterId?: number) {
     let url = `${API_URL}/predictions/context?event_id=${eventId}&away_team_id=${awayTeamId}&home_team_id=${homeTeamId}`;
     if (awayStarterId) url += `&away_starter_id=${awayStarterId}`;
     if (homeStarterId) url += `&home_starter_id=${homeStarterId}`;
-    const response = await fetch(url);
-    return response.json();
+    return await fetchWithCache(url);
 }
 
 export async function fetchOpponentStarters(teamId: number, year: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/opponents/starters?year=${year}`);
-  if (!response.ok) return [];
-  return await response.json();
+  return await fetchWithCache(`${API_URL}/teams/${teamId}/opponents/starters?year=${year}`);
+  
+  
 }
 
 export async function fetchOpponentBatters(teamId: number, year: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/opponents/batters?year=${year}`);
-  if (!response.ok) return [];
-  return await response.json();
+  return await fetchWithCache(`${API_URL}/teams/${teamId}/opponents/batters?year=${year}`);
+  
+  
 }
 
 
 export async function fetchOpponentBattingSplits(teamId: number, outs: number, year: number) {
-  const response = await fetch(`${API_URL}/teams/${teamId}/splits/batting?outs=${outs}&year=${year}`);
-  if (!response.ok) return [];
-  return await response.json();
+  return await fetchWithCache(`${API_URL}/teams/${teamId}/splits/batting?outs=${outs}&year=${year}`);
+  
+  
 }
 
 export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number, limit: number = 15) {
   if (!playerIds || playerIds.length === 0) return {};
   const url = `${API_URL}/players/gamelogs/batch?player_ids=${playerIds.join(',')}&year=${year}&limit=${limit}`;
-  const response = await fetch(url);
-  if (!response.ok) return {};
-  return await response.json();
+  return await fetchWithCache(url);
+  
+  
 }
 
 export async function fetchBvpStats(batterId: string | number, pitcherId: string | number) {
-  const response = await fetch(`${API_URL}/bvp/${batterId}/${pitcherId}`);
-  if (!response.ok) return null;
-  return await response.json();
+  return await fetchWithCache(`${API_URL}/bvp/${batterId}/${pitcherId}`);
+  
+  
 }

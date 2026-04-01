@@ -1,0 +1,108 @@
+import React from 'react';
+
+interface OpponentSplitTabProps {
+    propType: string;
+    propLine: string | number;
+    opponentSplitLogs: any[];
+    initialIsHome: boolean;
+}
+
+export const OpponentSplitTab: React.FC<OpponentSplitTabProps> = ({ propType, propLine, opponentSplitLogs, initialIsHome }) => {
+    const p = propType.toLowerCase();
+    const target = parseFloat(String(propLine).replace('+', ''));
+    const isPlus = String(propLine).includes('+');
+
+    const values = opponentSplitLogs.map(log => {
+        let val = 0;
+        if (p === 'total strikeouts' || p === 'strikeouts') val = log.k;
+        if (p === 'total hits allowed' || p === 'hits allowed') val = log.h;
+        if (p === 'total walks allowed' || p === 'walks allowed') val = log.bb;
+        if (p === 'earned runs allowed' || p === 'total runs allowed' || p === 'runs allowed') val = log.r; 
+        if (p === 'total home runs allowed') val = log.hr;
+        return { ...log, val };
+    });
+
+    const hits = values.filter(v => isPlus ? v.val >= target : v.val > target).length;
+    const total = values.length;
+    const hitRate = total > 0 ? Math.round((hits / total) * 100) : 0;
+    const avg = total > 0 ? (values.reduce((sum, v) => sum + v.val, 0) / total).toFixed(2) : '0';
+
+    const expectedOpponentLocation = initialIsHome ? 'away' : 'home';
+    const splitValues = values.filter(v => v.home_away === expectedOpponentLocation);
+    const splitHits = splitValues.filter(v => isPlus ? v.val >= target : v.val > target).length;
+    const splitTotal = splitValues.length;
+    const splitHitRate = splitTotal > 0 ? Math.round((splitHits / splitTotal) * 100) : 0;
+    const splitAvg = splitTotal > 0 ? (splitValues.reduce((sum, v) => sum + v.val, 0) / splitTotal).toFixed(2) : '0';
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 bg-slate-50">
+                <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">
+                    Team Split History
+                </h2>
+                <p className="text-sm text-slate-500 font-medium mt-1">
+                    Analyzing opponent team's overall season performance against {propType}.
+                </p>
+            </div>
+            
+            <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Opponent Achieves {propLine}+</p>
+                        <p className={`text-3xl font-black font-headline ${hitRate >= 60 ? 'text-indigo-600' : hitRate <= 40 ? 'text-rose-600' : 'text-slate-700'}`}>
+                            {hitRate}%
+                        </p>
+                        <p className="text-xs text-slate-400 font-medium mt-1">{hits} of {total} games</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Avg {propType} Allowed</p>
+                        <p className="text-3xl font-black font-headline text-slate-800">{avg}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">At {expectedOpponentLocation === 'home' ? 'Home' : 'Away'} ({propLine}+)</p>
+                        <p className={`text-3xl font-black font-headline ${splitHitRate >= 60 ? 'text-indigo-600' : splitHitRate <= 40 ? 'text-rose-600' : 'text-slate-700'}`}>
+                            {splitHitRate}%
+                        </p>
+                        <p className="text-xs text-slate-400 font-medium mt-1">{splitHits} of {splitTotal} games (Avg: {splitAvg})</p>
+                    </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden mt-6 overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse tabular-nums">
+                        <thead>
+                            <tr className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-500 font-black border-b border-slate-200">
+                                <th className="p-4">Date</th>
+                                <th className="p-4">Opponent</th>
+                                <th className="p-4 text-center text-primary">{propType}</th>
+                                <th className="p-4 text-center">AB</th>
+                                <th className="p-4 text-center">H</th>
+                                <th className="p-4 text-center">R</th>
+                                <th className="p-4 text-center">BB</th>
+                                <th className="p-4 text-center">K</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {values.map((v, i) => {
+                                const isHit = isPlus ? v.val >= target : v.val > target;
+                                return (
+                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                        <td className="p-4 font-bold text-slate-700">{new Date(v.game_date).toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'})}</td>
+                                        <td className="p-4 font-bold text-slate-500">{v.opponent_abbrev || 'OPP'}</td>
+                                        <td className={`p-4 text-center font-black ${isHit ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                                            {v.val}
+                                        </td>
+                                        <td className="p-4 text-center text-slate-600">{v.ab}</td>
+                                        <td className="p-4 text-center text-slate-600">{v.h}</td>
+                                        <td className="p-4 text-center text-slate-600">{v.r}</td>
+                                        <td className="p-4 text-center text-slate-600">{v.bb}</td>
+                                        <td className="p-4 text-center text-slate-600">{v.k}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};

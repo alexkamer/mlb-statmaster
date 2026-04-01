@@ -1,6 +1,7 @@
+import { SafeImage } from '../shared/SafeImage';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { fetchLiveEspnStatistics } from '../api';
+import { fetchLiveEspnStatistics } from '../../api';
 
 export const LeaguePlayersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -181,7 +182,7 @@ export const LeaguePlayersPage = () => {
                            <div className="flex flex-col">
                                <span className="font-bold text-primary group-hover:text-secondary transition-colors">{row.name}</span>
                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                                   <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.team_id}.png`} className="w-3 h-3 object-contain" alt="logo" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                   <SafeImage src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.team_id}.png`} className="w-3 h-3 object-contain" alt="logo" hideOnError />
                                    {row.team_abbrev}
                                </span>
                            </div>

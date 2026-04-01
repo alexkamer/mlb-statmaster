@@ -1,6 +1,7 @@
+import { SafeImage } from './SafeImage';
 import React from 'react';
 import { Play, Ticket, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useScoreboard } from '../context/ScoreboardContext';
+import { useScoreboard } from '../../context/ScoreboardContext';
 import { Link } from 'react-router-dom';
 
 export const DailyScoreboard = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAllGames, fetchSeasons } from '../api';
+import { fetchAllGames, fetchSeasons } from '../../api';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 

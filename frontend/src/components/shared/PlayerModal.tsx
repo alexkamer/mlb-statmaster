@@ -1,3 +1,4 @@
+import { SafeImage } from './SafeImage';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, TrendingUp, Activity, Award, Calendar } from 'lucide-react';
@@ -40,14 +41,12 @@ export const PlayerModal = ({ isOpen, onClose, player }: any) => {
             <div className="relative z-10 flex items-end gap-6">
               <div className="w-24 h-24 bg-white text-primary rounded-xl flex items-center justify-center text-4xl font-black font-headline shadow-lg border-4 border-white/20 overflow-hidden relative group">
                 {player.headshot ? (
-                    <img 
+                    <SafeImage 
                       src={player.headshot} 
                       alt={player.full_name} 
                       className="w-full h-full object-cover object-top absolute inset-0 z-10" 
                       referrerPolicy="no-referrer"
-                      onError={(e) => {
-                         e.currentTarget.style.display = 'none';
-                      }}
+                      hideOnError
                     />
                 ) : null}
                 <span className="relative z-0">{player.position || 'UN'}</span>

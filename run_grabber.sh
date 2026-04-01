@@ -1,3 +1,4 @@
 #!/bin/bash
 source .venv/bin/activate
-python3 grab_props.py
+uv run python update_data.py
+uv run python grab_props.py
