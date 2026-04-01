@@ -1206,6 +1206,22 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
                 COALESCE(
                     (
                         SELECT st.abbreviation
+                        FROM event_boxscores_batting b
+                        JOIN season_teams st ON b.team_id = st.team_id
+                        WHERE b.athlete_id = pp.athlete_id AND st.season_year = 2026
+                        ORDER BY b.event_id DESC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT st.abbreviation
+                        FROM event_boxscores_pitching p
+                        JOIN season_teams st ON p.team_id = st.team_id
+                        WHERE p.athlete_id = pp.athlete_id AND st.season_year = 2026
+                        ORDER BY p.event_id DESC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT st.abbreviation
                         FROM season_rosters sr
                         JOIN season_teams st ON sr.season_team_id = st.season_team_id
                         WHERE sr.athlete_id = pp.athlete_id

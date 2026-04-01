@@ -4,6 +4,32 @@ import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
 
+const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
+    if (!sequence || sequence.length === 0) return null;
+    
+    // We want chronologically from left (oldest) to right (newest).
+    // The logs array comes back newest first, so we reverse it for display.
+    const chronological = [...sequence].reverse();
+    
+    // Fill remaining with nulls if < 10
+    const filled = Array.from({ length: 10 }, (_, i) => chronological[i] ?? null);
+    
+    return (
+        <div className="flex items-center gap-0.5 justify-center mt-1">
+            {filled.map((isHit, i) => (
+                <div 
+                    key={i} 
+                    className={`w-1 h-3.5 rounded-full shadow-sm ${
+                        isHit === true ? 'bg-emerald-500' : 
+                        isHit === false ? 'bg-rose-500' : 
+                        'bg-slate-100'
+                    }`}
+                />
+            ))}
+        </div>
+    );
+};
+
 export const PropsPage = () => {
     const navigate = useNavigate();
     const { todayEvents, events } = useScoreboard();
@@ -264,6 +290,7 @@ export const PropsPage = () => {
         row.l10 = '-';
         row.hitRate = 0;
         row.edge = null;
+        row.sequence = [];
 
         const logs = allPlayersLogs[row.playerId];
         if (logs) {
@@ -280,6 +307,7 @@ export const PropsPage = () => {
             if (last10.length > 0) {
                 let hitCount = 0;
                 let validCount = 0;
+                let sequence: boolean[] = [];
                 
                 if (p === 'to record win') {
                     last10.forEach((log: any) => {
@@ -287,7 +315,9 @@ export const PropsPage = () => {
                         if (val !== null) {
                             validCount++;
                             const isWin = val === 1;
-                            if (l10TrendMode === 'over' ? isWin : !isWin) hitCount++;
+                            const isHit = l10TrendMode === 'over' ? isWin : !isWin;
+                            if (isHit) hitCount++;
+                            sequence.push(isHit);
                         }
                     });
                 } else {
@@ -298,13 +328,16 @@ export const PropsPage = () => {
                             if (val !== null) {
                                 validCount++;
                                 const isOver = String(row.propLine).includes('+') ? val >= target : val > target;
-                                if (l10TrendMode === 'over' ? isOver : !isOver) hitCount++;
+                                const isHit = l10TrendMode === 'over' ? isOver : !isOver;
+                                if (isHit) hitCount++;
+                                sequence.push(isHit);
                             }
                         });
                     }
                 }
 
                 if (validCount > 0) {
+                    row.sequence = sequence;
                     row.l10 = `${hitCount} / ${validCount}`;
                     row.hitRate = hitCount / validCount;
                     
@@ -390,7 +423,7 @@ export const PropsPage = () => {
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Game</label>
                         <select 
-                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                             value={propFilterGame}
                             onChange={(e) => {
                                 setPropFilterGame(e.target.value);
@@ -410,7 +443,7 @@ export const PropsPage = () => {
                         <div className="flex flex-col">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Team</label>
                             <select 
-                                className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                                className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                                 value={propFilterTeam}
                                 onChange={(e) => {
                                     setPropFilterTeam(e.target.value);
@@ -428,7 +461,7 @@ export const PropsPage = () => {
                         <div className="flex flex-col">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Player</label>
                             <select 
-                                className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                                className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                                 value={propFilterPlayer}
                                 onChange={(e) => setPropFilterPlayer(e.target.value)}
                             >
@@ -442,7 +475,7 @@ export const PropsPage = () => {
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Prop Type</label>
                         <select 
-                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                             value={propFilterType}
                             onChange={(e) => setPropFilterType(e.target.value)}
                         >
@@ -455,7 +488,7 @@ export const PropsPage = () => {
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Min Hit Rate</label>
                         <select 
-                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                             value={hitRateFilter}
                             onChange={(e) => setHitRateFilter(e.target.value)}
                         >
@@ -468,7 +501,7 @@ export const PropsPage = () => {
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Min Edge</label>
                         <select 
-                            className="text-sm border border-slate-200 rounded p-2 outline-none font-bold text-primary"
+                            className="text-sm border border-slate-200 bg-white rounded-md p-2 outline-none font-medium text-slate-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                             value={edgeFilter}
                             onChange={(e) => setEdgeFilter(e.target.value)}
                         >
@@ -481,16 +514,16 @@ export const PropsPage = () => {
                     </div>
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Trend Mode</label>
-                        <div className="flex bg-white rounded border border-slate-200 p-0.5">
+                        <div className="flex bg-slate-200/70 rounded-md p-0.5">
                             <button
                                 onClick={() => setL10TrendMode('over')}
-                                className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all ${l10TrendMode === 'over' ? 'bg-primary text-white' : 'text-slate-400'}`}
+                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${l10TrendMode === 'over' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Over
                             </button>
                             <button
                                 onClick={() => setL10TrendMode('under')}
-                                className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all ${l10TrendMode === 'under' ? 'bg-primary text-white' : 'text-slate-400'}`}
+                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${l10TrendMode === 'under' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Under
                             </button>
@@ -500,8 +533,8 @@ export const PropsPage = () => {
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse whitespace-nowrap">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
                                 <th className="p-4">Game</th>
                                 <th className="p-4">Team</th>
                                 <th className="p-4">Opponent</th>
@@ -514,7 +547,7 @@ export const PropsPage = () => {
                                 <th className="p-4 text-right">Under Odds</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm">
+                        <tbody className="divide-y divide-slate-100 text-sm tabular-nums">
                             {tableRows.map((row, idx) => (
                                 <tr 
                                     key={idx} 
@@ -546,9 +579,12 @@ export const PropsPage = () => {
                                         {row.l10 === '-' ? (
                                             <span className="text-slate-400">-</span>
                                         ) : (
-                                            <span className={`font-bold ${parseInt(row.l10.split(' ')[0]) >= 6 ? 'text-emerald-600' : parseInt(row.l10.split(' ')[0]) <= 4 ? 'text-rose-600' : 'text-slate-600'}`}>
-                                                {row.l10}
-                                            </span>
+                                            <div className="flex flex-col items-center">
+                                                <span className={`text-xs font-bold ${parseInt(row.l10.split(' ')[0]) >= 6 ? 'text-emerald-600' : parseInt(row.l10.split(' ')[0]) <= 4 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                                    {row.l10}
+                                                </span>
+                                                <Sparkline sequence={row.sequence} />
+                                            </div>
                                         )}
                                     </td>
                                     <td className="p-4 text-center">
@@ -565,8 +601,16 @@ export const PropsPage = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-right font-bold text-emerald-600">{row.overOdds}</td>
-                                    <td className="p-4 text-right font-bold text-rose-600">{row.underOdds}</td>
+                                    <td className="p-4 text-right">
+    <div className={`inline-block min-w-[60px] text-center px-2 py-1.5 rounded-md text-sm font-bold border transition-colors ${row.overOdds !== '-' ? 'bg-slate-50 border-slate-200 text-emerald-600' : 'bg-transparent border-transparent text-slate-400'}`}>
+        {row.overOdds}
+    </div>
+</td>
+                                    <td className="p-4 text-right">
+    <div className={`inline-block min-w-[60px] text-center px-2 py-1.5 rounded-md text-sm font-bold border transition-colors ${row.underOdds !== '-' ? 'bg-slate-50 border-slate-200 text-rose-600' : 'bg-transparent border-transparent text-slate-400'}`}>
+        {row.underOdds}
+    </div>
+</td>
                                 </tr>
                             ))}
                             {tableRows.length === 0 && (
