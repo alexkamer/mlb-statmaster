@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs } from '../api';
+import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs, fetchBatchPlayerGameLogs } from '../api';
 import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
@@ -109,14 +109,19 @@ export const PropsPage = () => {
                     // We might exceed URL length limits if there are hundreds of players. 
                     // Let's chunk them into groups of 50 just to be safe.
                     const chunkSize = 50;
-                    const logsMap: Record<string, any> = {};
-                    
+                    const chunks = [];
                     for (let i = 0; i < idsArray.length; i += chunkSize) {
-                        const chunk = idsArray.slice(i, i + chunkSize);
-                        const chunkMap = await fetchBatchPlayerGameLogs(chunk, year, 15);
-                        Object.assign(logsMap, chunkMap);
+                        chunks.push(idsArray.slice(i, i + chunkSize));
                     }
                     
+                    const chunkMaps = await Promise.all(
+                        chunks.map(chunk => fetchBatchPlayerGameLogs(chunk, year, 15))
+                    );
+                    
+                    const logsMap: Record<string, any> = {};
+                    chunkMaps.forEach(chunkMap => Object.assign(logsMap, chunkMap));
+                    
+                    console.log("logsMap keys:", Object.keys(logsMap).length);
                     setAllPlayersLogs(logsMap);
                 } catch (e) {
                     console.error("Batch fetch failed", e);
@@ -181,10 +186,18 @@ export const PropsPage = () => {
         return null;
     };
 
-    if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-slate-500">Loading Props...</div>;
-    if (!propBets || propBets.length === 0) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-slate-500">No prop bets available today.</div>;
+    const calculateImpliedProbability = (americanOdds: string) => {
+        const odds = parseInt(americanOdds);
+        if (isNaN(odds)) return null;
+        if (odds > 0) {
+            return 100 / (odds + 100);
+        } else {
+            return Math.abs(odds) / (Math.abs(odds) + 100);
+        }
+    };
 
-    const tableRowsMap = new Map<string, any>();
+    const allRows = React.useMemo(() => {
+        const tableRowsMap = new Map<string, any>();
                       
     propBets.forEach((bet: any) => {
         const ref = bet.athlete?.$ref;
@@ -233,17 +246,7 @@ export const PropsPage = () => {
         tableRowsMap.get(rowKey).bets.push(bet);
     });
 
-    const calculateImpliedProbability = (americanOdds: string) => {
-        const odds = parseInt(americanOdds);
-        if (isNaN(odds)) return null;
-        if (odds > 0) {
-            return 100 / (odds + 100);
-        } else {
-            return Math.abs(odds) / (Math.abs(odds) + 100);
-        }
-    };
-
-    let allRows = Array.from(tableRowsMap.values()).map(row => {
+    return Array.from(tableRowsMap.values()).map(row => {
         if (row.bets.length >= 2) {
             const overBet = row.bets.find((b: any) => b.current?.target?.value === "OVER");
             const underBet = row.bets.find((b: any) => b.current?.target?.value === "UNDER");
@@ -321,8 +324,10 @@ export const PropsPage = () => {
         
         return row;
     });
+    }, [propBets, allPlayersLogs, l10TrendMode]); // Recalculate only when base data changes
 
-    const tableRows = allRows.filter(row => {
+    const tableRows = React.useMemo(() => {
+        const filtered = allRows.filter(row => {
         if (propFilterGame !== 'all' && row.gameId !== propFilterGame) return false;
         if (propFilterTeam !== 'all' && row.team !== propFilterTeam) return false;
         if (propFilterPlayer !== 'all' && row.playerId !== propFilterPlayer) return false;
@@ -341,13 +346,19 @@ export const PropsPage = () => {
         return true;
     });
 
-    tableRows.sort((a, b) => {
+    filtered.sort((a, b) => {
         if (a.game !== b.game) return a.game.localeCompare(b.game);
         if (a.propType !== b.propType) return a.propType.localeCompare(b.propType);
         return a.name.localeCompare(b.name);
     });
+    
+    return filtered;
+    }, [allRows, propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, hitRateFilter, edgeFilter]);
 
-    const uniqueTypes = Array.from(new Set(propBets.map(b => b.type?.name).filter(Boolean))).sort() as string[];
+    const uniqueTypes = React.useMemo(() => Array.from(new Set(propBets.map(b => b.type?.name).filter(Boolean))).sort() as string[], [propBets]);
+
+    if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-slate-500">Loading Props...</div>;
+    if (!propBets || propBets.length === 0) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-slate-500">No prop bets available today.</div>;
 
     const selectedGameBet = propBets.find(b => b._gameId === propFilterGame);
     const teamsForSelectedGame = selectedGameBet ? [selectedGameBet._awayTeam, selectedGameBet._homeTeam].filter(Boolean) : [];

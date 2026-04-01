@@ -1220,7 +1220,7 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
                 (SELECT c2.team_id FROM event_competitors c2 WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeamId
             FROM player_props pp
             JOIN athletes a ON pp.athlete_id = a.athlete_id
-            JOIN events e ON pp.event_id = e.event_id
+            LEFT JOIN events e ON pp.event_id = e.event_id
             WHERE {where_clause}
         """
         props = await database.fetch_all(query=query, values=values)
