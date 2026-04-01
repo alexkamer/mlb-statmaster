@@ -6,6 +6,8 @@ backend/.venv/
 *.log
 backend.pid
 backend.log
+*.db
+*.sqlite3
 
 # Frontend
 frontend/node_modules/
@@ -20,4 +22,3 @@ frontend/.env.local
 
 # Jupyter
 .ipynb_checkpoints/
-statmaster.zip*.db
