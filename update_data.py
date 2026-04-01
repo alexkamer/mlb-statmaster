@@ -373,7 +373,7 @@ def update_game_data():
 
                     for t_box in data.get('boxscore', {}).get('teams', []):
                         for detail in t_box.get('details', []):
-                            if detail.get('name') == 'battingDetails':
+                            if detail.get('name') in ['battingDetails', 'baserunningDetails']:
                                 for stat in detail.get('stats', []):
                                     if stat.get('name') in ['doubles', 'triples', 'stolenBases']:
                                         parsed = _parse_detail_str(stat.get('displayValue', ''))
