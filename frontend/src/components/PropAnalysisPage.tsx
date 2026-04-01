@@ -154,6 +154,9 @@ export const PropAnalysisPage = () => {
                 
                 let activeLogs = isPitching ? (logsData.pitching || []) : (logsData.batting || []);
                 activeLogs = activeLogs.filter((l: any) => {
+                    // Exclude today's game from historical context
+                    if (initialGameId && String(l.event_id) === String(initialGameId)) return false;
+                    
                     if (isPitching) return parseFloat(l.ip || '0') > 0;
                     return (l.ab && parseInt(l.ab) > 0) || (l.pitches_faced && parseInt(l.pitches_faced) > 0);
                 });

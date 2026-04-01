@@ -7,9 +7,9 @@ import { useScoreboard } from '../context/ScoreboardContext';
 const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
     if (!sequence || sequence.length === 0) return null;
     
-    // We want chronologically from left (oldest) to right (newest).
-    // The logs array comes back newest first, so we reverse it for display.
-    const chronological = [...sequence].reverse();
+    // The logs array comes back newest first.
+    // Display newest on the left, oldest on the right.
+    const chronological = [...sequence];
     
     // Fill remaining with nulls if < 10
     const filled = Array.from({ length: 10 }, (_, i) => chronological[i] ?? null);
@@ -308,6 +308,7 @@ export const PropsPage = () => {
         row.hitRate = 0;
         row.edge = null;
         row.sequence = [];
+        row.statAvg = null;
 
         const logs = allPlayersLogs[row.playerId];
         if (logs) {
@@ -316,6 +317,9 @@ export const PropsPage = () => {
             let activeLogs = isPitching ? (logs.pitching || []) : (logs.batting || []);
             
             activeLogs = activeLogs.filter((l: any) => {
+                // Exclude today's game from the historical L10/Edge calculation if it's already in the DB
+                if (String(l.event_id) === String(row.gameId)) return false;
+                
                 if (isPitching) return parseFloat(l.ip || '0') > 0;
                 return (l.ab && parseInt(l.ab) > 0) || (l.pitches_faced && parseInt(l.pitches_faced) > 0);
             });
@@ -325,12 +329,14 @@ export const PropsPage = () => {
                 let hitCount = 0;
                 let validCount = 0;
                 let sequence: boolean[] = [];
+                let totalStat = 0;
                 
                 if (p === 'to record win') {
                     last10.forEach((log: any) => {
                         const val = getStatValueFromLog(log, row.propType);
                         if (val !== null) {
                             validCount++;
+                            totalStat += val;
                             const isWin = val === 1;
                             const isHit = l10TrendMode === 'over' ? isWin : !isWin;
                             if (isHit) hitCount++;
@@ -344,6 +350,7 @@ export const PropsPage = () => {
                             const val = getStatValueFromLog(log, row.propType);
                             if (val !== null) {
                                 validCount++;
+                                totalStat += val;
                                 const isOver = String(row.propLine).includes('+') ? val >= target : val > target;
                                 const isHit = l10TrendMode === 'over' ? isOver : !isOver;
                                 if (isHit) hitCount++;
@@ -356,6 +363,7 @@ export const PropsPage = () => {
                 if (validCount > 0) {
                     row.sequence = sequence;
                     row.l10 = `${hitCount} / ${validCount}`;
+                    row.statAvg = (totalStat / validCount).toFixed(1);
                     row.hitRate = hitCount / validCount;
                     
                     const relevantOdds = l10TrendMode === 'over' ? row.overOdds : row.underOdds;
@@ -591,6 +599,9 @@ export const PropsPage = () => {
                                 <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('l10')}>
                                     <div className="flex items-center justify-center gap-1.5">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'} {sortConfig.key === 'l10' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
                                 </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('avg')}>
+                                    <div className="flex items-center justify-center gap-1.5">AVG {sortConfig.key === 'avg' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
                                 <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('edge')}>
                                     <div className="flex items-center justify-center gap-1.5">Edge {sortConfig.key === 'edge' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
                                 </th>
@@ -642,6 +653,13 @@ export const PropsPage = () => {
                                         )}
                                     </td>
                                     <td className="p-4 text-center">
+                                        {row.statAvg === null ? (
+                                            <span className="text-slate-400">-</span>
+                                        ) : (
+                                            <span className="font-bold text-slate-600">{row.statAvg}</span>
+                                        )}
+                                    </td>
+                                    <td className="p-4 text-center">
                                         {row.edge === null ? (
                                             <span className="text-slate-400">-</span>
                                         ) : (
@@ -671,7 +689,7 @@ export const PropsPage = () => {
                             ))}
                             {tableRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
+                                    <td colSpan={8} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
                                 </tr>
                             )}
                         </tbody>
