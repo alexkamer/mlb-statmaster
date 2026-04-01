@@ -20,4 +20,4 @@ frontend/.env.local
 
 # Jupyter
 .ipynb_checkpoints/
-statmaster.zip
+statmaster.zip*.db
