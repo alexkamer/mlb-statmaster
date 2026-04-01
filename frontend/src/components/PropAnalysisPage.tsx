@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchPlayerGameLogs, fetchPlayerPropsAvailable, fetchOpponentStarters, fetchOpponentBatters, fetchOpponentBattingSplits } from '../api';
-import { TrendingUp, ArrowLeft, BarChart2, Trophy, LayoutList, BarChart3 } from 'lucide-react';
+import { fetchPlayerGameLogs, fetchPlayerPropsAvailable, fetchOpponentStarters, fetchOpponentBatters, fetchOpponentBattingSplits, fetchGameSummary, fetchBvpStats } from '../api';
+import { TrendingUp, ArrowLeft, BarChart2, Trophy, LayoutList, BarChart3, Swords } from 'lucide-react';
 import { 
     BarChart, 
     Bar, 
@@ -27,11 +27,14 @@ export const PropAnalysisPage = () => {
     const initialOpponentId = searchParams.get('opponentId') || null;
     const initialOpponentAbbrev = searchParams.get('opponentAbbrev') || '';
     const initialIsHome = searchParams.get('isHome') === 'true';
+    const initialGameId = searchParams.get('gameId') || null;
     const [opponentDataMode, setOpponentDataMode] = useState(false);
     const [opponentLogs, setOpponentLogs] = useState<any[]>([]);
     const [opponentSplitDataMode, setOpponentSplitDataMode] = useState(false);
     const [splitOuts, setSplitOuts] = useState<number>(18);
     const [opponentSplitLogs, setOpponentSplitLogs] = useState<any[]>([]);
+    const [bvpData, setBvpData] = useState<any>(null);
+    const [opposingPitcher, setOpposingPitcher] = useState<any>(null);
 
 
 
@@ -117,6 +120,34 @@ export const PropAnalysisPage = () => {
                         } else {
                             const batters = await fetchOpponentBatters(opId, year);
                             setOpponentLogs(batters);
+                            
+                            // Check for gameId and specific opposing pitcher context
+                            if (initialGameId) {
+                                const gameSummary = await fetchGameSummary(initialGameId);
+                                if (gameSummary && gameSummary.boxscore && gameSummary.rosters) {
+                                    // Identify opposing pitcher
+                                    const awayTeamId = gameSummary.boxscore.teams[0].team.id;
+                                    const homeTeamId = gameSummary.boxscore.teams[1].team.id;
+                                    const opposingTeamId = initialIsHome ? awayTeamId : homeTeamId;
+                                    
+                                    // Find probable pitchers
+                                    const opposingTeamRoster = gameSummary.rosters.find((r: any) => r.team.id === opposingTeamId);
+                                    if (opposingTeamRoster && gameSummary.header?.competitions?.[0]?.competitors) {
+                                        const competitor = gameSummary.header.competitions[0].competitors.find((c: any) => c.team.id === opposingTeamId);
+                                        if (competitor && competitor.probables && competitor.probables.length > 0) {
+                                            const pId = competitor.probables[0].athlete.id;
+                                            const pName = competitor.probables[0].athlete.displayName;
+                                            setOpposingPitcher({ id: pId, name: pName });
+                                            
+                                            // Fetch BvP
+                                            const bvp = await fetchBvpStats(initialPlayerId, pId);
+                                            if (bvp && Object.keys(bvp).length > 0) {
+                                                setBvpData(bvp);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -296,6 +327,43 @@ export const PropAnalysisPage = () => {
                     <p className="text-slate-500 font-medium">Player performance trends against specific prop lines.</p>
                 </div>
             </div>
+
+            {/* Head-to-Head Banner (If BvP exists) */}
+            {!isPitching && bvpData && bvpData.g > 0 && opposingPitcher && (
+                <div className="bg-slate-900 rounded-xl shadow-lg overflow-hidden mb-6 flex flex-col sm:flex-row items-center justify-between p-1">
+                    <div className="flex items-center gap-3 px-5 py-3">
+                        <div className="bg-rose-500/20 p-2 rounded-full">
+                            <Swords className="w-5 h-5 text-rose-400" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head to Head Matchup</div>
+                            <div className="text-white font-bold text-sm">vs. {opposingPitcher.name}</div>
+                        </div>
+                    </div>
+                    <div className="flex divide-x divide-slate-800 bg-slate-800/50 rounded-lg mr-1 py-1">
+                        <div className="px-4 py-2 text-center">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">At Bats</div>
+                            <div className="text-white font-bold">{bvpData.ab}</div>
+                        </div>
+                        <div className="px-4 py-2 text-center">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Hits</div>
+                            <div className="text-emerald-400 font-bold">{bvpData.h}</div>
+                        </div>
+                        <div className="px-4 py-2 text-center">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">HR</div>
+                            <div className="text-rose-400 font-bold">{bvpData.hr}</div>
+                        </div>
+                        <div className="px-4 py-2 text-center">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">AVG</div>
+                            <div className="text-white font-bold">{bvpData.avg.toFixed(3).replace('0.', '.')}</div>
+                        </div>
+                        <div className="px-4 py-2 text-center">
+                            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">OPS</div>
+                            <div className="text-amber-400 font-bold">{(bvpData.obp + bvpData.slg).toFixed(3).replace('0.', '.')}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
             {initialOpponentId && initialOpponentId !== 'undefined' && initialOpponentId !== 'null' && isPitching && (

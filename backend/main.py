@@ -895,22 +895,13 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = 2024, limit: in
             WITH RankedBatting AS (
                 SELECT 
                     b.athlete_id,
-                    st.type_id as season_type,
                     e.event_id,
                     e.date,
-                    e.short_name,
                     b.team_id,
-                    b.starter,
                     b.ab, b.r, b.h, b.hr, b.rbi, b.bb, b.k, b.sb, 
                     COALESCE(b.d, 0) as d, COALESCE(b.t, 0) as t,
                     b.pitches_faced,
                     (COALESCE(b.h, 0) - COALESCE(b.d, 0) - COALESCE(b.t, 0) - COALESCE(b.hr, 0)) as singles,
-                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as team_score,
-                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_score,
-                    (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
-                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_abbrev,
-                    (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_id,
-                    (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away,
                     ROW_NUMBER() OVER(PARTITION BY b.athlete_id ORDER BY e.date DESC) as rn
                 FROM event_boxscores_batting b
                 JOIN events e ON b.event_id = e.event_id
@@ -924,20 +915,12 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = 2024, limit: in
             WITH RankedPitching AS (
                 SELECT 
                     p.athlete_id,
-                    st.type_id as season_type,
                     e.event_id,
                     e.date,
-                    e.short_name,
                     p.team_id,
-                    p.starter,
                     p.ip, p.h, p.r, p.er, p.hr, p.bb, p.k, p.pitches,
                     COALESCE(p.recorded_win, false) as recorded_win,
-                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as team_score,
-                    (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_score,
                     (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
-                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
-                    (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
-                    (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
                     ROW_NUMBER() OVER(PARTITION BY p.athlete_id ORDER BY e.date DESC) as rn
                 FROM event_boxscores_pitching p
                 JOIN events e ON p.event_id = e.event_id
@@ -1094,6 +1077,34 @@ async def get_player_props(player_id: int):
             result[p["prop_type"]] = p["prop_line"]
             
     return [{"prop_type": k, "prop_line": v} for k, v in result.items()]
+
+@app.get("/api/bvp/{batter_id}/{pitcher_id}")
+async def get_bvp_stats(batter_id: int, pitcher_id: int):
+    """Get historical Batter vs Pitcher head-to-head stats by finding games where both played against each other."""
+    query = """
+        SELECT 
+            COUNT(b.event_id) as g,
+            SUM(b.ab) as ab,
+            SUM(b.h) as h,
+            SUM(b.hr) as hr,
+            SUM(b.rbi) as rbi,
+            SUM(b.k) as k,
+            SUM(b.bb) as bb,
+            SUM(COALESCE(b.d, 0)) as d,
+            SUM(COALESCE(b.t, 0)) as t,
+            CASE WHEN SUM(b.ab) > 0 THEN ROUND((SUM(b.h)::numeric / SUM(b.ab)), 3) ELSE 0 END as avg,
+            CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END as obp,
+            CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3 + SUM(COALESCE(b.d, 0)) + SUM(COALESCE(b.t, 0))*2)::numeric / SUM(b.ab)), 3) ELSE 0 END as slg
+        FROM event_boxscores_batting b
+        JOIN event_boxscores_pitching p ON b.event_id = p.event_id
+        WHERE b.athlete_id = :batter_id AND p.athlete_id = :pitcher_id AND b.team_id != p.team_id
+    """
+    try:
+        stats = await database.fetch_one(query=query, values={"batter_id": batter_id, "pitcher_id": pitcher_id})
+        return dict(stats) if stats else {}
+    except Exception as e:
+        print(f"Error fetching BvP stats: {e}")
+        return {}
 
 @app.get("/api/stats/league")
 async def get_league_stats(year: int = 2024, type: str = "batting", season_type: str = "Regular Season", limit: int = 100):
@@ -1417,6 +1428,34 @@ async def get_prediction_context(
     except Exception as e:
         print(f"Error in get_prediction_context: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/bvp/{batter_id}/{pitcher_id}")
+async def get_bvp_stats(batter_id: int, pitcher_id: int):
+    """Get historical Batter vs Pitcher head-to-head stats by finding games where both played against each other."""
+    query = """
+        SELECT 
+            COUNT(b.event_id) as g,
+            SUM(b.ab) as ab,
+            SUM(b.h) as h,
+            SUM(b.hr) as hr,
+            SUM(b.rbi) as rbi,
+            SUM(b.k) as k,
+            SUM(b.bb) as bb,
+            SUM(COALESCE(b.d, 0)) as d,
+            SUM(COALESCE(b.t, 0)) as t,
+            CASE WHEN SUM(b.ab) > 0 THEN ROUND((SUM(b.h)::numeric / SUM(b.ab)), 3) ELSE 0 END as avg,
+            CASE WHEN SUM(b.ab + b.bb) > 0 THEN ROUND(((SUM(b.h) + SUM(b.bb))::numeric / SUM(b.ab + b.bb)), 3) ELSE 0 END as obp,
+            CASE WHEN SUM(b.ab) > 0 THEN ROUND(((SUM(b.h) + SUM(b.hr)*3 + SUM(COALESCE(b.d, 0)) + SUM(COALESCE(b.t, 0))*2)::numeric / SUM(b.ab)), 3) ELSE 0 END as slg
+        FROM event_boxscores_batting b
+        JOIN event_boxscores_pitching p ON b.event_id = p.event_id
+        WHERE b.athlete_id = :batter_id AND p.athlete_id = :pitcher_id AND b.team_id != p.team_id
+    """
+    try:
+        stats = await database.fetch_one(query=query, values={"batter_id": batter_id, "pitcher_id": pitcher_id})
+        return dict(stats) if stats else {}
+    except Exception as e:
+        print(f"Error fetching BvP stats: {e}")
+        return {}
 
 @app.get("/api/stats/league")
 async def get_league_stats(year: int = 2024, type: str = "batting", season_type: str = "Regular Season", limit: int = 100):

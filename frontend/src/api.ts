@@ -470,3 +470,9 @@ export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number
   if (!response.ok) return {};
   return await response.json();
 }
+
+export async function fetchBvpStats(batterId: string | number, pitcherId: string | number) {
+  const response = await fetch(`${API_URL}/bvp/${batterId}/${pitcherId}`);
+  if (!response.ok) return null;
+  return await response.json();
+}

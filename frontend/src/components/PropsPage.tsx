@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs, fetchBatchPlayerGameLogs } from '../api';
 import { Link, useNavigate } from 'react-router-dom';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
 
 const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
@@ -43,6 +43,15 @@ export const PropsPage = () => {
     const [l10TrendMode, setL10TrendMode] = useState<'over' | 'under'>('over');
     const [hitRateFilter, setHitRateFilter] = useState<string>('all');
     const [edgeFilter, setEdgeFilter] = useState<string>('all');
+    const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'game', direction: 'asc' });
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
     
     // Prevent auto-refreshing when ScoreboardContext interval updates todayEvents
     const [fetchedDate, setFetchedDate] = useState<string>('');
@@ -59,7 +68,7 @@ export const PropsPage = () => {
             if (fetchedDate === currentDateStr && propBets.length > 0) return; 
             
             setFetchedDate(currentDateStr);
-            setLoading(true);
+            // We do NOT setLoading(false) here, we wait for logs to load
             
             const allBets: any[] = [];
             
@@ -110,10 +119,10 @@ export const PropsPage = () => {
 
             } catch (e) {
                 console.error("Failed to load daily scoreboard", e);
+                setLoading(false);
             }
             
             setPropBets(allBets);
-            setLoading(false);
         };
         
         loadAllProps();
@@ -134,7 +143,7 @@ export const PropsPage = () => {
                     
                     // We might exceed URL length limits if there are hundreds of players. 
                     // Let's chunk them into groups of 50 just to be safe.
-                    const chunkSize = 50;
+                    const chunkSize = 200;
                     const chunks = [];
                     for (let i = 0; i < idsArray.length; i += chunkSize) {
                         chunks.push(idsArray.slice(i, i + chunkSize));
@@ -151,9 +160,13 @@ export const PropsPage = () => {
                     setAllPlayersLogs(logsMap);
                 } catch (e) {
                     console.error("Batch fetch failed", e);
+                } finally {
+                    setLoading(false);
                 }
             };
             fetchAllLogs();
+        } else if (!loading) {
+            setLoading(false);
         }
     }, [propBets]);
 
@@ -255,6 +268,10 @@ export const PropsPage = () => {
             tableRowsMap.set(rowKey, {
                 gameId: bet._gameId,
                 game: `${bet._awayTeam} @ ${bet._homeTeam}`,
+                awayTeam: bet._awayTeam,
+                awayTeamId: bet._awayTeamId,
+                homeTeam: bet._homeTeam,
+                homeTeamId: bet._homeTeamId,
                 team: teamAbbr,
                 opponent: opponentAbbr,
                 opponentId: opponentId,
@@ -359,34 +376,58 @@ export const PropsPage = () => {
     });
     }, [propBets, allPlayersLogs, l10TrendMode]); // Recalculate only when base data changes
 
-    const tableRows = React.useMemo(() => {
-        const filtered = allRows.filter(row => {
-        if (propFilterGame !== 'all' && row.gameId !== propFilterGame) return false;
-        if (propFilterTeam !== 'all' && row.team !== propFilterTeam) return false;
-        if (propFilterPlayer !== 'all' && row.playerId !== propFilterPlayer) return false;
-        if (propFilterType !== 'all' && row.propType !== propFilterType) return false;
-        
-        if (hitRateFilter !== 'all') {
-            const threshold = parseInt(hitRateFilter) / 100;
-            if (!row.hitRate || row.hitRate < threshold) return false;
-        }
-        
-        if (edgeFilter !== 'all') {
-            const threshold = parseInt(edgeFilter) / 100;
-            if (row.edge === null || row.edge < threshold) return false;
-        }
-        
-        return true;
-    });
-
-    filtered.sort((a, b) => {
-        if (a.game !== b.game) return a.game.localeCompare(b.game);
-        if (a.propType !== b.propType) return a.propType.localeCompare(b.propType);
-        return a.name.localeCompare(b.name);
-    });
-    
-    return filtered;
+    const filteredRows = React.useMemo(() => {
+        return allRows.filter(row => {
+            if (propFilterGame !== 'all' && row.gameId !== propFilterGame) return false;
+            if (propFilterTeam !== 'all' && row.team !== propFilterTeam) return false;
+            if (propFilterPlayer !== 'all' && row.playerId !== propFilterPlayer) return false;
+            if (propFilterType !== 'all' && row.propType !== propFilterType) return false;
+            
+            if (hitRateFilter !== 'all') {
+                const threshold = parseInt(hitRateFilter) / 100;
+                if (!row.hitRate || row.hitRate < threshold) return false;
+            }
+            
+            if (edgeFilter !== 'all') {
+                const threshold = parseInt(edgeFilter) / 100;
+                if (row.edge === null || row.edge < threshold) return false;
+            }
+            
+            return true;
+        });
     }, [allRows, propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, hitRateFilter, edgeFilter]);
+
+    const tableRows = React.useMemo(() => {
+        // Create a shallow copy so we don't mutate the filtered array
+        const sorted = [...filteredRows];
+        
+        sorted.sort((a, b) => {
+            let aVal: any = a[sortConfig.key];
+            let bVal: any = b[sortConfig.key];
+
+            if (sortConfig.key === 'propLine') {
+                aVal = parseFloat(String(a.propLine).replace('+', ''));
+                bVal = parseFloat(String(b.propLine).replace('+', ''));
+            } else if (sortConfig.key === 'edge') {
+                aVal = a.edge === null ? -999 : a.edge;
+                bVal = b.edge === null ? -999 : b.edge;
+            } else if (sortConfig.key === 'l10') {
+                aVal = a.hitRate;
+                bVal = b.hitRate;
+            } else if (sortConfig.key === 'overOdds') {
+                aVal = a.overOdds === '-' ? -999 : parseInt(a.overOdds);
+                bVal = b.overOdds === '-' ? -999 : parseInt(b.overOdds);
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            
+            if (a.game !== b.game) return a.game.localeCompare(b.game);
+            return a.name.localeCompare(b.name);
+        });
+        
+        return sorted;
+    }, [filteredRows, sortConfig]);
 
     const uniqueTypes = React.useMemo(() => Array.from(new Set(propBets.map(b => b.type?.name).filter(Boolean))).sort() as string[], [propBets]);
 
@@ -534,17 +575,28 @@ export const PropsPage = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse whitespace-nowrap">
                         <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                                <th className="p-4">Game</th>
-                                <th className="p-4">Team</th>
-                                <th className="p-4">Opponent</th>
-                                <th className="p-4">Name</th>
-                                <th className="p-4">Prop Type</th>
-                                <th className="p-4">Prop Line</th>
-                                <th className="p-4 text-center">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'}</th>
-                                <th className="p-4 text-center">Edge</th>
-                                <th className="p-4 text-right">Over Odds</th>
-                                <th className="p-4 text-right">Under Odds</th>
+                            <tr className="text-[10px] uppercase tracking-wider text-slate-500 font-bold select-none">
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('game')}>
+                                    <div className="flex items-center gap-1.5">Matchup {sortConfig.key === 'game' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('name')}>
+                                    <div className="flex items-center gap-1.5">Name {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('propType')}>
+                                    <div className="flex items-center gap-1.5">Prop Type {sortConfig.key === 'propType' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('propLine')}>
+                                    <div className="flex items-center gap-1.5">Prop Line {sortConfig.key === 'propLine' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('l10')}>
+                                    <div className="flex items-center justify-center gap-1.5">L10 {l10TrendMode === 'over' ? 'Over' : 'Under'} {sortConfig.key === 'l10' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('edge')}>
+                                    <div className="flex items-center justify-center gap-1.5">Edge {sortConfig.key === 'edge' ? (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />) : <ArrowUpDown className="w-3 h-3 text-slate-300" />}</div>
+                                </th>
+                                <th className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">Odds (O / U)</div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm tabular-nums">
@@ -552,26 +604,28 @@ export const PropsPage = () => {
                                 <tr 
                                     key={idx} 
                                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/props/analysis?playerId=${row.playerId}&propType=${encodeURIComponent(row.propType)}&propLine=${row.propLine}&opponentId=${row.opponentId}&opponentAbbrev=${row.opponent}&isHome=${row.isHome}`)}
+                                    onClick={() => navigate(`/props/analysis?playerId=${row.playerId}&propType=${encodeURIComponent(row.propType)}&propLine=${row.propLine}&opponentId=${row.opponentId}&opponentAbbrev=${row.opponent}&isHome=${row.isHome}&gameId=${row.gameId}`)}
                                 >
                                     <td className="p-4">
-                                        <Link to={`/games/${row.gameId}?tab=props`} onClick={(e) => e.stopPropagation()} className="font-medium text-slate-500 hover:text-primary hover:underline">{row.game}</Link>
-                                    </td>
-                                    <td className="p-4 font-bold text-slate-700">{row.team}</td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-2">
-                                            {row.opponentId && (
-                                                <img 
-                                                    src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.opponentId}.png`} 
-                                                    alt={row.opponent} 
-                                                    className="w-5 h-5 object-contain"
-                                                />
-                                            )}
-                                            <span className="font-bold text-slate-700">{row.opponent}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <Link to={`/games/${row.gameId}?tab=props`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 hover:bg-slate-100 p-1 -ml-1 rounded transition-colors w-fit">
+                                                <div className="flex items-center">
+                                                    {row.awayTeamId && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.awayTeamId}.png`} alt={row.awayTeam} className="w-4 h-4 object-contain" />}
+                                                    <span className={`text-xs font-bold ml-1 ${!row.isHome ? 'text-slate-800' : 'text-slate-400'}`}>{row.awayTeam}</span>
+                                                </div>
+                                                <span className="text-[10px] font-black text-slate-300">@</span>
+                                                <div className="flex items-center">
+                                                    {row.homeTeamId && <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${row.homeTeamId}.png`} alt={row.homeTeam} className="w-4 h-4 object-contain" />}
+                                                    <span className={`text-xs font-bold ml-1 ${row.isHome ? 'text-slate-800' : 'text-slate-400'}`}>{row.homeTeam}</span>
+                                                </div>
+                                            </Link>
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <Link to={`/players/${row.playerId}`} onClick={(e) => e.stopPropagation()} className="font-bold text-primary hover:underline">{row.name}</Link>
+                                        <div className="flex flex-col">
+                                            <Link to={`/players/${row.playerId}`} onClick={(e) => e.stopPropagation()} className="font-bold text-slate-800 hover:text-primary hover:underline text-sm">{row.name}</Link>
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">{row.team}</span>
+                                        </div>
                                     </td>
                                     <td className="p-4 text-slate-600">{row.propType}</td>
                                     <td className="p-4 font-black text-slate-800">{row.propLine}</td>
@@ -601,21 +655,23 @@ export const PropsPage = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-right">
-    <div className={`inline-block min-w-[60px] text-center px-2 py-1.5 rounded-md text-sm font-bold border transition-colors ${row.overOdds !== '-' ? 'bg-slate-50 border-slate-200 text-emerald-600' : 'bg-transparent border-transparent text-slate-400'}`}>
-        {row.overOdds}
-    </div>
-</td>
-                                    <td className="p-4 text-right">
-    <div className={`inline-block min-w-[60px] text-center px-2 py-1.5 rounded-md text-sm font-bold border transition-colors ${row.underOdds !== '-' ? 'bg-slate-50 border-slate-200 text-rose-600' : 'bg-transparent border-transparent text-slate-400'}`}>
-        {row.underOdds}
-    </div>
-</td>
+                                    <td className="p-4">
+                                        <div className="flex flex-col items-center justify-center w-[72px] mx-auto border border-slate-200 rounded shadow-sm overflow-hidden bg-white">
+                                            <div className={`w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] border-b border-slate-100 ${row.overOdds !== '-' ? 'text-emerald-700 hover:bg-emerald-50/50' : 'text-slate-300'}`}>
+                                                <span className="font-bold opacity-60">O</span>
+                                                <span className="font-black">{row.overOdds}</span>
+                                            </div>
+                                            <div className={`w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] ${row.underOdds !== '-' ? 'text-rose-700 hover:bg-rose-50/50' : 'text-slate-300'}`}>
+                                                <span className="font-bold opacity-60">U</span>
+                                                <span className="font-black">{row.underOdds}</span>
+                                            </div>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                             {tableRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={10} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
+                                    <td colSpan={7} className="p-8 text-center font-bold text-slate-500">No props found for this filter.</td>
                                 </tr>
                             )}
                         </tbody>
