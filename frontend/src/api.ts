@@ -14,8 +14,8 @@ async function fetchWithCache(url: string) {
   
   const response = await fetch(url);
   if (!response.ok) {
-    if (response.status === 404) throw new Error("Not found");
-    throw new Error("Failed to fetch");
+    if (response.status === 404) return null;
+    throw new Error(`Failed to fetch: ${response.status}`);
   }
   
   const text = await response.text();
@@ -412,11 +412,10 @@ export async function fetchGameSummary(gameId: string) {
 
 export async function fetchPropBets(gameId: string) {
     try {
-        return await fetchWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${gameId}/competitions/${gameId}/odds/100/propBets?lang=en&region=us&limit=1000`);
-        
-        
+        // Proxy through our backend to prevent Chrome from natively logging 404 errors to the console
+        const response = await fetchWithCache(`${API_URL}/games/${gameId}/props`);
+        return response;
     } catch(e) {
-        console.error("Failed to fetch prop bets", e);
         return null;
     }
 }

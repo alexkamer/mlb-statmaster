@@ -70,3 +70,17 @@ async def get_seasons():
 
 
 
+
+@router.get("/api/games/{game_id}/props")
+async def get_game_props_proxy(game_id: str):
+    """Proxy the ESPN prop bets endpoint to prevent client-side 404 console errors."""
+    url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/{game_id}/competitions/{game_id}/odds/100/propBets?lang=en&region=us&limit=1000"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code == 404:
+                return {"items": []} # Return empty 200 OK so the browser doesn't log an error
+            return resp.json()
+        except Exception as e:
+            return {"items": []}

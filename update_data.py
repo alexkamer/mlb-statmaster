@@ -284,6 +284,7 @@ async def update_game_data(client):
             'name': data.get('header', {}).get('name'),
             'short_name': data.get('header', {}).get('competitions', [{}])[0].get('shortName'),
             'season_year': season_year,
+            'type_id': safe_int(data.get('header', {}).get('season', {}).get('type')),
             'attendance': data.get('gameInfo', {}).get('attendance'),
             'venue_id': safe_int(data.get('gameInfo', {}).get('venue', {}).get('id'))
         })
@@ -431,7 +432,7 @@ async def update_game_data(client):
         with engine.connect() as conn:
             t_df = pd.read_sql("SELECT season_team_id, team_id, season_year FROM season_teams", conn)
         df_comp = df_comp.merge(t_df, on=['team_id', 'season_year'], how='inner')
-        df_comp = df_comp.drop(['team_id', 'season_year'], axis=1)
+        df_comp = df_comp.drop(['season_year'], axis=1)
         execute_upsert(df_comp, 'event_competitors', ['event_competitor_id'])
         logger.info(f"✓ Saved {len(df_comp)} competitors.")
         

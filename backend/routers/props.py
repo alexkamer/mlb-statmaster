@@ -21,7 +21,7 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
             e_ids = [int(eid) for eid in event_ids.split(",") if eid.strip()]
             if e_ids:
                 where_clause = "pp.event_id = ANY(:event_ids)"
-                values["event_ids"] = e_ids
+                values = {"event_ids": e_ids, "year_val": year_val}
         
         query = f"""
             SELECT 

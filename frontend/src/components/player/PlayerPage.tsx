@@ -90,7 +90,8 @@ export const PlayerPage = () => {
         if (!playerId || activeTab !== "GameLog") return;
         setLoadingLogs(true);
         try {
-            const logs = await fetchPlayerGameLogs(Number(playerId), activeLogYear);
+            // We want the entire season's gamelogs, so we pass a high limit like 200
+            const logs = await fetchPlayerGameLogs(Number(playerId), activeLogYear, 200);
             setGameLogs(logs);
         } catch (e) {
             console.error("Failed to load logs", e);
@@ -598,8 +599,10 @@ export const PlayerPage = () => {
                                             </div>
                                           </td>
                                           <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
-                                             <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
-                                             {scoreStr}
+                                            <Link to={`/games/${log.event_id}`} className="hover:underline hover:text-primary transition-colors">
+                                              <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
+                                              {scoreStr}
+                                            </Link>
                                           </td>
                                           <td className="px-4 py-3 text-right font-medium">{log.ab}</td>
                                           <td className="px-4 py-3 text-right font-medium">{log.r}</td>
@@ -688,8 +691,10 @@ export const PlayerPage = () => {
                                             </div>
                                           </td>
                                           <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
-                                             <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
-                                             {scoreStr}
+                                            <Link to={`/games/${log.event_id}`} className="hover:underline hover:text-primary transition-colors">
+                                              <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
+                                              {scoreStr}
+                                            </Link>
                                           </td>
                                           <td className="px-4 py-3 text-right font-medium">{log.ip}</td>
                                           <td className="px-4 py-3 text-right font-medium">{log.h}</td>

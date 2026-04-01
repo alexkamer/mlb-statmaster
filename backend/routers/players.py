@@ -241,7 +241,7 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = 2024, limit: in
 @router.get("/api/players/{player_id}/gamelog")
 async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, season_type_id: int = None):
     """Get a player's game-by-game logs for a specific season, or last N games if year is omitted."""
-    type_filter = "st.type_id = :season_type_id" if season_type_id else "st.type_id IN (2, 3)"
+    type_filter = "e.type_id = :season_type_id" if season_type_id else "e.type_id IN (2, 3)"
     
     # We will query both batting and pitching events for the player
     # Since a player can pitch and hit in the same game, we use an outer join pattern or two queries
@@ -251,7 +251,7 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, 
     
     batting_query = """
         SELECT 
-            st.type_id as season_type,
+            e.type_id as season_type,
             e.event_id,
             e.date,
             e.short_name,
@@ -284,15 +284,14 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, 
             (SELECT a.throws FROM event_boxscores_pitching bp JOIN athletes a ON bp.athlete_id = a.athlete_id WHERE bp.event_id = e.event_id AND bp.team_id != b.team_id AND bp.starter = true LIMIT 1) as opp_starter_throws
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
-        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE b.athlete_id = :player_id AND b.starter = true AND __TYPE_FILTER__
+        WHERE b.athlete_id = :player_id AND b.starter = true AND __TYPE_FILTER__ AND e.season_year = :year
         ORDER BY e.date DESC
         LIMIT :limit
     """.replace("__TYPE_FILTER__", type_filter)
     
     pitching_query = """
         SELECT 
-            st.type_id as season_type,
+            e.type_id as season_type,
             e.event_id,
             e.date,
             e.short_name,
@@ -322,14 +321,13 @@ async def get_player_gamelog(player_id: int, year: int = 2024, limit: int = 15, 
             (SELECT a.throws FROM event_boxscores_pitching bp JOIN athletes a ON bp.athlete_id = a.athlete_id WHERE bp.event_id = e.event_id AND bp.team_id != p.team_id AND bp.starter = true LIMIT 1) as opp_starter_throws
         FROM event_boxscores_pitching p
         JOIN events e ON p.event_id = e.event_id
-        LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        WHERE p.athlete_id = :player_id AND p.starter = true AND __TYPE_FILTER__
+        WHERE p.athlete_id = :player_id AND p.starter = true AND __TYPE_FILTER__ AND e.season_year = :year
         ORDER BY e.date DESC
         LIMIT :limit
     """.replace("__TYPE_FILTER__", type_filter)
     
     try:
-        query_params = {"player_id": player_id, "limit": limit}
+        query_params = {"player_id": player_id, "limit": limit, "year": year}
         if season_type_id:
             query_params["season_type_id"] = season_type_id
             
