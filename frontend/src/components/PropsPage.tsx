@@ -23,41 +23,36 @@ export const PropsPage = () => {
 
     useEffect(() => {
         const loadAllProps = async () => {
-            if (!events || events.length === 0) {
-                // fallback to todayEvents if events is empty for some reason
-                if (!todayEvents || todayEvents.length === 0) return;
-            }
+            // Calculate today's date directly
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            const searchDate = `${y}${m}${d}`;
             
-            const targetEvents = (events && events.length > 0) ? events : todayEvents;
-            const currentDateStr = targetEvents[0]?.date ? targetEvents[0].date.split('T')[0] : 'unknown';
+            if (fetchedDate === searchDate && propBets.length > 0) return; 
             
-            if (fetchedDate === currentDateStr && propBets.length > 0) return; 
-            
-            setFetchedDate(currentDateStr);
+            setFetchedDate(searchDate);
             setLoading(true);
             
             const allBets: any[] = [];
             
             try {
-                // Fetch saved props from backend for this date, providing event IDs
-                const searchDate = currentDateStr.replace(/-/g, ''); // e.g., 20260330
-                const eventIds = targetEvents.map((e: any) => e.id);
-                const savedProps = await fetchSavedProps(searchDate, eventIds);
+                // Fetch saved props from backend for this date directly!
+                // No need to pass eventIds or wait for ESPN.
+                const savedProps = await fetchSavedProps(searchDate);
 
                 // Transform saved props back into the format the UI expects
                 savedProps.forEach((sp: any) => {
                     const pt = sp.prop_type ? sp.prop_type.toLowerCase() : '';
                     if (pt.includes('milestones') || pt === 'to record win') return;
-
-                    const event = targetEvents.find((e: any) => e.id === String(sp.event_id));
-                    if (!event) return;
                     
                     const bet: any = {
                         _gameId: String(sp.event_id),
-                        _awayTeam: event.competitions[0].competitors.find((c: any) => c.homeAway === 'away')?.team?.abbreviation,
-                        _awayTeamId: event.competitions[0].competitors.find((c: any) => c.homeAway === 'away')?.team?.id,
-                        _homeTeam: event.competitions[0].competitors.find((c: any) => c.homeAway === 'home')?.team?.abbreviation,
-                        _homeTeamId: event.competitions[0].competitors.find((c: any) => c.homeAway === 'home')?.team?.id,
+                        _awayTeam: sp._awayteam || sp._awayTeam || 'AWY',
+                        _awayTeamId: sp._awayteamid || sp._awayTeamId || null,
+                        _homeTeam: sp._hometeam || sp._homeTeam || 'HME',
+                        _homeTeamId: sp._hometeamid || sp._homeTeamId || null,
                         _athleteName: sp.athlete_name || `Player ${sp.athlete_id}`,
                         _teamAbbrev: sp.team_abbrev || 'UNK',
                         athlete: { $ref: `athletes/${sp.athlete_id}` },
@@ -102,17 +97,24 @@ export const PropsPage = () => {
             
             const fetchAllLogs = async () => {
                 const year = new Date().getFullYear();
-                const logsMap: Record<string, any> = {};
-                const promises = Array.from(pIds).map(async pId => {
-                    try {
-                        const logs = await fetchPlayerGameLogs(parseInt(pId), year);
-                        logsMap[pId] = logs;
-                    } catch (e) {
-                        // ignore error
+                try {
+                    const idsArray = Array.from(pIds);
+                    
+                    // We might exceed URL length limits if there are hundreds of players. 
+                    // Let's chunk them into groups of 50 just to be safe.
+                    const chunkSize = 50;
+                    const logsMap: Record<string, any> = {};
+                    
+                    for (let i = 0; i < idsArray.length; i += chunkSize) {
+                        const chunk = idsArray.slice(i, i + chunkSize);
+                        const chunkMap = await fetchBatchPlayerGameLogs(chunk, year, 15);
+                        Object.assign(logsMap, chunkMap);
                     }
-                });
-                await Promise.all(promises);
-                setAllPlayersLogs(logsMap);
+                    
+                    setAllPlayersLogs(logsMap);
+                } catch (e) {
+                    console.error("Batch fetch failed", e);
+                }
             };
             fetchAllLogs();
         }
