@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchPropBets, fetchSavedProps, fetchPlayerGameLogs, fetchBatchPlayerGameLogs } from '../api';
-import { Link, useNavigate } from 'react-router-dom';
-import { TrendingUp, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { TrendingUp, ArrowUpDown, ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useScoreboard } from '../context/ScoreboardContext';
 
 const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
@@ -32,18 +32,43 @@ const Sparkline = ({ sequence }: { sequence: boolean[] }) => {
 
 export const PropsPage = () => {
     const navigate = useNavigate();
-    const { todayEvents, events } = useScoreboard();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { todayEvents, scoreboardDate, displayDateToday, changeScoreboardDate, setScoreboardDate, isLoadingScores } = useScoreboard();
     const [propBets, setPropBets] = useState<any[]>([]);
     const [allPlayersLogs, setAllPlayersLogs] = useState<Record<string, any>>({});
     const [loading, setLoading] = useState(true);
-    const [propFilterGame, setPropFilterGame] = useState<string>('all');
-    const [propFilterTeam, setPropFilterTeam] = useState<string>('all');
-    const [propFilterPlayer, setPropFilterPlayer] = useState<string>('all');
-    const [propFilterType, setPropFilterType] = useState<string>('all');
-    const [l10TrendMode, setL10TrendMode] = useState<'over' | 'under'>('over');
-    const [hitRateFilter, setHitRateFilter] = useState<string>('all');
-    const [edgeFilter, setEdgeFilter] = useState<string>('all');
+    const [propFilterGame, setPropFilterGame] = useState<string>(searchParams.get('game') || 'all');
+    const [propFilterTeam, setPropFilterTeam] = useState<string>(searchParams.get('team') || 'all');
+    const [propFilterPlayer, setPropFilterPlayer] = useState<string>(searchParams.get('player') || 'all');
+    const [propFilterType, setPropFilterType] = useState<string>(searchParams.get('type') || 'all');
+    const [l10TrendMode, setL10TrendMode] = useState<'over' | 'under'>((searchParams.get('trend') as 'over' | 'under') || 'over');
+    const [hitRateFilter, setHitRateFilter] = useState<string>(searchParams.get('minHitRate') || 'all');
+    const [edgeFilter, setEdgeFilter] = useState<string>(searchParams.get('minEdge') || 'all');
+    const [showOnlyUpcoming, setShowOnlyUpcoming] = useState<boolean>(searchParams.get('upcoming') === 'true');
     const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'game', direction: 'asc' });
+
+    useEffect(() => {
+        setSearchParams(prev => {
+            const params = new URLSearchParams(prev);
+            
+            if (propFilterGame !== 'all') params.set('game', propFilterGame); else params.delete('game');
+            if (propFilterTeam !== 'all') params.set('team', propFilterTeam); else params.delete('team');
+            if (propFilterPlayer !== 'all') params.set('player', propFilterPlayer); else params.delete('player');
+            if (propFilterType !== 'all') params.set('type', propFilterType); else params.delete('type');
+            if (l10TrendMode !== 'over') params.set('trend', l10TrendMode); else params.delete('trend');
+            if (hitRateFilter !== 'all') params.set('minHitRate', hitRateFilter); else params.delete('minHitRate');
+            if (edgeFilter !== 'all') params.set('minEdge', edgeFilter); else params.delete('minEdge');
+            if (showOnlyUpcoming) params.set('upcoming', 'true'); else params.delete('upcoming');
+            
+            const y = scoreboardDate.getFullYear();
+            const m = String(scoreboardDate.getMonth() + 1).padStart(2, '0');
+            const d = String(scoreboardDate.getDate()).padStart(2, '0');
+            const dateStr = `${y}${m}${d}`;
+            params.set('date', dateStr);
+            
+            return params;
+        }, { replace: true });
+    }, [propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, l10TrendMode, hitRateFilter, edgeFilter, showOnlyUpcoming, scoreboardDate, setSearchParams]);
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -57,23 +82,33 @@ export const PropsPage = () => {
     const [fetchedDate, setFetchedDate] = useState<string>('');
 
     useEffect(() => {
+        if (isLoadingScores) {
+            setLoading(true);
+            return;
+        }
+
         const loadAllProps = async () => {
-            if (!events || events.length === 0) {
-                if (!todayEvents || todayEvents.length === 0) return;
-            }
-            
-            const targetEvents = (events && events.length > 0) ? events : todayEvents;
-            const currentDateStr = targetEvents[0]?.date ? targetEvents[0].date.split('T')[0] : 'unknown';
+            const y = scoreboardDate.getFullYear();
+            const m = String(scoreboardDate.getMonth() + 1).padStart(2, '0');
+            const d = String(scoreboardDate.getDate()).padStart(2, '0');
+            const currentDateStr = `${y}${m}${d}`;
             
             if (fetchedDate === currentDateStr && propBets.length > 0) return; 
             
             setFetchedDate(currentDateStr);
-            // We do NOT setLoading(false) here, we wait for logs to load
+            setPropBets([]);
+            
+            if (!todayEvents || todayEvents.length === 0) {
+                setLoading(false);
+                return;
+            }
+            
+            const targetEvents = todayEvents;
             
             const allBets: any[] = [];
             
             try {
-                const searchDate = currentDateStr.replace(/-/g, '');
+                const searchDate = currentDateStr;
                 const eventIds = targetEvents.map((e: any) => e.id);
                 const savedProps = await fetchSavedProps(searchDate, eventIds);
 
@@ -90,6 +125,7 @@ export const PropsPage = () => {
                     
                     const bet: any = {
                         _gameId: String(sp.event_id),
+                        _gameStatus: event?.status?.type?.state || 'pre',
                         _awayTeam: awayComp?.team?.abbreviation || sp._awayteam || 'AWY',
                         _awayTeamId: awayComp?.team?.id || sp._awayteamid || null,
                         _homeTeam: homeComp?.team?.abbreviation || sp._hometeam || 'HME',
@@ -123,10 +159,11 @@ export const PropsPage = () => {
             }
             
             setPropBets(allBets);
+            setLoading(false);
         };
         
         loadAllProps();
-    }, [todayEvents]);
+    }, [todayEvents, scoreboardDate, isLoadingScores]);
 
     useEffect(() => {
         if (propBets.length > 0) {
@@ -160,14 +197,9 @@ export const PropsPage = () => {
                     setAllPlayersLogs(logsMap);
                 } catch (e) {
                     console.error("Batch fetch failed", e);
-                } finally {
-                    setLoading(false);
                 }
             };
             fetchAllLogs();
-        } else {
-            // If propBets is empty (e.g. no props loaded today), we must still stop loading!
-            setLoading(false);
         }
     }, [propBets]);
 
@@ -268,6 +300,7 @@ export const PropsPage = () => {
 
             tableRowsMap.set(rowKey, {
                 gameId: bet._gameId,
+                gameStatus: bet._gameStatus,
                 game: `${bet._awayTeam} @ ${bet._homeTeam}`,
                 awayTeam: bet._awayTeam,
                 awayTeamId: bet._awayTeamId,
@@ -463,6 +496,7 @@ export const PropsPage = () => {
 
     const filteredRows = React.useMemo(() => {
         return allRows.filter(row => {
+            if (showOnlyUpcoming && row.gameStatus !== 'pre') return false;
             if (propFilterGame !== 'all' && row.gameId !== propFilterGame) return false;
             if (propFilterTeam !== 'all' && row.team !== propFilterTeam) return false;
             if (propFilterPlayer !== 'all' && row.playerId !== propFilterPlayer) return false;
@@ -480,7 +514,7 @@ export const PropsPage = () => {
             
             return true;
         });
-    }, [allRows, propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, hitRateFilter, edgeFilter]);
+    }, [allRows, showOnlyUpcoming, propFilterGame, propFilterTeam, propFilterPlayer, propFilterType, hitRateFilter, edgeFilter]);
 
     const tableRows = React.useMemo(() => {
         // Create a shallow copy so we don't mutate the filtered array
@@ -545,7 +579,24 @@ export const PropsPage = () => {
                     </div>
                     <div className="flex flex-col">
                         <h1 className="font-headline font-black text-3xl uppercase tracking-widest text-slate-800">Daily Prop Bets</h1>
-                        <p className="text-slate-500 font-medium">Player prop odds and L10 trends across all games.</p>
+                        <div className="flex items-center gap-1 text-sm font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                            <button onClick={() => changeScoreboardDate(-1)} className="hover:text-primary p-0.5 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                            <div className="relative group">
+                                <span className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">{displayDateToday}</span>
+                                <input
+                                    type="date"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    value={`${scoreboardDate.getFullYear()}-${String(scoreboardDate.getMonth() + 1).padStart(2, '0')}-${String(scoreboardDate.getDate()).padStart(2, '0')}`}
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            const [y, m, d] = e.target.value.split('-').map(Number);
+                                            setScoreboardDate(new Date(y, m - 1, d));
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <button onClick={() => changeScoreboardDate(1)} className="hover:text-primary p-0.5 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                        </div>
                     </div>
                 </div>
                 
@@ -582,7 +633,7 @@ export const PropsPage = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row gap-4">
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row flex-wrap gap-4">
                     <div className="flex flex-col">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Game</label>
                         <select 
@@ -689,6 +740,23 @@ export const PropsPage = () => {
                                 className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${l10TrendMode === 'under' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Under
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Status</label>
+                        <div className="flex bg-slate-200/70 rounded-md p-0.5">
+                            <button
+                                onClick={() => setShowOnlyUpcoming(false)}
+                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${!showOnlyUpcoming ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => setShowOnlyUpcoming(true)}
+                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${showOnlyUpcoming ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Upcoming
                             </button>
                         </div>
                     </div>

@@ -11,6 +11,7 @@ interface ScoreboardContextType {
   scoreboardDate: Date;
   changeScoreboardDate: (days: number) => void;
   setScoreboardDate: (date: Date) => void;
+  isLoadingScores: boolean;
 }
 
 const ScoreboardContext = createContext<ScoreboardContextType>({ 
@@ -23,7 +24,8 @@ const ScoreboardContext = createContext<ScoreboardContextType>({
   setDate: () => {},
   scoreboardDate: new Date(),
   changeScoreboardDate: () => {},
-  setScoreboardDate: () => {}
+  setScoreboardDate: () => {},
+  isLoadingScores: true
 });
 
 export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
@@ -31,6 +33,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [displayDate, setDisplayDate] = useState<string>('');
   const [displayDateToday, setDisplayDateToday] = useState<string>('');
+  const [isLoadingScores, setIsLoadingScores] = useState<boolean>(true);
   
   const getInitialDate = () => {
     const params = new URLSearchParams(window.location.search);
@@ -48,6 +51,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   const [scoreboardDate, setScoreboardDate] = useState<Date>(getInitialDate());
 
   const changeDate = (days: number) => {
+    setIsLoadingScores(true);
     setCurrentDate(prev => {
       const d = new Date(prev);
       d.setDate(d.getDate() + days);
@@ -56,6 +60,7 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changeScoreboardDate = (days: number) => {
+    setIsLoadingScores(true);
     setScoreboardDate(prev => {
       const d = new Date(prev);
       d.setDate(d.getDate() + days);
@@ -64,7 +69,11 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let isInitialLoadOrDateChange = true;
+    
     const fetchScores = async () => {
+      if (isInitialLoadOrDateChange) setIsLoadingScores(true);
+      
       try {
         // Ticker / Header Date
         const y = currentDate.getFullYear();
@@ -96,6 +105,11 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
 
       } catch (err) {
         console.error("Error fetching scoreboard:", err);
+      } finally {
+        if (isInitialLoadOrDateChange) {
+          setIsLoadingScores(false);
+          isInitialLoadOrDateChange = false;
+        }
       }
     };
 
@@ -107,8 +121,9 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ScoreboardContext.Provider value={{ 
       events, todayEvents, displayDate, displayDateToday, 
-      currentDate, changeDate, setDate: setCurrentDate,
-      scoreboardDate, changeScoreboardDate, setScoreboardDate 
+      currentDate, changeDate, setDate: (d: Date) => { setIsLoadingScores(true); setCurrentDate(d); },
+      scoreboardDate, changeScoreboardDate, setScoreboardDate: (d: Date) => { setIsLoadingScores(true); setScoreboardDate(d); },
+      isLoadingScores
     }}>
       {children}
     </ScoreboardContext.Provider>
