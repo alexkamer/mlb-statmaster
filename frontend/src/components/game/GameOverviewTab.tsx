@@ -664,7 +664,7 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                     return (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
                             <div className="flex justify-between items-center bg-slate-900 text-white px-4 py-2 border-b border-slate-800">
-                                <span className="font-black text-sm uppercase tracking-widest">Game Odds</span>
+                                <span className="font-black text-sm uppercase tracking-widest">{awayTeam?.team?.abbreviation} @ {homeTeam?.team?.abbreviation} Odds</span>
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                                     {provider === "DraftKings" ? (
                                         <span className="text-[#53d337]">DraftKings</span>
