@@ -69,13 +69,13 @@ export const PropAnalysisPage = () => {
     const [restFilter, setRestFilter] = useState('all');
 
     useEffect(() => {
-        if (playerProfile?.shortName || playerProfile?.displayName) {
-            document.title = `${playerProfile.shortName || playerProfile.displayName} ${propType} | Prop Analysis`;
+        if (player?.shortName || player?.displayName || player?.full_name) {
+            document.title = `${player.shortName || player.displayName || player.full_name} ${propType} | Prop Analysis`;
         } else {
             document.title = "Prop Analysis | MLB Statmaster";
         }
         return () => { document.title = "MLB Statmaster"; };
-    }, [playerProfile, propType]);
+    }, [player, propType]);
 
     useEffect(() => {
         if (!playerId) return;

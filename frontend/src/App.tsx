@@ -20,6 +20,7 @@ import { GamePredictorPage } from './components/game/GamePredictorPage';
 import { PropsPage } from './components/props/PropsPage';
 import { PropAnalysisPage } from './components/props/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
+import { BettorsHeavenPage } from './components/bettors/BettorsHeavenPage';
 import { TeamStatsDashboard } from './components/team/TeamStatsDashboard';
 import { TeamNewsFeed } from './components/team/TeamNewsFeed';
 import { LiveTicker } from './components/shared/LiveTicker';
@@ -44,7 +45,8 @@ import {
   Menu,
   ChevronDown,
   User,
-  Zap
+  Zap,
+  Coins
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -184,7 +186,7 @@ const TopNav = () => {
         { label: 'Live Scores', icon: Activity, path: '/' },
         { label: 'Prop Bets', icon: TrendingUp, path: '/props' },
         { label: 'League Leaders', icon: Trophy, path: '/leaders' },
-        { label: 'Transactions', icon: ArrowLeftRight, path: '#' },
+        { label: 'Bettors Heaven', icon: Coins, path: '/bettors-heaven' },
         { label: 'Injury Report', icon: Activity, path: '#' },
         { label: 'Archive', icon: Archive, path: '#' },
       ].map((item) => {
@@ -1134,6 +1136,14 @@ const AppContent = () => {
           </>
         } />
         <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} />} />
+        <Route path="/bettors-heaven" element={
+          <>
+            <Header selectedTeamId={null} />
+            <main className="pt-36 transition-all duration-300 h-screen">
+              <BettorsHeavenPage />
+            </main>
+          </>
+        } />
         <Route path="/props" element={
           <>
             <Header selectedTeamId={null} />

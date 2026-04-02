@@ -204,10 +204,12 @@ export async function fetchPlayerGameLogs(playerId: number, year: number, limit:
   let url = `${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`;
   if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
   return await fetchWithCache(url);
-  
-  
 }
 
+export async function fetchRecentPlayerGameLogs(playerId: number, limit: number = 10) {
+  let url = `${API_URL}/players/${playerId}/gamelog?limit=${limit}`;
+  return await fetchWithCache(url);
+}
 export async function fetchPlayerPropsAvailable(playerId: number) {
   return await fetchWithCache(`${API_URL}/players/${playerId}/props`);
   
@@ -453,12 +455,11 @@ export async function fetchOpponentBattingSplits(teamId: number, outs: number, y
   
 }
 
-export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number, limit: number = 15) {
+export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number | null, limit: number = 15) {
   if (!playerIds || playerIds.length === 0) return {};
-  const url = `${API_URL}/players/gamelogs/batch?player_ids=${playerIds.join(',')}&year=${year}&limit=${limit}`;
+  let url = `${API_URL}/players/gamelogs/batch?player_ids=${playerIds.join(',')}&limit=${limit}`;
+  if (year !== null) url += `&year=${year}`;
   return await fetchWithCache(url);
-  
-  
 }
 
 export async function fetchBvpStats(batterId: string | number, pitcherId: string | number) {
