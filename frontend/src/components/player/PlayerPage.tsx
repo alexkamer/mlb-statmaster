@@ -127,6 +127,16 @@ export const PlayerPage = () => {
     setSearchParams(params, { replace: true });
   }, [activeTab, activeCategory, activeLogYear, setSearchParams]);
 
+  React.useEffect(() => {
+      const name = profile?.espnBase?.displayName || profile?.espnBase?.fullName;
+      if (name) {
+          document.title = `${name} | MLB Statmaster`;
+      } else {
+          document.title = "MLB Statmaster";
+      }
+      return () => { document.title = "MLB Statmaster"; };
+  }, [profile]);
+
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary">LOADING PLAYER...</div>;
   if (error || !profile) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">{error || "Error loading player"}</div>;
 
@@ -233,14 +243,6 @@ export const PlayerPage = () => {
       }
   }
 
-  React.useEffect(() => {
-      if (bio?.name) {
-          document.title = `${bio.name} | MLB Statmaster`;
-      } else {
-          document.title = "MLB Statmaster";
-      }
-      return () => { document.title = "MLB Statmaster"; };
-  }, [bio]);
 
   return (
     <>
