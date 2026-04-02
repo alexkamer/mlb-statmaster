@@ -1,4 +1,4 @@
 #!/bin/bash
-source .venv/bin/activate
-uv run python update_data.py
-uv run python grab_props.py
+cd /Users/alexkamer/mlb_webapp
+/Users/alexkamer/mlb_webapp/.venv/bin/python update_data.py
+/Users/alexkamer/mlb_webapp/.venv/bin/python grab_props.py

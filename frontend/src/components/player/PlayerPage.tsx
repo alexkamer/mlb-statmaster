@@ -360,6 +360,13 @@ export const PlayerPage = () => {
         <div className="flex items-end justify-between border-b-2 border-slate-200 mb-8 pb-4">
           <div className="flex gap-8">
             <button 
+              onClick={() => setActiveTab("Overview")}
+              className={`font-headline font-black text-3xl md:text-4xl tracking-tighter transition-all ${activeTab === "Overview" ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
+              style={{ color: `#${bio.team_color}` }}
+            >
+              OVERVIEW
+            </button>
+            <button 
               onClick={() => setActiveTab("Stats")}
               className={`font-headline font-black text-3xl md:text-4xl tracking-tighter transition-all ${activeTab === "Stats" ? "opacity-100" : "opacity-30 hover:opacity-60"}`}
               style={{ color: `#${bio.team_color}` }}
@@ -403,6 +410,175 @@ export const PlayerPage = () => {
             </div>
           )}
         </div>
+
+        {/* Tab Content: OVERVIEW */}
+        {activeTab === "Overview" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+            <div className="lg:col-span-2 space-y-8">
+              {/* Season / Career Stats Snapshot */}
+              {espnOverview.statistics && espnOverview.statistics.splits && espnOverview.statistics.labels ? (
+                  <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+                     <div className="p-6 border-b border-slate-200 bg-slate-50">
+                         <h4 className="font-headline font-black text-xl tracking-tighter uppercase" style={{ color: `#${bio.team_color}` }}>{espnOverview.statistics.displayName || "Stats Overview"}</h4>
+                     </div>
+                     <div className="overflow-x-auto relative">
+                         <table className="w-full text-left border-collapse tabular-nums">
+                            <thead>
+                                <tr className="text-white font-bold text-[10px] uppercase tracking-widest" style={{ backgroundColor: `#${bio.team_color}` }}>
+                                    <th className="px-6 py-4 whitespace-nowrap">Season</th>
+                                    {espnOverview.statistics.labels.map((label: string, idx: number) => (
+                                        <th key={idx} className="px-4 py-4 text-right whitespace-nowrap">{label}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="text-slate-800 text-sm">
+                                {espnOverview.statistics.splits.map((split: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                                        <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{split.displayName}</td>
+                                        {split.stats.map((stat: string, statIdx: number) => (
+                                            <td key={statIdx} className="px-4 py-3 text-right font-medium text-slate-700">{stat}</td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                         </table>
+                     </div>
+                  </div>
+              ) : (
+                  <div className="bg-white rounded-xl p-6 text-center text-slate-500 shadow-sm border border-slate-200">
+                      <p className="font-bold">No seasonal statistics available.</p>
+                  </div>
+              )}
+
+              {/* Recent Games */}
+              <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+                <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                  <h4 className="font-headline font-black text-xl tracking-tighter uppercase" style={{ color: `#${bio.team_color}` }}>Recent Games</h4>
+                  <button onClick={() => setActiveTab("GameLog")} className="text-xs font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-widest">View All</button>
+                </div>
+                <div className="overflow-x-auto relative">
+                  {loadingLogs && (
+                      <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                          <span className="font-bold text-slate-500 animate-pulse uppercase tracking-widest text-sm">Loading...</span>
+                      </div>
+                  )}
+                  <table className="w-full text-left border-collapse tabular-nums">
+                    <thead>
+                      <tr className="text-white font-bold text-[10px] uppercase tracking-widest" style={{ backgroundColor: `#${bio.team_color}` }}>
+                        <th className="px-6 py-4 whitespace-nowrap">Date</th>
+                        <th className="px-4 py-4 whitespace-nowrap">Opp</th>
+                        <th className="px-4 py-4 whitespace-nowrap">Result</th>
+                        {activeCategory === "pitching" ? (
+                            <>
+                                <th className="px-4 py-4 text-right">IP</th>
+                                <th className="px-4 py-4 text-right">H</th>
+                                <th className="px-4 py-4 text-right">R</th>
+                                <th className="px-4 py-4 text-right">ER</th>
+                                <th className="px-4 py-4 text-right">BB</th>
+                                <th className="px-4 py-4 text-right">K</th>
+                            </>
+                        ) : (
+                            <>
+                                <th className="px-4 py-4 text-right">AB</th>
+                                <th className="px-4 py-4 text-right">R</th>
+                                <th className="px-4 py-4 text-right">H</th>
+                                <th className="px-4 py-4 text-right">HR</th>
+                                <th className="px-4 py-4 text-right">RBI</th>
+                                <th className="px-4 py-4 text-right">BB</th>
+                                <th className="px-4 py-4 text-right">K</th>
+                            </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="text-slate-800 text-sm">
+                      {(gameLogs[activeCategory === "pitching" ? "pitching" : "batting"] || []).slice(0, 5).map((log: any, idx: number) => {
+                          const isHome = log.home_away === "home";
+                          const oppPrefix = isHome ? "vs " : "@ ";
+                          const resultPrefix = log.is_win ? "W" : "L";
+                          const scoreStr = log.team_score !== null && log.opponent_score !== null ? `${log.team_score}-${log.opponent_score}` : "";
+                          const dateObj = new Date(log.date + (log.date.endsWith("Z") ? "" : "Z"));
+                          const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                          
+                          return (
+                            <tr key={`recent-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                              <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
+                              <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                      <span>{oppPrefix}</span>
+                                      {log.opponent_id && log.opponent_abbrev ? (
+                                          <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
+                                              <SafeImage 
+                                                src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
+                                                className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
+                                                alt={log.opponent_abbrev} 
+                                                hideOnError
+                                              />
+                                              <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
+                                          </Link>
+                                      ) : (
+                                          <span>{log.opponent_abbrev || "TBD"}</span>
+                                      )}
+                                  </div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
+                                <Link to={`/games/${log.event_id}`} className="hover:underline hover:text-primary transition-colors">
+                                  <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
+                                  {scoreStr}
+                                </Link>
+                              </td>
+                              {activeCategory === "pitching" ? (
+                                  <>
+                                      <td className="px-4 py-3 text-right font-medium">{log.ip}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.h}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.r}</td>
+                                      <td className="px-4 py-3 text-right font-bold text-slate-700">{log.er}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.bb}</td>
+                                      <td className="px-4 py-3 text-right font-black" style={{ color: `#${bio.team_color}` }}>{log.k}</td>
+                                  </>
+                              ) : (
+                                  <>
+                                      <td className="px-4 py-3 text-right font-medium">{log.ab}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.r}</td>
+                                      <td className="px-4 py-3 text-right font-bold text-slate-700">{log.h}</td>
+                                      <td className="px-4 py-3 text-right font-black text-slate-800">{log.hr}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.rbi}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.bb}</td>
+                                      <td className="px-4 py-3 text-right font-medium">{log.k}</td>
+                                  </>
+                              )}
+                            </tr>
+                          );
+                      })}
+                      {(gameLogs[activeCategory === "pitching" ? "pitching" : "batting"] || []).length === 0 && !loadingLogs && (
+                          <tr><td colSpan={10} className="px-6 py-6 text-center text-slate-500 font-bold">No recent games. (Cat: {activeCategory}, Logs Size: {gameLogs?.batting?.length || 0})</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            <div className="lg:col-span-1 space-y-8">
+              {/* News / Notes */}
+              {((espnOverview.notes?.length > 0) || (espnBase.notes?.length > 0)) && (
+                  <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+                     <div className="p-6 border-b border-slate-200 bg-slate-50">
+                         <h4 className="font-headline font-black text-xl tracking-tighter uppercase" style={{ color: `#${bio.team_color}` }}>Recent Updates</h4>
+                     </div>
+                     <div className="p-6 space-y-4">
+                         {(espnOverview.notes || espnBase.notes || []).slice(0,3).map((note: any, i: number) => (
+                             <div key={i} className="border-b last:border-b-0 border-slate-100 pb-4 last:pb-0">
+                                 <h5 className="font-bold text-slate-800">{note.headline}</h5>
+                                 <p className="text-sm text-slate-600 mt-1">{note.text}</p>
+                                 {note.date && <span className="text-xs text-slate-400 font-medium block mt-2">{new Date(note.date).toLocaleDateString()}</span>}
+                             </div>
+                         ))}
+                     </div>
+                  </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tab Content: STATS */}
         {activeTab === "Stats" && (
