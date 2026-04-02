@@ -37,9 +37,10 @@ export async function fetchTeamRoster(teamId: number, year = new Date().getFullY
   return fetchWithCache(`${API_URL}/teams/${teamId}/roster?year=${year}&season_type=${encodeURIComponent(seasonType)}`);
 }
 
-export async function fetchRecentGames(teamId: number, limit = 5, year = new Date().getFullYear(), seasonTypeId?: number) {
+export async function fetchRecentGames(teamId: number, limit = 5, year = new Date().getFullYear(), seasonTypeId?: number, inning: number = 1) {
   let url = `${API_URL}/teams/${teamId}/recent_games?limit=${limit}&year=${year}`;
   if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
+  if (inning !== 1) url += `&inning=${inning}`;
   return fetchWithCache(url);
 }export async function fetchPaginatedTeamGames(teamId: number, year = new Date().getFullYear(), page = 1, limit = 20, seasonType = "All") {
   return fetchWithCache(`${API_URL}/teams/${teamId}/games?year=${year}&page=${page}&limit=${limit}&season_type=${encodeURIComponent(seasonType)}`);
@@ -455,10 +456,11 @@ export async function fetchOpponentBattingSplits(teamId: number, outs: number, y
   
 }
 
-export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number | null, limit: number = 15) {
+export async function fetchBatchPlayerGameLogs(playerIds: string[], year: number | null, limit: number = 15, inning: number = 1) {
   if (!playerIds || playerIds.length === 0) return {};
   let url = `${API_URL}/players/gamelogs/batch?player_ids=${playerIds.join(',')}&limit=${limit}`;
   if (year !== null) url += `&year=${year}`;
+  if (inning !== 1) url += `&inning=${inning}`;
   return await fetchWithCache(url);
 }
 
