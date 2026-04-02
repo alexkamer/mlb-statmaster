@@ -165,15 +165,20 @@ const LatestNews = () => {
             };
 
             export const HomePage = () => {
-            const { setScoreboardDate, setDate } = useScoreboard();
+            const { setScoreboardDate, setDate, scoreboardDate } = useScoreboard();
 
             useEffect(() => {
-            // Always reset to today's date when returning to the homepage
+            // Always reset to today's date when returning to the homepage, but only if we aren't already on today
             const today = new Date();
-            setScoreboardDate(today);
-            setDate(today);
-            }, [setScoreboardDate, setDate]);
+            const isSameDate = scoreboardDate.getFullYear() === today.getFullYear() && 
+                              scoreboardDate.getMonth() === today.getMonth() && 
+                              scoreboardDate.getDate() === today.getDate();
 
+            if (!isSameDate) {
+                setScoreboardDate(today);
+                setDate(today);
+            }
+            }, [setScoreboardDate, setDate, scoreboardDate]);
             return (
             <div className="w-full">
             <div className="p-8 space-y-12 mx-auto max-w-[1600px]">

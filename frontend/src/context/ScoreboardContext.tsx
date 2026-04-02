@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
 interface ScoreboardContextType {
   events: any[]; // Events for the selected date (for the ticker)
@@ -138,11 +138,21 @@ export const ScoreboardProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [currentDate, scoreboardDate]);
 
+  const handleSetDate = useCallback((d: Date) => { 
+    setIsLoadingScores(true); 
+    setCurrentDate(d); 
+  }, []);
+
+  const handleSetScoreboardDate = useCallback((d: Date) => { 
+    setIsLoadingScores(true); 
+    setScoreboardDate(d); 
+  }, []);
+
   return (
     <ScoreboardContext.Provider value={{ 
       events, todayEvents, displayDate, displayDateToday, 
-      currentDate, changeDate, setDate: (d: Date) => { setIsLoadingScores(true); setCurrentDate(d); },
-      scoreboardDate, changeScoreboardDate, setScoreboardDate: (d: Date) => { setIsLoadingScores(true); setScoreboardDate(d); },
+      currentDate, changeDate, setDate: handleSetDate,
+      scoreboardDate, changeScoreboardDate, setScoreboardDate: handleSetScoreboardDate,
       isLoadingScores
     }}>
       {children}
