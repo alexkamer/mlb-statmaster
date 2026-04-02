@@ -282,18 +282,8 @@ export const GamePage = () => {
       return pitchers;
   }, [data]);
 
-  if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary uppercase tracking-widest animate-pulse">Loading Game Data...</div>;
-  if (!data) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">Failed to load game data.</div>;
-
-  const header = data.header?.competitions?.[0];
+  const header = data?.header?.competitions?.[0];
   const homeTeam = header?.competitors?.find((c: any) => c.homeAway === "home");
-  const isPregame = header?.status?.type?.state === 'pre';
-  const validTabs = isPregame ? ["matchup", "props"] : ["overview", "boxscore", "plays", "win_probability", "props"];
-  // If the user navigates directly to a pregame game, or the state changes, ensure they land on a valid tab.
-  // We MUST NOT force 'matchup' if they are already on 'props'.
-  if (!validTabs.includes(activeTab)) {
-      activeTab = isPregame ? "matchup" : "overview";
-  }
   const awayTeam = header?.competitors?.find((c: any) => c.homeAway === "away");
 
   React.useEffect(() => {
@@ -304,6 +294,17 @@ export const GamePage = () => {
       }
       return () => { document.title = "MLB Statmaster"; };
   }, [awayTeam, homeTeam]);
+
+  if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center font-headline font-black text-2xl text-primary uppercase tracking-widest animate-pulse">Loading Game Data...</div>;
+  if (!data) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">Failed to load game data.</div>;
+
+  const isPregame = header?.status?.type?.state === 'pre';
+  const validTabs = isPregame ? ["matchup", "props"] : ["overview", "boxscore", "plays", "win_probability", "props"];
+  // If the user navigates directly to a pregame game, or the state changes, ensure they land on a valid tab.
+  // We MUST NOT force 'matchup' if they are already on 'props'.
+  if (!validTabs.includes(activeTab)) {
+      activeTab = isPregame ? "matchup" : "overview";
+  }
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 relative z-30">
