@@ -172,17 +172,15 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
                     (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
                     (
-                        SELECT COALESCE(SUM(ep.score_value), 0)
-                        FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true AND 
-                            CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
-                                ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
-                            ELSE 
-                                ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
-                            END
+                        CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
+                            (SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
+                        ELSE 
+                            (SELECT COALESCE(MAX(home_score) - MIN(home_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0'))
+                        END
                     ) as inning_runs_allowed,
                     (
-                        SELECT COALESCE(SUM(ep.score_value), 0)
-                        FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true
+                        SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) + COALESCE(MAX(home_score) - MIN(home_score), 0)
+                        FROM event_plays WHERE event_id = e.event_id AND inning = :inning
                     ) as inning_total_runs,
                     (
                         SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND 

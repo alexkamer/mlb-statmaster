@@ -173,17 +173,15 @@ async def get_recent_games(team_id: int, limit: int = 5, year: int = 2024, seaso
                 (SELECT t.abbreviation FROM season_teams t WHERE t.team_id = c2.team_id AND t.season_year = e.season_year LIMIT 1) as opponent_abbreviation,
                 c1.home_away as location,
                 (
-                    SELECT COALESCE(SUM(ep.score_value), 0)
-                    FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true AND 
-                        CASE WHEN c1.home_away = 'home' THEN 
-                            ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
-                        ELSE 
-                            ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
-                        END
+                    CASE WHEN c1.home_away = 'home' THEN 
+                        (SELECT COALESCE(MAX(home_score) - MIN(home_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0'))
+                    ELSE 
+                        (SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
+                    END
                 ) as inning_runs_scored,
                 (
-                    SELECT COALESCE(SUM(ep.score_value), 0)
-                    FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true
+                    SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) + COALESCE(MAX(home_score) - MIN(home_score), 0)
+                    FROM event_plays WHERE event_id = e.event_id AND inning = :inning
                 ) as inning_total_runs,
                 (
                     SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND 
