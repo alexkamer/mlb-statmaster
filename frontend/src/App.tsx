@@ -162,10 +162,21 @@ const UPCOMING_GAMES: UpcomingGame[] = [
 
 const TopNav = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setScoreboardDate, setDate } = useScoreboard();
+
+  const handleNavigate = (path: string) => {
+    if (path !== '#') {
+      setScoreboardDate(new Date());
+      setDate(new Date());
+      navigate(path);
+    }
+  };
+
   return (
     <div className="w-full bg-[#002d62] text-white flex items-center px-6 h-12 shadow-sm relative z-40 gap-8 overflow-x-auto hide-scrollbar">
       <button 
-        onClick={() => navigate('/teams')}
+        onClick={() => handleNavigate('/teams')}
         className={`flex items-center gap-2 font-bold text-sm hover:text-secondary transition-colors whitespace-nowrap ${location.pathname.includes('/teams') ? 'text-secondary' : 'text-slate-300'}`}
       >
         <Activity className="w-4 h-4" />
@@ -183,7 +194,7 @@ const TopNav = () => {
         return (
           <button 
             key={item.label}
-            onClick={() => { if(item.path !== '#') navigate(item.path); }}
+            onClick={() => handleNavigate(item.path)}
             className={`flex items-center gap-2 font-bold text-sm hover:text-secondary transition-colors whitespace-nowrap ${isActive ? 'text-white border-b-2 border-secondary h-full' : 'text-slate-300'}`}
           >
             <item.icon className="w-4 h-4" />
