@@ -131,6 +131,16 @@ async def update_season_and_teams(client):
             if not team_info: continue
             
             team_id = int(team_info['id'])
+            
+            # Extract group_id (division mapping)
+            group_id = None
+            if 'groups' in team_info and '$ref' in team_info['groups']:
+                try:
+                    grp_ref = team_info['groups']['$ref']
+                    group_id = int(grp_ref.split('/groups/')[1].split('?')[0])
+                except:
+                    pass
+            
             teams_records.append({
                 'season_team_id': f"{current_year}_{team_id}",
                 'season_year': current_year,
@@ -142,6 +152,7 @@ async def update_season_and_teams(client):
                 'display_name': team_info.get('displayName'),
                 'color': team_info.get('color'),
                 'alternate_color': team_info.get('alternateColor'),
+                'group_id': group_id,
                 'is_active': team_info.get('isActive')
             })
             
