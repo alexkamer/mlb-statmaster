@@ -125,7 +125,7 @@ async def get_player_profile(player_id: int):
 
 
 @router.get("/api/players/gamelogs/batch")
-async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: int = 15):
+async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: int = 15, inning: int = 1):
     """Get game logs for multiple players at once to prevent connection pooling bottlenecks."""
     try:
         p_ids = [int(p) for p in player_ids.split(",") if p.strip().isdigit()]
@@ -172,28 +172,29 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
                     (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
                     (
-                        SELECT
-                            CASE
-                                WHEN c.home_away = 'home' THEN (SELECT away_score FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = 1 ORDER BY ep.play_id DESC LIMIT 1)
-                                ELSE (SELECT home_score FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = 1 ORDER BY ep.play_id DESC LIMIT 1)
-                            END
-                        FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id
-                    ) as inning_1_runs_allowed,
-                    (
-                        SELECT COALESCE(ep.away_score, 0) + COALESCE(ep.home_score, 0)
-                        FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = 1 ORDER BY ep.play_id DESC LIMIT 1
-                    ) as inning_1_total_runs,
-                    (
-                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = 1 AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND 
+                        SELECT COALESCE(SUM(ep.score_value), 0)
+                        FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true AND 
                             CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
-                                ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = 1 AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
+                                ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
                             ELSE 
-                                ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = 1 AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
+                                ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
                             END
-                    ) as inning_1_hits_allowed,
+                    ) as inning_runs_allowed,
                     (
-                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = 1 AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y'
-                    ) as inning_1_total_hits,
+                        SELECT COALESCE(SUM(ep.score_value), 0)
+                        FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.is_scoring_play = true
+                    ) as inning_total_runs,
+                    (
+                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND 
+                            CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
+                                ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
+                            ELSE 
+                                ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
+                            END
+                    ) as inning_hits_allowed,
+                    (
+                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y'
+                    ) as inning_total_hits,
                     ROW_NUMBER() OVER(PARTITION BY p.athlete_id ORDER BY e.date DESC) as rn
                 FROM event_boxscores_pitching p
                 JOIN events e ON p.event_id = e.event_id
@@ -203,11 +204,11 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
             SELECT * FROM RankedPitching WHERE rn <= :limit
         """.replace("__TYPE_FILTER__", type_filter).replace("__YEAR_FILTER__", year_filter)
 
-        query_params = {"limit": limit, "p_ids": p_ids}
+        query_params = {"limit": limit, "p_ids": p_ids, "inning": inning}
         if year:
             query_params["year"] = year
 
-        batting_logs = await database.fetch_all(query=batting_query, values=query_params)
+        batting_logs = await database.fetch_all(query=batting_query, values={k: v for k, v in query_params.items() if k != 'inning'})
         pitching_logs = await database.fetch_all(query=pitching_query, values=query_params)
         
         result_map = {pid: {"batting": [], "pitching": [], "season_batting": None, "season_pitching": None} for pid in p_ids}
@@ -365,7 +366,7 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
             query_params["year"] = year
         if season_type_id:
             query_params["season_type_id"] = season_type_id            
-        batting_logs = await database.fetch_all(query=batting_query, values=query_params)
+        batting_logs = await database.fetch_all(query=batting_query, values={k: v for k, v in query_params.items() if k != 'inning'})
         pitching_logs = await database.fetch_all(query=pitching_query, values=query_params)
         
         bat_list = [dict(b) for b in batting_logs]
