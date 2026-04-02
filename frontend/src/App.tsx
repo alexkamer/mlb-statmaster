@@ -168,10 +168,6 @@ const TopNav = () => {
   const handleNavigate = (path: string) => {
     if (path !== '#') {
       navigate(path);
-      setTimeout(() => {
-        setScoreboardDate(new Date());
-        setDate(new Date());
-      }, 10);
     }
   };
 

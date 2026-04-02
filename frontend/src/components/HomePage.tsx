@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ChevronRight, Calendar as CalendarIcon, TrendingUp, BarChart2, Play, Ticket } from 'lucide-react';
 import { LiveTicker } from './shared/LiveTicker';
 import { DailyScoreboard } from './shared/DailyScoreboard';
+import { useScoreboard } from '../context/ScoreboardContext';
 
 const LeagueLeaders = () => {
   const [leaders, setLeaders] = useState<any[]>([]);
@@ -156,29 +157,40 @@ const LatestNews = () => {
                 {article.headline}
               </p>
             </a>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-              export const HomePage = () => {
-              return (
-              <div className="w-full">      <div className="p-8 space-y-12 mx-auto max-w-[1600px]">
-        <div className="flex flex-col lg:flex-row gap-8">
-          <div className="flex-1 space-y-12">
+            );
+            })}
+            </div>
+            </div>
+            );
+            };
+
+            export const HomePage = () => {
+            const { setScoreboardDate, setDate } = useScoreboard();
+
+            useEffect(() => {
+            // Always reset to today's date when returning to the homepage
+            const today = new Date();
+            setScoreboardDate(today);
+            setDate(today);
+            }, [setScoreboardDate, setDate]);
+
+            return (
+            <div className="w-full">
+            <div className="p-8 space-y-12 mx-auto max-w-[1600px]">
+            <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex-1 space-y-12">
             {/* Hero Section: Bento Grid */}
 
             <DailyScoreboard />
-            
+
             {/* Leaders Sidebar & Data Section */}
-          </div>
-          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-8">
+            </div>
+            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-8">
              <LatestNews />
              <LeagueLeaders />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+            </div>
+            </div>
+            </div>
+            </div>
+            );
+            };
