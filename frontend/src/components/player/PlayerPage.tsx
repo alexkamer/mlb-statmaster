@@ -2,6 +2,7 @@ import { SafeImage } from '../shared/SafeImage';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { fetchEspnSplits, fetchPlayerProfile as fetchBackendProfile, fetchPlayerGameLogs } from '../../api';
 
 export const PlayerPage = () => {
@@ -465,9 +466,12 @@ export const PlayerPage = () => {
             </table>
             
             {splitsData?.labels && splitsData.labels.length > 0 && splitsData?.displayNames && splitsData?.descriptions && (
-              <div className="bg-slate-50 border-t border-slate-200 p-6">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Stats Legend</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <details className="bg-slate-50 border-t border-slate-200 group transition-colors">
+                <summary className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 cursor-pointer list-none flex items-center justify-center gap-1.5 select-none [&::-webkit-details-marker]:hidden">
+                  Stats Legend
+                  <ChevronDown className="w-3 h-3 group-open:-rotate-180 transition-transform duration-300" />
+                </summary>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-6 pt-2 border-t border-slate-100">
                   {splitsData.labels.map((label: string, i: number) => {
                     const displayName = splitsData.displayNames?.[i];
                     const description = splitsData.descriptions?.[i];
@@ -485,7 +489,7 @@ export const PlayerPage = () => {
                     );
                   })}
                 </div>
-              </div>
+              </details>
             )}
           </div>
         </div>
