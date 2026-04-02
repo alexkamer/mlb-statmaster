@@ -2,7 +2,7 @@ import { SafeImage } from '../shared/SafeImage';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { fetchGameSummary, fetchSavedProps, fetchPlayerGameLogs, fetchGameOdds } from '../../api';
+import { fetchGameSummary, fetchSavedProps, fetchPropBets, fetchPlayerGameLogs, fetchGameOdds } from '../../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp, Zap, ArrowRight } from 'lucide-react';
 import { WinProbability } from './WinProbability';
@@ -175,12 +175,26 @@ export const GamePage = () => {
           const gameDate = summary.header.competitions?.[0]?.date;
           if (gameDate) {
               const dt = new Date(gameDate);
+              const today = new Date();
+              const isPastGame = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+              
+              if (!isPastGame) {
+                  // Fetch live props from ESPN via proxy for recent/upcoming games
+                  const liveProps = await fetchPropBets(gameId);
+                  if (liveProps && liveProps.items) {
+                      const playerProps = liveProps.items.filter((item: any) => item.athlete?.$ref);
+                      setPropBets(playerProps);
+                      setLoading(false);
+                      return;
+                  }
+              }
+
+              // Fallback: Fetch historical props from our database
               const y = dt.getFullYear();
               const m = String(dt.getMonth() + 1).padStart(2, '0');
               const d = String(dt.getDate()).padStart(2, '0');
               const dateStr = `${y}${m}${d}`;
               
-              // Fetch historical props from our database for this specific game
               const props = await fetchSavedProps(dateStr, [gameId]);
               if (props && Array.isArray(props) && props.length > 0) {
                   // Transform our DB format back into the format the UI expects
