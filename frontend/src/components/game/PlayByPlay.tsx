@@ -162,8 +162,34 @@ export const PlayByPlay: React.FC<PlayByPlayProps> = ({ data, awayTeam, homeTeam
                           });
 
                           let filteredItems = atBats.filter(item => {
+                              if (item.type === "at-bat") {
+                                  // Find the result play for this at-bat.
+                                  // We do not want to render "ghost" at-bats where the batter didn't actually finish their plate appearance
+                                  // (e.g. runner caught stealing ending the inning).
+                                  const ab = item.atBat;
+                                  const resultPlay = ab.resultPlay || ab.plays[ab.plays.length - 1];
+                                  
+                                  let batterId = null;
+                                  const startPlay = ab.startPlay || ab.plays[0];
+                                  if (startPlay && startPlay.participants) {
+                                      batterId = startPlay.participants.find((p: any) => p.type === 'batter')?.athlete?.id;
+                                  }
+
+                                  // If there is no batter, or the result play doesn't involve the batter, it's a ghost at-bat.
+                                  if (batterId) {
+                                      const resultBatter = resultPlay?.participants?.find((p: any) => p.type === 'batter');
+                                      if (!resultBatter || resultBatter.athlete?.id !== batterId) {
+                                          return false;
+                                      }
+                                  }
+
+                                  if (filterPlays === "scoring") {
+                                      return ab.scoringPlay;
+                                  }
+                                  return true;
+                              }
+
                               if (filterPlays === "scoring") {
-                                  if (item.type === "at-bat") return item.atBat.scoringPlay;
                                   if (item.type === "misc") return item.play.scoringPlay;
                                   return item.type === "inning-marker" || item.type === "pitching-change"; 
                               }

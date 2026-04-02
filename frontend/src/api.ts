@@ -466,3 +466,11 @@ export async function fetchBvpStats(batterId: string | number, pitcherId: string
   
   
 }
+
+export async function fetchGameOdds(gameId: string) {
+    try {
+        return await fetchWithCache(`${API_URL}/games/${gameId}/odds`);
+    } catch (e) {
+        return null;
+    }
+}

@@ -7,13 +7,14 @@ interface LinescoreMatrixProps {
     header: any;
     isPregame: boolean;
     boxscorePitchers: Map<string, any>;
+    className?: string;
 }
 
-export const LinescoreMatrix: React.FC<LinescoreMatrixProps> = ({ awayTeam, homeTeam, header, isPregame, boxscorePitchers }) => {
+export const LinescoreMatrix: React.FC<LinescoreMatrixProps> = ({ awayTeam, homeTeam, header, isPregame, boxscorePitchers, className }) => {
     if (isPregame) return null;
 
     return (
-      <div className="mb-12 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${className || 'mb-12'}`}>
          <div className="overflow-x-auto">
              <table className="w-full text-center border-collapse tabular-nums table-fixed">
                 <thead>

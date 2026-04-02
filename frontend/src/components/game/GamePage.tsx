@@ -2,12 +2,14 @@ import { SafeImage } from '../shared/SafeImage';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { fetchGameSummary, fetchPropBets, fetchPlayerGameLogs } from '../../api';
+import { fetchGameSummary, fetchSavedProps, fetchPlayerGameLogs, fetchGameOdds } from '../../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp, Zap, ArrowRight } from 'lucide-react';
 import { WinProbability } from './WinProbability';
 import { PlayByPlay } from './PlayByPlay';
 import { LinescoreMatrix } from './LinescoreMatrix';
+import { GamePropsTab } from './GamePropsTab';
+import { GameOverviewTab } from './GameOverviewTab';
 import { GameScoreboard } from './GameScoreboard';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from 'recharts';
 
@@ -31,6 +33,7 @@ export const GamePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = React.useState<any>(null);
   const [propBets, setPropBets] = React.useState<any>(null);
+  const [gameOdds, setGameOdds] = React.useState<any>(null);
   const [propFilterTeam, setPropFilterTeam] = React.useState<string>('all');
   const [propFilterPlayer, setPropFilterPlayer] = React.useState<string>('all');
   const [propFilterType, setPropFilterType] = React.useState<string>('all');
@@ -54,7 +57,7 @@ export const GamePage = () => {
       });
   };
   
-  let activeTab = searchParams.get("tab") || "boxscore";
+  let activeTab = searchParams.get("tab") || "overview";
   const filterPlays = searchParams.get("filter") === "scoring" ? "scoring" : "all";
 
   React.useEffect(() => {
@@ -164,11 +167,38 @@ export const GamePage = () => {
     async function loadData() {
       if (!gameId) return;
       setLoading(true);
-      const [summary, props] = await Promise.all([fetchGameSummary(gameId), fetchPropBets(gameId)]);
+      const [summary, odds] = await Promise.all([fetchGameSummary(gameId), fetchGameOdds(gameId)]);
       setData(summary);
-      if (props && props.items) {
-          const playerProps = props.items.filter((item: any) => item.athlete?.$ref);
-          setPropBets(playerProps);
+      setGameOdds(odds);
+      
+      if (summary && summary.header) {
+          const gameDate = summary.header.competitions?.[0]?.date;
+          if (gameDate) {
+              const dt = new Date(gameDate);
+              const y = dt.getFullYear();
+              const m = String(dt.getMonth() + 1).padStart(2, '0');
+              const d = String(dt.getDate()).padStart(2, '0');
+              const dateStr = `${y}${m}${d}`;
+              
+              // Fetch historical props from our database for this specific game
+              const props = await fetchSavedProps(dateStr, [gameId]);
+              if (props && Array.isArray(props) && props.length > 0) {
+                  // Transform our DB format back into the format the UI expects
+                  const mappedProps = props.map((p: any) => ({
+                      athlete: { 
+                          $ref: `http://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/athletes/${p.athlete_id}?lang=en&region=us`,
+                          id: p.athlete_id,
+                          displayName: p.athlete_name || `Player ${p.athlete_id}`
+                      },
+                      type: { name: p.prop_type },
+                      current: { target: { displayValue: p.prop_line } },
+                      odds: { american: { value: p.over_odds, displayValue: p.over_odds } },
+                      _underOdds: p.under_odds,
+                      _teamAbbrev: p.team_abbrev
+                  }));
+                  setPropBets(mappedProps);
+              }
+          }
       }
       setLoading(false);
     }
@@ -258,11 +288,11 @@ export const GamePage = () => {
   const header = data.header?.competitions?.[0];
   const homeTeam = header?.competitors?.find((c: any) => c.homeAway === "home");
   const isPregame = header?.status?.type?.state === 'pre';
-  const validTabs = isPregame ? ["matchup", "props"] : ["boxscore", "plays", "win_probability"];
+  const validTabs = isPregame ? ["matchup", "props"] : ["overview", "boxscore", "plays", "win_probability", "props"];
   // If the user navigates directly to a pregame game, or the state changes, ensure they land on a valid tab.
   // We MUST NOT force 'matchup' if they are already on 'props'.
   if (!validTabs.includes(activeTab)) {
-      activeTab = isPregame ? "matchup" : "boxscore";
+      activeTab = isPregame ? "matchup" : "overview";
   }
   const awayTeam = header?.competitors?.find((c: any) => c.homeAway === "away");
 
@@ -277,13 +307,7 @@ export const GamePage = () => {
         isPregame={isPregame}
       />
 
-      <LinescoreMatrix 
-        awayTeam={awayTeam}
-        homeTeam={homeTeam}
-        header={header}
-        isPregame={isPregame}
-        boxscorePitchers={boxscorePitchers}
-      />
+
 
       {/* Game Content Navigation */}
       {isPregame ? (
@@ -295,10 +319,26 @@ export const GamePage = () => {
           </div>
       ) : (
       <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
+         <button onClick={() => handleTabChange("overview")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "overview" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Overview</button>
          <button onClick={() => handleTabChange("boxscore")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "boxscore" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Box Score</button>
+         {propBets && propBets.length > 0 && <button onClick={() => handleTabChange("props")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "props" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Prop Bets</button>}
          <button onClick={() => handleTabChange("plays")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "plays" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Play-by-Play</button>
          <button onClick={() => handleTabChange("win_probability")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "win_probability" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Win Probability</button>
       </div>
+      )}
+
+            {activeTab === "overview" && (
+          <GameOverviewTab 
+              data={data}
+              gameId={gameId as string}
+              gameOdds={gameOdds}
+              awayTeam={awayTeam}
+              homeTeam={homeTeam}
+              header={header}
+              isPregame={isPregame}
+              boxscorePitchers={boxscorePitchers}
+              onTabChange={handleTabChange}
+          />
       )}
 
       {activeTab === "boxscore" && (
@@ -407,6 +447,15 @@ export const GamePage = () => {
                   })}
               </div>
           </div>
+      )}
+
+      {activeTab === "props" && propBets && propBets.length > 0 && (
+          <GamePropsTab 
+              data={data}
+              propBets={propBets}
+              awayTeam={awayTeam}
+              homeTeam={homeTeam}
+          />
       )}
 
       {activeTab === "plays" && (

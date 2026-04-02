@@ -84,3 +84,30 @@ async def get_game_props_proxy(game_id: str):
             return resp.json()
         except Exception as e:
             return {"items": []}
+
+@router.get("/api/games/{game_id}/odds")
+async def get_game_odds(game_id: int):
+    """Fetch cached game odds from our database."""
+    query = """
+        SELECT provider_id, provider_name as name, details, over_under as "overUnder", 
+               over_odds as "overOdds", under_odds as "underOdds", 
+               away_money_line, home_money_line, spread as "spreadOdds"
+        FROM event_odds
+        WHERE event_id = :game_id
+        LIMIT 1
+    """
+    
+    odds = await database.fetch_one(query=query, values={"game_id": game_id})
+    if not odds:
+        return None
+        
+    odds_dict = dict(odds)
+    return {
+        "provider": {"id": odds_dict["provider_id"], "name": odds_dict["name"]},
+        "details": odds_dict["details"],
+        "overUnder": odds_dict["overUnder"],
+        "overOdds": odds_dict["overOdds"],
+        "underOdds": odds_dict["underOdds"],
+        "awayTeamOdds": {"moneyLine": odds_dict["away_money_line"], "spreadOdds": odds_dict["spreadOdds"]},
+        "homeTeamOdds": {"moneyLine": odds_dict["home_money_line"], "spreadOdds": odds_dict["spreadOdds"]}
+    }
