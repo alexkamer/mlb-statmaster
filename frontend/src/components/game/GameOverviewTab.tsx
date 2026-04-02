@@ -440,12 +440,13 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                 <GameVideoPlayer data={data} />
 
                 {/* Recap Article */}
-                {data.news?.articles?.find((a: any) => a.type === 'Recap') && (
+                {data.article && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 relative">
                         {(() => {
-                            const recap = data.news.articles.find((a: any) => a.type === 'Recap');
+                            const recap = data.article;
+                            const recapLink = recap.links?.web?.href || recap.links?.api?.news?.href || '#';
                             return (
-                                <a href={recap.links?.web?.href} target="_blank" rel="noreferrer" className="group block">
+                                <a href={recapLink} target="_blank" rel="noreferrer" className="group block">
                                     <h3 className="font-headline font-black text-2xl uppercase tracking-tighter text-slate-800 mb-2 group-hover:text-primary transition-colors leading-tight">
                                         {recap.headline}
                                     </h3>
