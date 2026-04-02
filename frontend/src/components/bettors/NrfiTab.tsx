@@ -50,6 +50,23 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
           const dateString = log.date.endsWith('Z') ? log.date : `${log.date}Z`;
           const dateObj = new Date(dateString);
           const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+          
+          if (log.inning_runs_allowed === null || log.inning_hits_allowed === null) {
+            return (
+              <div key={idx} className="flex flex-col items-center gap-1 shrink-0" title={`Date: ${dateStr}\nDid not pitch in this inning`}>
+                <div className="flex flex-col border shadow-sm rounded overflow-hidden opacity-50">
+                  <div className="w-8 h-5 flex items-center justify-center text-[10px] font-black border-b bg-slate-100 text-slate-400 cursor-default">
+                    -
+                  </div>
+                  <div className="w-8 h-5 flex items-center justify-center text-[10px] font-black bg-slate-100 text-slate-400 cursor-default">
+                    -
+                  </div>
+                </div>
+                <span className="text-[9px] font-medium text-slate-400">{dateStr}</span>
+              </div>
+            );
+          }
+
           const allowed = metric === 'runs' ? (log.inning_runs_allowed ?? 0) : (log.inning_hits_allowed ?? 0);
           const total = metric === 'runs' ? (log.inning_total_runs ?? 0) : (log.inning_total_hits ?? 0);
           const isCleanAllowed = allowed === 0;
@@ -88,7 +105,7 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
                     <span className={`font-bold ${isCleanAllowed ? 'text-emerald-400' : 'text-rose-400'}`}>{allowed}</span>
                 </div>
                 <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
-                    <span>Total ({metric === 'runs' ? 'NRFI' : 'NHFI'}):</span>
+                    <span>Total:</span>
                     <span className={`font-bold ${isNRFI ? 'text-emerald-400' : 'text-rose-400'}`}>{total}</span>
                 </div>
                 {/* Tooltip Arrow */}
