@@ -69,6 +69,15 @@ export const PropAnalysisPage = () => {
     const [restFilter, setRestFilter] = useState('all');
 
     useEffect(() => {
+        if (playerProfile?.shortName || playerProfile?.displayName) {
+            document.title = `${playerProfile.shortName || playerProfile.displayName} ${propType} | Prop Analysis`;
+        } else {
+            document.title = "Prop Analysis | MLB Statmaster";
+        }
+        return () => { document.title = "MLB Statmaster"; };
+    }, [playerProfile, propType]);
+
+    useEffect(() => {
         if (!playerId) return;
         const loadData = async () => {
             setLoading(true);

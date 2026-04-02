@@ -296,6 +296,15 @@ export const GamePage = () => {
   }
   const awayTeam = header?.competitors?.find((c: any) => c.homeAway === "away");
 
+  React.useEffect(() => {
+      if (awayTeam && homeTeam) {
+          document.title = `${awayTeam.team?.abbreviation || 'Away'} @ ${homeTeam.team?.abbreviation || 'Home'} | MLB Statmaster`;
+      } else {
+          document.title = "MLB Statmaster";
+      }
+      return () => { document.title = "MLB Statmaster"; };
+  }, [awayTeam, homeTeam]);
+
   return (
     <div className="max-w-[1400px] mx-auto px-6 relative z-30">
       <GameScoreboard 

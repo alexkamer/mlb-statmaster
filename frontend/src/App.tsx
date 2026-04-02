@@ -909,6 +909,15 @@ const TeamDashboard = ({ teams }: { teams: any[] }) => {
   const [loading, setLoading] = useState(true);
   const [seasons, setSeasons] = useState<any[]>([]);
   
+  useEffect(() => {
+    if (selectedTeam?.name) {
+      document.title = `${selectedTeam.name} | MLB Statmaster`;
+    } else {
+      document.title = "MLB Statmaster";
+    }
+    return () => { document.title = "MLB Statmaster"; };
+  }, [selectedTeam]);
+
   // Read state from URL parameters or fall back to defaults
   const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'overview');
   const [selectedYear, setSelectedYear] = useState<number>(Number(searchParams.get('year')) || new Date().getFullYear());

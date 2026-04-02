@@ -233,6 +233,14 @@ export const PlayerPage = () => {
       }
   }
 
+  React.useEffect(() => {
+      if (bio?.name) {
+          document.title = `${bio.name} | MLB Statmaster`;
+      } else {
+          document.title = "MLB Statmaster";
+      }
+      return () => { document.title = "MLB Statmaster"; };
+  }, [bio]);
 
   return (
     <>
