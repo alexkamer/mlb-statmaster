@@ -195,6 +195,17 @@ async def get_recent_games(team_id: int, limit: int = 5, year: int = 2024, seaso
                     SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y'
                 ) as inning_total_hits,
                 (
+                    SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ILIKE '%struck out%' AND 
+                        CASE WHEN c1.home_away = 'home' THEN 
+                            ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
+                        ELSE 
+                            ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
+                        END
+                ) as inning_k_suffered,
+                (
+                    SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ILIKE '%struck out%'
+                ) as inning_total_k,
+                (
                     SELECT a.display_name 
                     FROM event_boxscores_pitching bp 
                     JOIN athletes a ON bp.athlete_id = a.athlete_id 

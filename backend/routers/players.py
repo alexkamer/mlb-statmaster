@@ -172,10 +172,12 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
                     (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
                     (
-                        CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
-                            (SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
+                        CASE 
+                        WHEN NOT EXISTS (SELECT 1 FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Start Batter/Pitcher' AND ep.text ILIKE '%' || a.display_name || '%') THEN NULL
+                        WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
+                            (SELECT COALESCE(MAX(away_score) - MIN(away_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')), (SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
                         ELSE 
-                            (SELECT COALESCE(MAX(home_score) - MIN(home_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0'))
+                            (SELECT COALESCE(MAX(home_score) - MIN(home_score), 0) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0') AND play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')), '9999999999999999999'))
                         END
                     ) as inning_runs_allowed,
                     (
@@ -183,18 +185,32 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                         FROM event_plays WHERE event_id = e.event_id AND inning = :inning
                     ) as inning_total_runs,
                     (
-                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND 
-                            CASE WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
-                                ep.play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')
-                            ELSE 
-                                ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')
-                            END
+                        CASE 
+                        WHEN NOT EXISTS (SELECT 1 FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Start Batter/Pitcher' AND ep.text ILIKE '%' || a.display_name || '%') THEN NULL
+                        WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
+                            (SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND ep.play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')), (SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
+                        ELSE 
+                            (SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y' AND ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0') AND ep.play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')), '9999999999999999999'))
+                        END
                     ) as inning_hits_allowed,
                     (
                         SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ~* '\y(singled|doubled|tripled|homered|homers|homer|infield single)\y' AND ep.text !~* '\y(double play|triple play|doubled off|tripled off)\y'
                     ) as inning_total_hits,
+                    (
+                        CASE 
+                        WHEN NOT EXISTS (SELECT 1 FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Start Batter/Pitcher' AND ep.text ILIKE '%' || a.display_name || '%') THEN NULL
+                        WHEN (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) = 'home' THEN 
+                            (SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ILIKE '%struck out%' AND ep.play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id < COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999')), (SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '9999999999999999999'))
+                        ELSE 
+                            (SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ILIKE '%struck out%' AND ep.play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0') AND ep.play_id < COALESCE((SELECT MIN(play_id) FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Batter/Pitcher' AND text NOT ILIKE '%' || a.display_name || '%' AND play_id > COALESCE((SELECT play_id FROM event_plays WHERE event_id = e.event_id AND inning = :inning AND play_type_text = 'Start Inning' AND text ILIKE '%Bottom%' LIMIT 1), '0')), '9999999999999999999'))
+                        END
+                    ) as inning_k_recorded,
+                    (
+                        SELECT COUNT(*) FROM event_plays ep WHERE ep.event_id = e.event_id AND ep.inning = :inning AND ep.play_type_text = 'Play Result' AND ep.text ILIKE '%struck out%'
+                    ) as inning_total_k,
                     ROW_NUMBER() OVER(PARTITION BY p.athlete_id ORDER BY e.date DESC) as rn
                 FROM event_boxscores_pitching p
+                JOIN athletes a ON p.athlete_id = a.athlete_id
                 JOIN events e ON p.event_id = e.event_id
                 LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
                 WHERE p.athlete_id = ANY(:p_ids) AND p.starter = true AND __TYPE_FILTER__ __YEAR_FILTER__
@@ -236,6 +252,7 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     SUM(CASE WHEN c.winner = true AND c.team_id = p.team_id THEN 1 ELSE 0 END) as w,
                     SUM(CAST(SPLIT_PART(COALESCE(NULLIF(p.ip, '--.--'), '0.0'), '.', 1) AS INTEGER) * 3 + CAST(SPLIT_PART(COALESCE(NULLIF(p.ip, '--.--'), '0.0'), '.', 2) AS INTEGER)) as outs_recorded
                 FROM event_boxscores_pitching p
+                JOIN athletes a ON p.athlete_id = a.athlete_id
                 JOIN events e ON p.event_id = e.event_id
                 LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
                 LEFT JOIN event_competitors c ON e.event_id = c.event_id AND p.team_id = c.team_id

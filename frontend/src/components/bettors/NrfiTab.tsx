@@ -51,26 +51,53 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
           const dateObj = new Date(dateString);
           const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
           
-          if (log.inning_runs_allowed === null || log.inning_hits_allowed === null) {
+          const total = metric === 'runs' ? (log.inning_total_runs ?? 0) : metric === 'hits' ? (log.inning_total_hits ?? 0) : (log.inning_total_k ?? 0);
+          const isGameSuccess = metric === 'strikeouts' ? total > 0 : total === 0;
+
+          if (log.inning_runs_allowed === null || log.inning_hits_allowed === null || log.inning_k_recorded === null) {
             return (
-              <div key={idx} className="flex flex-col items-center gap-1 shrink-0" title={`Date: ${dateStr}\nDid not pitch in this inning`}>
-                <div className="flex flex-col border shadow-sm rounded overflow-hidden opacity-50">
-                  <div className="w-8 h-5 flex items-center justify-center text-[10px] font-black border-b bg-slate-100 text-slate-400 cursor-default">
+              <div 
+                key={idx} 
+                className="flex flex-col items-center gap-1 shrink-0 relative group cursor-pointer hover:scale-105 transition-transform" 
+                onClick={() => navigate(`/games/${log.event_id}`)}
+              >
+                <div className="flex flex-col border shadow-sm rounded overflow-hidden">
+                  <div className="w-8 h-5 flex items-center justify-center text-[10px] font-black border-b bg-slate-50 text-slate-300" title="Did not pitch in this inning">
                     -
                   </div>
-                  <div className="w-8 h-5 flex items-center justify-center text-[10px] font-black bg-slate-100 text-slate-400 cursor-default">
-                    -
+                  <div className={`w-8 h-5 flex items-center justify-center text-[10px] font-black ${
+                    isGameSuccess ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    {total}
                   </div>
                 </div>
                 <span className="text-[9px] font-medium text-slate-400">{dateStr}</span>
+                
+                {/* Custom Tooltip */}
+                <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-50 w-32 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded-lg shadow-xl py-2 px-3">
+                  <div className="font-bold text-slate-300 mb-1">{dateStr}</div>
+                  <div className="flex items-center gap-2 mb-2 bg-slate-700/50 rounded px-2 py-1 w-full justify-center">
+                      <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${log.home_away === 'away' ? log.team_id : log.opponent_id}.png`} alt="Away" className="w-4 h-4 object-contain" />
+                      <span className="text-[10px] font-black text-slate-400">@</span>
+                      <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${log.home_away === 'home' ? log.team_id : log.opponent_id}.png`} alt="Home" className="w-4 h-4 object-contain" />
+                  </div>
+                  <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
+                      <span>Pitcher {metric === 'strikeouts' ? 'Recorded' : 'Allowed'}:</span>
+                      <span className="font-bold text-slate-400">-</span>
+                  </div>
+                  <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
+                      <span>Total:</span>
+                      <span className={`font-bold ${isGameSuccess ? 'text-emerald-400' : 'text-rose-400'}`}>{total}</span>
+                  </div>
+                  {/* Tooltip Arrow */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                </div>
               </div>
             );
           }
 
-          const allowed = metric === 'runs' ? (log.inning_runs_allowed ?? 0) : (log.inning_hits_allowed ?? 0);
-          const total = metric === 'runs' ? (log.inning_total_runs ?? 0) : (log.inning_total_hits ?? 0);
-          const isCleanAllowed = allowed === 0;
-          const isNRFI = total === 0;
+          const allowed = metric === 'runs' ? (log.inning_runs_allowed ?? 0) : metric === 'hits' ? (log.inning_hits_allowed ?? 0) : (log.inning_k_recorded ?? 0);
+          const isPitcherSuccess = metric === 'strikeouts' ? allowed > 0 : allowed === 0;
 
           return (
             <div 
@@ -80,12 +107,12 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
             >
               <div className="flex flex-col border shadow-sm rounded overflow-hidden">
                 <div className={`w-8 h-5 flex items-center justify-center text-[10px] font-black border-b ${
-                  isCleanAllowed ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'
+                  isPitcherSuccess ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'
                 }`}>
                   {allowed}
                 </div>
                 <div className={`w-8 h-5 flex items-center justify-center text-[10px] font-black ${
-                  isNRFI ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  isGameSuccess ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                 }`}>
                   {total}
                 </div>
@@ -101,12 +128,11 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
                     <img src={`https://a.espncdn.com/i/teamlogos/mlb/500/${log.home_away === 'home' ? log.team_id : log.opponent_id}.png`} alt="Home" className="w-4 h-4 object-contain" />
                 </div>
                 <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
-                    <span>Pitcher Allowed:</span>
-                    <span className={`font-bold ${isCleanAllowed ? 'text-emerald-400' : 'text-rose-400'}`}>{allowed}</span>
-                </div>
-                <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
+                    <span>Pitcher {metric === 'strikeouts' ? 'Recorded' : 'Allowed'}:</span>
+                    <span className={`font-bold ${isPitcherSuccess ? 'text-emerald-400' : 'text-rose-400'}`}>{allowed}</span>
+                </div>                <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
                     <span>Total:</span>
-                    <span className={`font-bold ${isNRFI ? 'text-emerald-400' : 'text-rose-400'}`}>{total}</span>
+                    <span className={`font-bold ${isGameSuccess ? 'text-emerald-400' : 'text-rose-400'}`}>{total}</span>
                 </div>
                 {/* Tooltip Arrow */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
@@ -119,7 +145,7 @@ const RecentStartsList = ({ logs, metric, inning }: { logs: any[], metric: 'runs
   );
 };
 
-const TeamBattingLogs = ({ teamId, teamName, metric, inning }: { teamId: number, teamName: string, metric: 'runs' | 'hits', inning: number }) => {
+const TeamBattingLogs = ({ teamId, teamName, metric, inning }: { teamId: number, teamName: string, metric: 'runs' | 'hits' | 'strikeouts', inning: number }) => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState<any[]>([]);
 
@@ -141,15 +167,15 @@ const TeamBattingLogs = ({ teamId, teamName, metric, inning }: { teamId: number,
   return (
     <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-2 w-full overflow-visible">
       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
-        Opponent {getInningPrefix(inning)} Inning {metric === 'runs' ? 'Batting' : 'Hitting'} ({teamName} - Last 10)
+        Opponent {getInningPrefix(inning)} Inning {metric === 'runs' ? 'Batting' : metric === 'hits' ? 'Hitting' : 'Strikeouts'} ({teamName} - Last 10)
       </span>
       <div className="flex flex-wrap items-center gap-2 px-2 pb-1">
         {logs.map((log: any, idx: number) => {
           const dateString = log.date.endsWith('Z') ? log.date : `${log.date}Z`;
           const dateObj = new Date(dateString);
           const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-          const scored = metric === 'runs' ? (log.inning_runs_scored ?? 0) : (log.inning_hits_scored ?? 0);
-          const isCleanScored = scored === 0;
+          const scored = metric === 'runs' ? (log.inning_runs_scored ?? 0) : metric === 'hits' ? (log.inning_hits_scored ?? 0) : (log.inning_k_suffered ?? 0);
+          const hasMetric = scored > 0;
 
           return (
             <div 
@@ -159,8 +185,8 @@ const TeamBattingLogs = ({ teamId, teamName, metric, inning }: { teamId: number,
             >
               <div className="flex flex-col border shadow-sm rounded overflow-hidden">
                 <div className={`w-8 h-6 flex items-center justify-center text-xs font-black ${
-                  isCleanScored ? 'bg-slate-50 text-slate-400' : 'bg-indigo-50 text-indigo-600'
-                }`} title={`${metric === 'runs' ? 'Runs' : 'Hits'} Scored in ${getInningPrefix(inning)} Inning`}>
+                  !hasMetric ? 'bg-slate-50 text-slate-400' : 'bg-indigo-50 text-indigo-600'
+                }`} title={`${metric === 'runs' ? 'Runs' : metric === 'hits' ? 'Hits' : "K's"} in ${getInningPrefix(inning)} Inning`}>
                   {scored}
                 </div>
               </div>
@@ -179,8 +205,8 @@ const TeamBattingLogs = ({ teamId, teamName, metric, inning }: { teamId: number,
                     <span className="font-bold text-slate-100">{log.opp_starter_name || 'Unknown'}</span>
                 </div>
                 <div className="flex justify-between w-full text-[10px] font-medium text-slate-300">
-                    <span>{getInningPrefix(inning)} Inning {metric === 'runs' ? 'Runs' : 'Hits'}:</span>
-                    <span className={`font-bold ${isCleanScored ? 'text-slate-400' : 'text-indigo-400'}`}>{scored}</span>
+                    <span>{getInningPrefix(inning)} Inning {metric === 'runs' ? 'Runs' : metric === 'hits' ? 'Hits' : "K's"}:</span>
+                    <span className={`font-bold ${!hasMetric ? 'text-slate-400' : 'text-indigo-400'}`}>{scored}</span>
                 </div>
                 {/* Tooltip Arrow */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
@@ -197,7 +223,7 @@ export const NrfiTab = () => {
   const { todayEvents, displayDateToday } = useScoreboard();
   const [pitcherLogs, setPitcherLogs] = useState<any>({});
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [metric, setMetric] = useState<'runs' | 'hits'>('runs');
+  const [metric, setMetric] = useState<'runs' | 'hits' | 'strikeouts'>('runs');
   const [inning, setInning] = useState<number>(1);
 
   useEffect(() => {
@@ -300,6 +326,12 @@ export const NrfiTab = () => {
                 className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${metric === 'hits' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Hits
+              </button>
+              <button 
+                onClick={() => setMetric('strikeouts')}
+                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${metric === 'strikeouts' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                K's
               </button>
           </div>
         </div>
