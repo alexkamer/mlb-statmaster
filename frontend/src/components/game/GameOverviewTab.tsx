@@ -567,7 +567,21 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                         awayML = pickcenter.moneyline.away?.close?.odds || awayML;
                         homeML = pickcenter.moneyline.home?.close?.odds || homeML;
                     }
-                    
+
+                    let pregameAwayML = null;
+                    let pregameHomeML = null;
+                    if (odds._pregameOdds) {
+                        if (odds._pregameOdds.away_money_line) {
+                            pregameAwayML = formatOdds(odds._pregameOdds.away_money_line);
+                        }
+                        if (odds._pregameOdds.home_money_line) {
+                            pregameHomeML = formatOdds(odds._pregameOdds.home_money_line);
+                        }
+                    }
+
+                    if (pregameAwayML === awayML) pregameAwayML = null;
+                    if (pregameHomeML === homeML) pregameHomeML = null;
+
                     // Map Run Line (Spread)
                     let awaySpread = '-';
                     let homeSpread = '-';
@@ -691,7 +705,12 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                                             {awayTeam?.team?.abbreviation}
                                         </td>
                                         <td className="py-3 border-l border-slate-100 relative">
-                                            <div className={`font-bold ${awayMLWin ? 'text-emerald-600' : 'text-slate-800'}`}>{awayML}</div>
+                                            <div className="flex flex-col items-center justify-center leading-tight relative z-10">
+                                                <span className={`font-bold ${awayMLWin ? 'text-emerald-600' : 'text-slate-800'}`}>{awayML}</span>
+                                                {pregameAwayML && (
+                                                    <span className="text-[9px] text-slate-400 font-bold">({pregameAwayML})</span>
+                                                )}
+                                            </div>
                                             {awayMLWin && <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none"></div>}
                                         </td>
                                         <td className="py-3 border-l border-slate-100 relative">
@@ -715,7 +734,12 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                                             {homeTeam?.team?.abbreviation}
                                         </td>
                                         <td className="py-3 border-l border-slate-100 relative">
-                                            <div className={`font-bold ${homeMLWin ? 'text-emerald-600' : 'text-slate-800'}`}>{homeML}</div>
+                                            <div className="flex flex-col items-center justify-center leading-tight relative z-10">
+                                                <span className={`font-bold ${homeMLWin ? 'text-emerald-600' : 'text-slate-800'}`}>{homeML}</span>
+                                                {pregameHomeML && (
+                                                    <span className="text-[9px] text-slate-400 font-bold">({pregameHomeML})</span>
+                                                )}
+                                            </div>
                                             {homeMLWin && <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none"></div>}
                                         </td>
                                         <td className="py-3 border-l border-slate-100 relative">

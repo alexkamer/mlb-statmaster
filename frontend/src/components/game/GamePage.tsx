@@ -2,7 +2,7 @@ import { SafeImage } from '../shared/SafeImage';
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { fetchGameSummary, fetchSavedProps, fetchPropBets, fetchPlayerGameLogs, fetchGameOdds } from '../../api';
+import { fetchGameSummary, fetchSavedProps, fetchPropBets, fetchPlayerGameLogs, fetchGameOdds, fetchLiveGameOdds } from '../../api';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, Info, Shield, Users, Ticket, TrendingUp, Zap, ArrowRight } from 'lucide-react';
 import { WinProbability } from './WinProbability';
@@ -168,8 +168,23 @@ export const GamePage = () => {
       if (!gameId) return;
       setLoading(true);
       const [summary, odds] = await Promise.all([fetchGameSummary(gameId), fetchGameOdds(gameId)]);
+      
+      let finalOdds = odds;
+      if (summary?.header?.competitions?.[0]?.status?.type?.state === 'in') {
+          // Fetch live odds if the game is in progress
+          const liveOdds = await fetchLiveGameOdds(gameId);
+          // If we have live odds and at least one item, use it over the static odds
+          if (liveOdds && liveOdds.items && liveOdds.items.length > 0) {
+              // Try to find the specific "DraftKings - Live Odds" provider (id 200)
+              const liveProvider = liveOdds.items.find((item: any) => item.provider?.id === "200" || item.provider?.name === "DraftKings - Live Odds");
+              finalOdds = liveProvider || liveOdds.items[0]; 
+              // Store the pregame odds to display underneath the live odds
+              finalOdds._pregameOdds = odds;
+          }
+      }
+
       setData(summary);
-      setGameOdds(odds);
+      setGameOdds(finalOdds);
       
       if (summary && summary.header) {
           const gameDate = summary.header.competitions?.[0]?.date;
