@@ -67,6 +67,7 @@ export const PropAnalysisPage = () => {
     const [homeAwayFilter, setHomeAwayFilter] = useState('all');
     const [oddsFilter, setOddsFilter] = useState('all');
     const [restFilter, setRestFilter] = useState('all');
+    const [timeframeFilter, setTimeframeFilter] = useState<'season' | 'career'>('career');
 
     useEffect(() => {
         if (player?.shortName || player?.displayName || player?.full_name) {
@@ -97,8 +98,11 @@ export const PropAnalysisPage = () => {
                     };
                 }
 
+                const fetchYear = timeframeFilter === 'season' ? year : null;
+                const fetchLimit = timeframeFilter === 'season' ? 100 : 10000;
+
                 const [logsData, propsData] = await Promise.all([
-                    fetchPlayerGameLogs(parseInt(playerId), year, 100), // Fetch a larger pool for the slider
+                    fetchPlayerGameLogs(parseInt(playerId), fetchYear, fetchLimit), // Fetch a larger pool for the slider
                     fetchPlayerPropsAvailable(parseInt(playerId))
                 ]);
                 
@@ -194,7 +198,7 @@ export const PropAnalysisPage = () => {
             setLoading(false);
         };
         loadData();
-    }, [playerId, propType]);
+    }, [playerId, propType, timeframeFilter]);
 
     // Update URL params when state changes
     useEffect(() => {
@@ -822,6 +826,21 @@ export const PropAnalysisPage = () => {
                                     key={v}
                                     onClick={() => setRestFilter(v)}
                                     className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${restFilter === v ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    {v}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Timeframe</label>
+                        <div className="flex bg-white rounded-lg border border-slate-200 p-0.5 shadow-sm">
+                            {['career', 'season'].map(v => (
+                                <button
+                                    key={v}
+                                    onClick={() => setTimeframeFilter(v as any)}
+                                    className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${timeframeFilter === v ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     {v}
                                 </button>

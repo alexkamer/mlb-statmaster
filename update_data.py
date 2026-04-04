@@ -323,6 +323,30 @@ async def update_game_data(client):
                     'details': o.get('details')
                 })
 
+        # Pre-process plays to get individual d, t, sb
+        d_map = {}
+        t_map = {}
+        sb_map = {}
+        
+        if 'plays' in data:
+            for play in data['plays']:
+                abbv = play.get('type', {}).get('abbreviation')
+                if abbv == '2B':
+                    for p in play.get('participants', []):
+                        if p.get('type') == 'batter':
+                            aid = safe_int(p.get('athlete', {}).get('id'))
+                            if aid: d_map[aid] = d_map.get(aid, 0) + 1
+                elif abbv == '3B':
+                    for p in play.get('participants', []):
+                        if p.get('type') == 'batter':
+                            aid = safe_int(p.get('athlete', {}).get('id'))
+                            if aid: t_map[aid] = t_map.get(aid, 0) + 1
+                elif abbv == 'SB':
+                    for p in play.get('participants', []):
+                        if p.get('type') not in ['pitcher', 'batter']:
+                            aid = safe_int(p.get('athlete', {}).get('id'))
+                            if aid: sb_map[aid] = sb_map.get(aid, 0) + 1
+
         for comp in data['header']['competitions'][0]['competitors']:
             team_id = int(comp['id'])
             
@@ -345,11 +369,12 @@ async def update_game_data(client):
                                     match = re.search(r'\((.*?)\)', txt)
                                     if match: detail_str = match.group(1)
                                 
+                                a_id = int(athlete['athlete']['id'])
                                 global_batting.append({
-                                    'event_batting_id': f"{event_id}_{athlete['athlete']['id']}",
+                                    'event_batting_id': f"{event_id}_{a_id}",
                                     'event_id': event_id,
                                     'team_id': team_id,
-                                    'athlete_id': int(athlete['athlete']['id']),
+                                    'athlete_id': a_id,
                                     'starter': athlete.get('starter', False),
                                     'position_id': safe_int(athlete.get('position', {}).get('id')) if athlete.get('position') else None,
                                     'ab': safe_int(stats_dict.get('AB')),
@@ -360,9 +385,9 @@ async def update_game_data(client):
                                     'bb': safe_int(stats_dict.get('BB')),
                                     'k': safe_int(stats_dict.get('K')),
                                     'pitches_faced': safe_int(stats_dict.get('#P')),
-                                    'd': 0,
-                                    't': 0,
-                                    'sb': 0
+                                    'd': d_map.get(a_id, 0),
+                                    't': t_map.get(a_id, 0),
+                                    'sb': sb_map.get(a_id, 0)
                                 })
                         elif stat_group['type'] == 'pitching':
                             for athlete in stat_group.get('athletes', []):

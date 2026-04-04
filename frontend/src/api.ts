@@ -201,8 +201,9 @@ export async function fetchEspnSplits(playerId: number, category?: string) {
 
 
 
-export async function fetchPlayerGameLogs(playerId: number, year: number, limit: number = 20, seasonTypeId?: number) {
-  let url = `${API_URL}/players/${playerId}/gamelog?year=${year}&limit=${limit}`;
+export async function fetchPlayerGameLogs(playerId: number, year: number | null, limit: number = 20, seasonTypeId?: number) {
+  let url = `${API_URL}/players/${playerId}/gamelog?limit=${limit}`;
+  if (year !== null && year !== undefined) url += `&year=${year}`;
   if (seasonTypeId) url += `&season_type_id=${seasonTypeId}`;
   return await fetchWithCache(url);
 }
