@@ -478,3 +478,13 @@ export async function fetchGameOdds(gameId: string) {
         return null;
     }
 }
+
+export async function fetchLiveGameOdds(gameId: string) {
+    try {
+        const response = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${gameId}/competitions/${gameId}/odds`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        return null;
+    }
+}
