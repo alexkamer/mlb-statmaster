@@ -328,11 +328,11 @@ export const GamePage = () => {
   if (!data) return <div className="min-h-screen bg-surface flex items-center justify-center font-bold text-rose-500">Failed to load game data.</div>;
 
   const isPregame = header?.status?.type?.state === 'pre';
-  const validTabs = isPregame ? ["matchup", "props"] : ["overview", "boxscore", "plays", "win_probability", "props"];
+  const validTabs = isPregame ? ["overview", "props"] : ["overview", "boxscore", "plays", "win_probability", "props"];
   // If the user navigates directly to a pregame game, or the state changes, ensure they land on a valid tab.
-  // We MUST NOT force 'matchup' if they are already on 'props'.
+  // We MUST NOT force 'overview' if they are already on 'props'.
   if (!validTabs.includes(activeTab)) {
-      activeTab = isPregame ? "matchup" : "overview";
+      activeTab = "overview";
   }
 
   return (
@@ -351,7 +351,7 @@ export const GamePage = () => {
       {/* Game Content Navigation */}
       {isPregame ? (
           <div className="flex gap-4 mb-6 border-b-2 border-slate-200 pb-2">
-             <button onClick={() => handleTabChange("matchup")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "matchup" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Matchup Preview</button>
+             <button onClick={() => handleTabChange("overview")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "overview" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Matchup Preview</button>
              {propBets && propBets.length > 0 && (
                  <button onClick={() => handleTabChange("props")} className={`font-headline font-black text-xl uppercase tracking-widest transition-colors ${activeTab === "props" ? "text-primary" : "text-slate-300 hover:text-slate-400"}`}>Prop Bets</button>
              )}
@@ -444,7 +444,7 @@ export const GamePage = () => {
                               )}
 
                               {/* Pitching Box */}
-                              {pitchingStats && (
+                              {pitchingStats ? (
                                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                       <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
                                           <span className="font-bold text-xs uppercase tracking-widest text-slate-500">Pitchers</span>
@@ -480,7 +480,46 @@ export const GamePage = () => {
                                           </table>
                                       </div>
                                   </div>
-                              )}
+                              ) : isPregame ? (() => {
+                                  const teamCompetitor = header?.competitors?.find((c: any) => c.team?.id === tInfo?.id);
+                                  const probable = teamCompetitor?.probables?.[0];
+                                  return (
+                                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                                              <span className="font-bold text-xs uppercase tracking-widest text-slate-500">Probable Pitcher</span>
+                                          </div>
+                                          <div className="p-6 flex flex-col items-center justify-center text-center">
+                                              {probable ? (
+                                                  <>
+                                                      <SafeImage 
+                                                          src={probable.athlete?.headshot?.href || `https://a.espncdn.com/i/headshots/mlb/players/full/${probable.athlete?.id}.png`} 
+                                                          className="w-16 h-16 rounded-full bg-slate-100 object-cover border-2 border-slate-200 mb-3 shadow-sm" 
+                                                          alt={probable.athlete?.displayName} 
+                                                      />
+                                                      <Link to={`/players/${probable.athlete?.id}`} className="font-black text-slate-800 text-lg hover:text-primary transition-colors">
+                                                          {probable.athlete?.shortName || probable.athlete?.displayName}
+                                                      </Link>
+                                                      {probable.statistics?.length > 0 && (
+                                                          <div className="flex gap-4 mt-3 text-sm font-medium text-slate-600 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                                                              {probable.statistics.map((stat: any, i: number) => (
+                                                                  <div key={i} className="flex gap-1.5 items-center">
+                                                                      <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">{stat.abbreviation || stat.name}</span>
+                                                                      <span className="font-black text-slate-700">{stat.displayValue}</span>
+                                                                  </div>
+                                                              ))}
+                                                          </div>
+                                                      )}
+                                                  </>
+                                              ) : (
+                                                  <div className="flex flex-col items-center justify-center py-4 text-slate-400">
+                                                      <div className="w-12 h-12 rounded-full bg-slate-50 border-2 border-dashed border-slate-200 mb-3 flex items-center justify-center text-xs font-bold">TBD</div>
+                                                      <span className="font-medium text-sm">To Be Determined</span>
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })() : null}
                           </div>
                       );
                   })}

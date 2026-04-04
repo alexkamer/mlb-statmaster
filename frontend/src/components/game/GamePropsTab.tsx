@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
 import { SafeImage } from '../shared/SafeImage';
 import { fetchPlayerGameLogs } from '../../api';
@@ -12,6 +12,7 @@ interface GamePropsTabProps {
 }
 
 export const GamePropsTab: React.FC<GamePropsTabProps> = ({ data, propBets, awayTeam, homeTeam }) => {
+    const navigate = useNavigate();
     const [propFilterTeam, setPropFilterTeam] = useState<string>('all');
     const [propFilterPlayer, setPropFilterPlayer] = useState<string>('all');
     const [propFilterType, setPropFilterType] = useState<string>('all');
@@ -442,11 +443,20 @@ export const GamePropsTab: React.FC<GamePropsTabProps> = ({ data, propBets, away
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 text-sm">
                                       {tableRows.map((row, idx) => (
-                                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                              <td className="p-4 font-medium text-slate-500">{row.game}</td>
+                                          <tr 
+                                            key={idx} 
+                                            onClick={() => {
+                                                const isHome = row.team === homeTeam?.team?.abbreviation;
+                                                const opponentId = isHome ? awayTeam?.team?.id : homeTeam?.team?.id;
+                                                const opponentAbbrev = isHome ? awayTeam?.team?.abbreviation : homeTeam?.team?.abbreviation;
+                                                navigate(`/props/analysis?playerId=${row.playerId}&propType=${encodeURIComponent(row.propType)}&propLine=${row.propLine}&opponentId=${opponentId}&opponentAbbrev=${opponentAbbrev}&isHome=${isHome}`);
+                                            }}
+                                            className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                                          >
+                                              <td className="p-4 font-medium text-slate-500 group-hover:text-primary transition-colors">{row.game}</td>
                                               <td className="p-4 font-bold text-slate-700">{row.team}</td>
                                               <td className="p-4">
-                                                  <Link to={`/players/${row.playerId}`} className="font-bold text-primary hover:underline">{row.name}</Link>
+                                                  <div className="font-bold text-primary group-hover:underline">{row.name}</div>
                                               </td>
                                               <td className="p-4 text-slate-600">{row.propType}</td>
                                               <td className="p-4 font-black text-slate-800">{row.propLine}</td>
@@ -454,7 +464,7 @@ export const GamePropsTab: React.FC<GamePropsTabProps> = ({ data, propBets, away
                                                   {row.l10 === '-' ? (
                                                       <span className="text-slate-400">-</span>
                                                   ) : (
-                                                      <span className={`font-bold ${parseInt(row.l10.split(' ')[0]) >= 6 ? 'text-emerald-600' : parseInt(row.l10.split(' ')[0]) <= 4 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                                      <span className={`font-bold transition-colors ${parseInt(row.l10.split(' ')[0]) >= 6 ? 'text-emerald-600 group-hover:text-emerald-700' : parseInt(row.l10.split(' ')[0]) <= 4 ? 'text-rose-600 group-hover:text-rose-700' : 'text-slate-600 group-hover:text-slate-800'}`}>
                                                           {row.l10}
                                                       </span>
                                                   )}

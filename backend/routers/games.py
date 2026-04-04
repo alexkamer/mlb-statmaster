@@ -75,16 +75,63 @@ async def get_seasons():
 async def get_game_props_proxy(game_id: str):
     """Proxy the ESPN prop bets endpoint to prevent client-side 404 console errors."""
     url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/{game_id}/competitions/{game_id}/odds/100/propBets?lang=en&region=us&limit=1000"
-    
+
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(url)
             if resp.status_code == 404:
                 return {"items": []} # Return empty 200 OK so the browser doesn't log an error
-            return resp.json()
-        except Exception as e:
-            return {"items": []}
 
+            data = resp.json()
+            if "items" in data:
+                athlete_ids = []
+                for item in data["items"]:
+                    athlete = item.get("athlete")
+                    if athlete and "$ref" in athlete:
+                        ref_url = athlete["$ref"]
+                        parts = ref_url.split("/athletes/")
+                        if len(parts) > 1:
+                            aid = parts[1].split("?")[0]
+                            if aid.isdigit():
+                                athlete_ids.append(int(aid))
+
+                if athlete_ids:
+                    athlete_ids = list(set(athlete_ids))
+                    query = "SELECT athlete_id, display_name FROM athletes WHERE athlete_id = ANY(:athlete_ids)"
+                    rows = await database.fetch_all(query=query, values={"athlete_ids": athlete_ids})
+                    name_map = {row["athlete_id"]: row["display_name"] for row in rows}
+
+                    missing_ids = [aid for aid in athlete_ids if aid not in name_map]
+                    if missing_ids:
+                        async def fetch_name(aid):
+                            try:
+                                a_url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/athletes/{aid}?lang=en&region=us"
+                                a_resp = await client.get(a_url, timeout=3.0)
+                                if a_resp.status_code == 200:
+                                    a_data = a_resp.json()
+                                    if "displayName" in a_data:
+                                        name_map[aid] = a_data["displayName"]
+                            except Exception:
+                                pass
+
+                        await asyncio.gather(*[fetch_name(aid) for aid in missing_ids])
+
+                    for item in data["items"]:
+                        athlete = item.get("athlete")
+                        if athlete and "$ref" in athlete:
+                            ref_url = athlete["$ref"]
+                            parts = ref_url.split("/athletes/")
+                            if len(parts) > 1:
+                                aid = parts[1].split("?")[0]
+                                if aid.isdigit():
+                                    aid_int = int(aid)
+                                    if aid_int in name_map and name_map[aid_int]:
+                                        athlete["displayName"] = name_map[aid_int]
+
+            return data
+        except Exception as e:
+            print(f"Error in proxy: {e}")
+            return {"items": []}
 @router.get("/api/games/{game_id}/odds")
 async def get_game_odds(game_id: int):
     """Fetch cached game odds from our database."""

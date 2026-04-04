@@ -27,6 +27,8 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
     const [miniHoveredProb, setMiniHoveredProb] = useState<any>(null);
     const [teamStatsTab, setTeamStatsTab] = useState<'batting'|'pitching'>('batting');
 
+    const [isVsStats, setIsVsStats] = useState<boolean>(false);
+
     const toggleHitter = (id: string) => {
         setExpandedHitters(prev => {
             const newSet = new Set(prev);
@@ -43,15 +45,19 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
     const currentTeamBox = data.boxscore?.players?.find((p: any) => p.team?.id === activeBoxTeam);
     const battingStats = currentTeamBox?.statistics?.find((s: any) => s.type === 'batting');
     const pitchingStats = currentTeamBox?.statistics?.find((s: any) => s.type === 'pitching');
-    
-    // Helper for mini box score stats
-    const getStat = (ath: any, labels: string[], statName: string) => {
-        if (!labels || !ath.stats) return '-';
-        const idx = labels.indexOf(statName);
-        return idx > -1 ? ath.stats[idx] : '-';
-    };
 
-    const hitters = battingStats?.athletes?.filter((a: any) => a.starter || parseInt(getStat(a, battingStats.labels, 'AB')) > 0).slice(0, 9) || [];
+    // Helper for mini box score stats
+    const getStat = (ath: any, labels: string[], statName: string, checkVs: boolean = false) => {
+        const source = checkVs && isVsStats && ath.vsStats ? ath.vsStats : ath.stats;
+        if (!labels || !source) return '-';
+        const idx = labels.indexOf(statName);
+        if (idx > -1) {
+            // For H-AB, if we are in vsStats and H is '-', then AB is likely '-' too, return '-' instead of '--'
+            return source[idx];
+        }
+        return '-';
+    };
+    const hitters = battingStats?.athletes?.filter((a: any) => a.starter) || [];
     const pitchers = pitchingStats?.athletes?.filter((a: any) => parseFloat(getStat(a, pitchingStats.labels, 'IP') || '0') > 0).slice(0, 6) || [];
 
     const hitterAtBats = useMemo(() => {
@@ -127,7 +133,7 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* LEFT COLUMN: Mini Box Score & Win Probability */}
-            <div className="lg:col-span-3 flex flex-col gap-6">
+            <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
                 
                 {/* Mini Box Score */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -149,21 +155,47 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                             {homeTeam?.team?.abbreviation}
                         </button>
                     </div>
+
+                    {isPregame && (
+                        <div className="bg-white border-b border-slate-100 py-2 px-4 flex justify-center items-center gap-6">
+                            <label className="flex items-center gap-1.5 cursor-pointer group mb-0">
+                                <input 
+                                    type="radio" 
+                                    name="statsView" 
+                                    checked={!isVsStats} 
+                                    onChange={() => setIsVsStats(false)} 
+                                    className="w-3 h-3 text-primary focus:ring-primary border-slate-300"
+                                />
+                                <span className={`text-[10px] uppercase tracking-widest font-black transition-colors ${!isVsStats ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Season Stats</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer group mb-0">
+                                <input 
+                                    type="radio" 
+                                    name="statsView" 
+                                    checked={isVsStats} 
+                                    onChange={() => setIsVsStats(true)} 
+                                    className="w-3 h-3 text-primary focus:ring-primary border-slate-300"
+                                />
+                                <span className={`text-[10px] uppercase tracking-widest font-black transition-colors ${isVsStats ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>VS Probable Starter</span>
+                            </label>
+                        </div>
+                    )}
                     
-                    <div className="p-0">
-                        <table className="w-full text-left text-xs">
+                    <div className="p-0 overflow-x-auto">
+                        <table className="w-full text-left text-xs min-w-[380px] table-fixed">
                             <thead className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-3 py-2">Hitters</th>
-                                    <th className="px-2 py-2 text-right">H-AB</th>
-                                    <th className="px-2 py-2 text-right">R</th>
-                                    <th className="px-2 py-2 text-right">HR</th>
-                                    <th className="px-2 py-2 text-right">RBI</th>
-                                    <th className="px-3 py-2 text-right">AVG</th>
+                                    <th className="px-3 py-2 text-left w-[36%]">Hitters</th>
+                                    <th className="px-2 py-2 text-right w-[14%]">H-AB</th>
+                                    <th className="px-2 py-2 text-right w-[10%]">AVG</th>
+                                    <th className="px-2 py-2 text-right w-[10%]">RBI</th>
+                                    <th className="px-2 py-2 text-right w-[10%]">HR</th>
+                                    <th className="px-2 py-2 text-right w-[10%]">SB</th>
+                                    <th className="px-3 py-2 text-right w-[10%]">K</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {hitters.map((ath: any, i: number) => {
+                                {hitters.length > 0 ? hitters.map((ath: any, i: number) => {
                                     const isExpanded = expandedHitters.has(ath.athlete?.id);
                                     const atBats = hitterAtBats.get(ath.athlete?.id) || [];
                                     const hasAtBats = atBats.length > 0;
@@ -171,26 +203,33 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                                     return (
                                         <React.Fragment key={i}>
                                             <tr className="hover:bg-slate-50">
-                                                <td className={`px-2 py-2 text-blue-600 font-medium truncate max-w-[160px] flex items-center gap-1 ${!ath.starter ? 'pl-6' : ''}`}>
+                                                <td className={`px-3 py-2 text-blue-600 font-medium truncate max-w-[160px] flex items-center justify-start gap-1 ${!ath.starter ? 'pl-6' : ''}`}>
                                                     {hasAtBats ? (
                                                         <button onClick={() => toggleHitter(ath.athlete?.id)} className="p-0.5 hover:bg-slate-200 rounded text-slate-400">
                                                             {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                                         </button>
-                                                    ) : (
-                                                        <div className="w-4 h-4" />
-                                                    )}
-                                                    <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
+                                                    ) : null}
+                                                    <span className={`text-[10px] font-black text-slate-300 w-3 text-right shrink-0 ${!hasAtBats && data?.plays?.length > 0 ? 'ml-4' : ''}`}>{ath.batOrder || (i + 1)}</span>
+                                                    <Link to={`/players/${ath.athlete?.id}`} className="hover:underline ml-1">{ath.athlete?.shortName}</Link>
                                                     <span className="text-[9px] text-slate-400 ml-0.5">{ath.position?.abbreviation}</span>
                                                 </td>
-                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'H')}-{getStat(ath, battingStats?.labels, 'AB')}</td>
-                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'R')}</td>
-                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'HR')}</td>
-                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'RBI')}</td>
-                                                <td className="px-3 py-2 text-right text-slate-500">{getStat(ath, battingStats?.labels, 'AVG')}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">
+                                                    {(() => {
+                                                        const h = getStat(ath, battingStats?.labels, 'H', true);
+                                                        const ab = getStat(ath, battingStats?.labels, 'AB', true);
+                                                        if (h === '-' || ab === '-') return '-';
+                                                        return `${h}-${ab}`;
+                                                    })()}
+                                                </td>
+                                                <td className="px-2 py-2 text-right text-slate-500">{getStat(ath, battingStats?.labels, 'AVG', true)}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'RBI', true)}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'HR', true)}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'SB', true)}</td>
+                                                <td className="px-3 py-2 text-right text-slate-600">{getStat(ath, battingStats?.labels, 'K', true)}</td>
                                             </tr>
                                             {isExpanded && hasAtBats && (
                                                 <tr className="bg-slate-50/80 border-b border-slate-100">
-                                                    <td colSpan={6} className="px-6 py-2">
+                                                    <td colSpan={7} className="px-6 py-2">
                                                         <div className="flex flex-col gap-1.5 pl-2 border-l-2 border-slate-200">
                                                             {atBats.map((ab: any, idx: number) => (
                                                                 <div key={idx} className="flex gap-3 text-[10px] items-start">
@@ -204,22 +243,39 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                                             )}
                                         </React.Fragment>
                                     );
-                                })}
+                                }) : (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">Starting Lineup TBD</td>
+                                    </tr>
+                                )}
                             </tbody>
                             <thead className="bg-slate-50 border-y border-slate-100 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
                                 <tr>
-                                    <th className="px-3 py-2">Pitchers</th>
-                                    <th className="px-2 py-2 text-right">IP</th>
-                                    <th className="px-2 py-2 text-right">H</th>
-                                    <th className="px-2 py-2 text-right">ER</th>
-                                    <th className="px-2 py-2 text-right">BB</th>
-                                    <th className="px-3 py-2 text-right">K</th>
+                                    <th className="px-3 py-2 text-left w-[36%]">{isPregame ? "Probable Pitcher" : "Pitchers"}</th>
+                                    {isPregame ? (
+                                        <>
+                                            <th className="px-2 py-2 text-right w-[14%]">W-L</th>
+                                            <th className="px-2 py-2 text-right w-[9%]">K</th>
+                                            <th className="px-2 py-2 text-right w-[9%]">H</th>
+                                            <th className="px-2 py-2 text-right w-[9%]">HR</th>
+                                            <th className="px-2 py-2 text-right w-[9%]">ERA</th>
+                                            <th className="px-3 py-2 text-right w-[9%]">WHIP</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="px-2 py-2 text-right w-[14%]">IP</th>
+                                            <th className="px-2 py-2 text-right w-[10%]">H</th>
+                                            <th className="px-2 py-2 text-right w-[10%]">ER</th>
+                                            <th className="px-2 py-2 text-right w-[10%]">BB</th>
+                                            <th className="px-3 py-2 text-right w-[10%]">K</th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {pitchers.map((ath: any, i: number) => (
+                                {pitchers.length > 0 ? pitchers.map((ath: any, i: number) => (
                                     <tr key={i} className="hover:bg-slate-50">
-                                        <td className="px-3 py-2 text-blue-600 font-medium truncate max-w-[160px]">
+                                        <td className="px-3 py-2 text-blue-600 font-medium truncate max-w-[160px] flex items-center justify-start gap-1">
                                             <Link to={`/players/${ath.athlete?.id}`} className="hover:underline">{ath.athlete?.shortName}</Link>
                                         </td>
                                         <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, pitchingStats?.labels, 'IP')}</td>
@@ -228,7 +284,47 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                                         <td className="px-2 py-2 text-right text-slate-600">{getStat(ath, pitchingStats?.labels, 'BB')}</td>
                                         <td className="px-3 py-2 text-right text-slate-500">{getStat(ath, pitchingStats?.labels, 'K')}</td>
                                     </tr>
-                                ))}
+                                )) : (() => {
+                                    const teamCompetitor = header?.competitors?.find((c: any) => c.team?.id === activeBoxTeam);
+                                    const probable = teamCompetitor?.probables?.[0];
+                                    
+                                    if (probable) {
+                                        // The JSON provided has probable.statistics.splits.categories instead of the usual probable.statistics array
+                                        const statsArr = probable.statistics?.splits?.categories || probable.statistics || [];
+                                        const getProbStat = (name: string) => {
+                                            const s = statsArr.find((s: any) => s.abbreviation === name || s.name === name);
+                                            return s ? s.displayValue : '-';
+                                        };
+
+                                        const wins = getProbStat('W');
+                                        const losses = getProbStat('L');
+                                        const wl = (wins !== '-' && losses !== '-') ? `${wins}-${losses}` : '-';
+
+                                        return (
+                                            <tr className="hover:bg-slate-50">
+                                                <td className="px-3 py-2 text-blue-600 font-medium truncate max-w-[160px] flex items-center justify-start gap-1">
+                                                    <Link to={`/players/${probable.athlete?.id || probable.playerId}`} className="hover:underline">
+                                                        {probable.athlete?.shortName || probable.athlete?.displayName || probable.shortDisplayName || "Unknown"}
+                                                    </Link>
+                                                </td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{wl}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getProbStat('K')}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getProbStat('H')}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getProbStat('HR')}</td>
+                                                <td className="px-2 py-2 text-right text-slate-600">{getProbStat('ERA')}</td>
+                                                <td className="px-3 py-2 text-right text-slate-500">{getProbStat('WHIP')}</td>
+                                            </tr>
+                                        );
+                                    } else {
+                                        return (
+                                            <tr className="hover:bg-slate-50">
+                                                <td className="px-3 py-2 text-slate-500 font-medium" colSpan={7}>
+                                                    TBD
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                })()}
                             </tbody>
                         </table>
                     </div>
@@ -434,7 +530,7 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
             </div>
 
             {/* CENTER COLUMN: Highlights, Linescore, Scoring Summary */}
-            <div className="lg:col-span-6 flex flex-col gap-6">
+            <div className="lg:col-span-7 xl:col-span-5 flex flex-col gap-6">
                 
                 {/* Media / Headline */}
                 <GameVideoPlayer data={data} />
@@ -475,6 +571,7 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                 />
 
                 {/* Scoring Summary */}
+                {!isPregame && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-800">Scoring Summary</span>
@@ -534,11 +631,12 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
                         <button onClick={() => onTabChange("plays")} className="text-blue-600 text-sm font-bold hover:underline">Full Play-By-Play</button>
                     </div>
                 </div>
+                )}
 
             </div>
 
             {/* RIGHT COLUMN: Odds, Series, Standings */}
-            <div className="lg:col-span-3 flex flex-col gap-6">
+            <div className="lg:col-span-12 xl:col-span-3 flex flex-col gap-6">
                 
                 {/* Game Odds */}
                 {(() => {
