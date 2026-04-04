@@ -179,7 +179,7 @@ export const GamePage = () => {
               const liveProvider = liveOdds.items.find((item: any) => item.provider?.id === "200" || item.provider?.name === "DraftKings - Live Odds");
               finalOdds = liveProvider || liveOdds.items[0]; 
               // Store the pregame odds to display underneath the live odds
-              finalOdds._pregameOdds = odds;
+              finalOdds._pregameOdds = odds || summary?.pickcenter?.[0] || summary?.header?.competitions?.[0]?.odds?.[0];
           }
       }
 

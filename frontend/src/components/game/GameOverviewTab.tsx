@@ -570,13 +570,18 @@ export const GameOverviewTab: React.FC<GameOverviewTabProps> = ({
 
                     let pregameAwayML = null;
                     let pregameHomeML = null;
-                    if (odds._pregameOdds) {
-                        if (odds._pregameOdds.away_money_line) {
-                            pregameAwayML = formatOdds(odds._pregameOdds.away_money_line);
+                    const pgOdds = odds._pregameOdds;
+                    if (pgOdds) {
+                        let pgAwayML = pgOdds.away_money_line ?? pgOdds.awayTeamOdds?.moneyLine;
+                        let pgHomeML = pgOdds.home_money_line ?? pgOdds.homeTeamOdds?.moneyLine;
+                        
+                        if (pgOdds.moneyline) {
+                            pgAwayML = pgOdds.moneyline.away?.close?.odds ?? pgAwayML;
+                            pgHomeML = pgOdds.moneyline.home?.close?.odds ?? pgHomeML;
                         }
-                        if (odds._pregameOdds.home_money_line) {
-                            pregameHomeML = formatOdds(odds._pregameOdds.home_money_line);
-                        }
+                        
+                        if (pgAwayML !== undefined && pgAwayML !== null) pregameAwayML = formatOdds(pgAwayML);
+                        if (pgHomeML !== undefined && pgHomeML !== null) pregameHomeML = formatOdds(pgHomeML);
                     }
 
                     if (pregameAwayML === awayML) pregameAwayML = null;
