@@ -123,6 +123,32 @@ TABLE season_teams:
     display_name text
 """
 
+def sum_innings_pitched(ip_array):
+    """
+    Safely sums an array of baseball innings pitched strings (e.g. ['6.1', '5.2', '7.0']).
+    1 inning = 3 outs.
+    '6.1' = 6 innings + 1 out = 19 outs.
+    """
+    if not ip_array:
+        return "0.0"
+        
+    total_outs = 0
+    for ip in ip_array:
+        if not ip or not isinstance(ip, str):
+            continue
+            
+        parts = ip.split('.')
+        try:
+            full_innings = int(parts[0]) if parts[0] else 0
+            outs = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+            total_outs += (full_innings * 3) + outs
+        except ValueError:
+            continue
+            
+    final_full_innings = total_outs // 3
+    final_remainder = total_outs % 3
+    return f"{final_full_innings}.{final_remainder}"
+
 @router.get("")
 @router.get("/")
 async def ask_statmaster(q: str = Query(..., description="The user's question")):
@@ -161,7 +187,7 @@ Rules:
 6. SEASONS: The `events` table contains games from multiple years. If the user specifies a year (e.g., 'in 2023'), filter `WHERE e.season_year = 2023`. If they say 'this season' or omit a year entirely, default to `WHERE e.season_year = {current_season}`.
 7. CAREER & YEAR-BY-YEAR: If the user asks for "career stats", you MUST `SUM` all their stats across all years and `GROUP BY` the player. Do NOT filter by `season_year` at all. If the user asks for stats "by season" or "every year", you MUST `GROUP BY e.season_year`, include `e.season_year AS season` in your SELECT, and sort by `season DESC`. Do NOT filter by `season_year`.
 8. CRITICAL: By default, stats MUST be filtered for 'Regular Season' games only (type_id = 2) unless the user explicitly asks for Spring Training or Postseason. You MUST JOIN `season_types` on `e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date` and filter WHERE `st.type_id = 2`.
-9. Important: event_boxscores_pitching 'ip' is a string like '6.1'. If asked for total innings: SUM(CAST(SPLIT_PART(ip, '.', 1) AS INTEGER) * 3 + COALESCE(CAST(NULLIF(SPLIT_PART(ip, '.', 2), '') AS INTEGER), 0)) / 3.0
+9. Important: event_boxscores_pitching 'ip' is a string like '6.1' or '6.2' (.1 means 1 out, .2 means 2 outs). Do NOT attempt to do complex SQL math to sum them. If asked for total innings pitched, select an array of all their individual `ip` values using `ARRAY_AGG(p.ip) AS ip_array` and sort by `ARRAY_LENGTH(ARRAY_AGG(p.ip), 1) DESC`. The Python backend will handle the fractional summation to display the final IP value.
 10. If the user asks for a category leader (e.g. 'most strikeouts', 'most home runs', 'most RBI'), your query MUST group by the player, sum the stats (e.g. `SUM(COALESCE(b.rbi, 0))`), sort the results in descending order by that sum, and use `LIMIT 25` to return the top 25 players in that category.
 11. CRITICAL FOR TABLES: When asked for a batting leaderboard or season/career stats, your SELECT MUST include not just the requested stat, but also their other major context stats for that season: `SUM(b.ab) as ab`, `SUM(b.r) as r`, `SUM(b.h) as h`, `SUM(b.hr) as hr`, `SUM(b.rbi) as rbi`, `SUM(b.sb) as sb`. When asked for a pitching leaderboard or season/career stats, include: `SUM(p.h) as h`, `SUM(p.er) as er`, `SUM(p.bb) as bb`, `SUM(p.k) as k`. This ensures the table has rich data like Statmuse.
 12. CRITICAL FOR GAMELOGS: If the user asks for a player's "gamelog", game-by-game stats, or recent games, your query MUST return a row for each game. You MUST include exactly these columns with these exact aliases: `e.event_id`, `a.athlete_id` (by joining `athletes` a on the boxscore's `athlete_id`), `e.date` AS date, the player's team abbreviation AS `team_abbr` (by joining `season_teams` t_player on the boxscore's `team_id = t_player.team_id AND e.season_year = t_player.season_year`), whether the player was home/away AS `home_away` (by checking `c_player.home_away` from `event_competitors` c_player joined on `b.event_id = c_player.event_id` AND the boxscore's `team_id = c_player.team_id`), and the opponent's abbreviation AS `opponent_abbr` (by joining `event_competitors` c_opp on `b.event_id = c_opp.event_id` AND the boxscore's `team_id != c_opp.team_id` and then joining `season_teams` t_opp on `c_opp.team_id = t_opp.team_id AND e.season_year = t_opp.season_year`). Sort by `e.date DESC` to get the most recent games.
@@ -210,7 +236,14 @@ User Question: "{q}"
         results = await database.fetch_all(query=sql_query)
         
         # Format results to a simple list of dicts
-        raw_rows = [dict(row) for row in results]
+        raw_rows = []
+        for row in results:
+            d = dict(row)
+            # If the LLM returned an IP array for safe math, compute it here
+            if 'ip_array' in d:
+                d['ip'] = sum_innings_pitched(d['ip_array'])
+                del d['ip_array'] # remove the raw array from the final table
+            raw_rows.append(d)
         
     except Exception as e:
         logger.error(f"Database Execution Error: {e}\nQuery: {sql_query}")
