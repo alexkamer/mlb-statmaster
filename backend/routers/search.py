@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException
-from typing import Optional
+from fastapi import APIRouter
 from database import database
 import datetime
 from datetime import timezone

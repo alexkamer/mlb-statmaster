@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 import httpx
 from datetime import datetime, timezone
-import asyncio
 from database import database
 
 router = APIRouter()
@@ -286,7 +284,6 @@ async def get_team_games_paginated(team_id: int, year: int = 2024, page: int = 1
 @router.get("/api/teams/{team_id}/live_roster")
 async def get_live_team_roster(team_id: int):
     """Fetch the live 40-man roster directly from ESPN."""
-    import httpx
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster"
     
     async with httpx.AsyncClient() as client:
@@ -465,7 +462,6 @@ async def get_team_batting_splits_by_outs(team_id: int, outs: int = 15, year: in
 @router.get("/api/teams/{team_id}/espn_data")
 async def get_team_espn_data(team_id: int):
     """Fetch the team's next scheduled game, records, and standing summary directly from ESPN."""
-    import httpx
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}"
     
     async with httpx.AsyncClient() as client:
@@ -528,10 +524,8 @@ async def get_team_espn_data(team_id: int):
 @router.get("/api/teams/{team_id}/depthchart")
 async def get_team_depthchart(team_id: int):
     """Fetch the team's current depth chart to populate the Diamond Architecture."""
-    import httpx
     
     # We query the current UTC year to ensure we get the live depth chart
-    from datetime import datetime, timezone
     year = datetime.now(timezone.utc).year
     
     url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year}/teams/{team_id}/depthcharts"
@@ -591,7 +585,6 @@ async def get_team_depthchart(team_id: int):
 @router.get("/api/teams/{team_id}/leaders")
 async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "Regular Season"):
     """Fetch official team leaders directly from ESPN and map to our database."""
-    import httpx
     
     # Map our readable string back to ESPN's internal type IDs
     type_id = "2"
@@ -661,7 +654,6 @@ async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "R
 @router.get("/api/teams/{team_id}/standing")
 async def get_team_standing(team_id: int, year: int = 2024):
     """Fetch the team's official win/loss record and division rank using the Core API."""
-    import httpx
     
     # First, we need to look up the team's Division ID and Name from our DB
     group_query = """

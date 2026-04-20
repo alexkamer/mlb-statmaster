@@ -1,8 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
-import httpx
-from datetime import datetime, timezone
-import asyncio
 from database import database
 
 router = APIRouter()

@@ -93,7 +93,7 @@ async def ask_statmaster(q: str = Query(..., description="The user's question"))
         
         logger.info(f"Generated SQL: {sql_query}")
         
-    except Exception as e:
+    except Exception:
         logger.error(f"SQL Generation Error: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="Failed to understand the question.")
 
@@ -337,7 +337,7 @@ async def ask_statmaster(q: str = Query(..., description="The user's question"))
         subject_name = q.lower().replace("gamelog", "").replace("game log", "").strip().title()
 
     # Simple dynamic answer text
-    answer_text = f"Here are the stats you requested."
+    answer_text = "Here are the stats you requested."
     
     # Determine the "type" of question to generate a better static answer
     q_lower = q.lower()
