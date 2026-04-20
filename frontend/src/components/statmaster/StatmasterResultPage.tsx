@@ -255,25 +255,6 @@ export const StatmasterResultPage = () => {
               </div>
             )}
 
-            {/* Related Queries (Statmuse style: list of links under the table) */}
-            {data.relatedQueries && data.relatedQueries.length > 0 && (
-              <div className="w-full mt-4 pb-12 border-t border-slate-200 pt-8">
-                <h3 className="text-lg font-black text-[#111111] mb-4">
-                  Related Searches
-                </h3>
-                <div className="flex flex-col gap-3">
-                  {data.relatedQueries.map((rq, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSuggestionClick(rq)}
-                      className="text-left text-[#0051e5] font-bold text-base md:text-lg hover:underline decoration-2 underline-offset-4 transition-all w-fit"
-                    >
-                      {rq}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           
           {/* Recent Games Appendix */}
@@ -326,6 +307,26 @@ export const StatmasterResultPage = () => {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Related Queries (Statmuse style: list of links under the table) */}
+          {data.relatedQueries && data.relatedQueries.length > 0 && (
+            <div className="w-full max-w-5xl mx-auto px-6 mt-16 mb-12 border-t border-slate-200 pt-8">
+              <h3 className="text-lg font-black text-[#111111] mb-4">
+                Related Searches
+              </h3>
+              <div className="flex flex-col gap-3">
+                {data.relatedQueries.map((rq, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSuggestionClick(rq)}
+                    className="text-left text-[#0051e5] font-bold text-base md:text-lg hover:underline decoration-2 underline-offset-4 transition-all w-fit"
+                  >
+                    {rq}
+                  </button>
+                ))}
               </div>
             </div>
           )}
