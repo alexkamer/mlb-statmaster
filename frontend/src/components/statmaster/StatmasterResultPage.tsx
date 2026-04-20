@@ -2,28 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
 import { SafeImage } from '../shared/SafeImage';
-
-interface StatmasterResponse {
-  query: string;
-  answerText: string;
-  primaryImage?: string;
-  secondaryImage?: string;
-  primaryImageAlt?: string;
-  subjectName?: string;
-  subjectType?: 'player' | 'team';
-  subjectId?: number;
-  columns: string[];
-  rows: any[][];
-  rowLinks?: string[];
-  relatedQueries?: string[];
-  primaryColumnIndex?: number;
-  heroStats?: { label: string; value: string }[];
-  recentGames?: {
-    columns: string[];
-    rows: any[][];
-    rowLinks?: string[];
-  };
-}
+import { StatmasterResponse } from './types';
 
 // Simple in-memory cache to persist results when navigating away and hitting "back"
 const statmasterCache = new Map<string, StatmasterResponse>();
