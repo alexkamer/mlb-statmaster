@@ -26,6 +26,7 @@ class SqlQueryResponse(BaseModel):
     sql_query: str = Field(description="The valid PostgreSQL query to execute.")
     subject_id: Optional[int] = Field(description="Return the exact athlete_id or team_id ONLY if it was explicitly queried and verified, otherwise return null.", default=None)
     subject_type: Optional[str] = Field(description="Whether the subject is a 'player' or 'team'.", default=None)
+    related_queries: Optional[List[str]] = Field(description="2-3 interesting follow-up questions the user might ask about this specific player, team, or stat.", default=None)
 
 class StatmasterResponse(BaseModel):
     query: str = Field(description="The original user query.")
@@ -189,6 +190,7 @@ User Question: "{q}"
         sql_query = sql_data_dict.get('sql_query')
         subject_id = sql_data_dict.get('subject_id')
         subject_type = sql_data_dict.get('subject_type')
+        related_queries = sql_data_dict.get('related_queries') or ["Show me more stats like this."]
         
         logger.info(f"Generated SQL: {sql_query}")
         
@@ -454,7 +456,7 @@ User Question: "{q}"
         "columns": upper_columns,
         "rows": formatted_rows,
         "rowLinks": row_links,
-        "relatedQueries": ["Show me more stats like this."],
+        "relatedQueries": related_queries,
         "primaryColumnIndex": primary_col_index,
         "heroStats": hero_stats,
         "recentGames": recent_games
