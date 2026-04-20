@@ -20,6 +20,25 @@ import { GamePredictorPage } from './components/game/GamePredictorPage';
 import { PropsPage } from './components/props/PropsPage';
 import { PropAnalysisPage } from './components/props/PropAnalysisPage';
 import { HomePage } from './components/HomePage';
+import { StatmasterSearchPage } from './components/statmaster/StatmasterSearchPage';
+import { StatmasterResultPage } from './components/statmaster/StatmasterResultPage';
+
+const StatmasterRouter = () => {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const q = searchParams.get('q');
+  const hasQuery = q !== null && q.replace(/-/g, ' ').trim() !== '';
+
+  return (
+    <>
+      <Header selectedTeamId={null} />
+      <main className="pt-36 px-6 pb-12 transition-all duration-300 min-h-[calc(100vh-200px)]">
+        {hasQuery ? <StatmasterResultPage /> : <StatmasterSearchPage />}
+      </main>
+      <Footer />
+    </>
+  );
+};
 import { BettorsHeavenPage } from './components/bettors/BettorsHeavenPage';
 import { TeamStatsDashboard } from './components/team/TeamStatsDashboard';
 import { TeamNewsFeed } from './components/team/TeamNewsFeed';
@@ -186,6 +205,7 @@ const TopNav = () => {
         { label: 'Live Scores', icon: Activity, path: '/' },
         { label: 'Prop Bets', icon: TrendingUp, path: '/props' },
         { label: 'League Leaders', icon: Trophy, path: '/leaders' },
+        { label: 'Ask Statmaster', icon: Zap, path: '/ask' },
         { label: 'Bettors Heaven', icon: Coins, path: '/bettors-heaven' },
         { label: 'Injury Report', icon: Activity, path: '#' },
         { label: 'Archive', icon: Archive, path: '#' },
@@ -1136,6 +1156,7 @@ const AppContent = () => {
           </>
         } />
         <Route path="/teams/:teamId" element={<TeamDashboard teams={teams} />} />
+        <Route path="/ask" element={<StatmasterRouter />} />
         <Route path="/bettors-heaven" element={
           <>
             <Header selectedTeamId={null} />

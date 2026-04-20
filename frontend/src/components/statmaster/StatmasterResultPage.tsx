@@ -1,0 +1,241 @@
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { SafeImage } from '../shared/SafeImage';
+
+interface StatmasterResponse {
+  query: string;
+  answerText: string;
+  primaryImage?: string;
+  secondaryImage?: string;
+  primaryImageAlt?: string;
+  subjectName?: string;
+  subjectType?: 'player' | 'team';
+  subjectId?: number;
+  columns: string[];
+  rows: any[][];
+  relatedQueries?: string[];
+  primaryColumnIndex?: number;
+}
+
+export const StatmasterResultPage = () => {
+  const [searchParams] = useSearchParams();
+  const rawQuery = searchParams.get('q')?.replace(/-/g, ' ') || '';
+  const [query, setQuery] = useState(rawQuery);
+  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<StatmasterResponse | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!rawQuery) return;
+    
+    setQuery(rawQuery);
+    setIsLoading(true);
+    
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/ask/?q=${encodeURIComponent(rawQuery)}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        const jsonData = await res.json();
+        setData(jsonData);
+      } catch (error) {
+        console.error('Error fetching statmaster data:', error);
+        setData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [rawQuery]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim() || query.trim().toLowerCase() === rawQuery.toLowerCase()) return;
+    navigate(`/ask?q=${encodeURIComponent(query.trim().replace(/\s+/g, '-'))}`);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion);
+    navigate(`/ask?q=${encodeURIComponent(suggestion.trim().replace(/\s+/g, '-'))}`);
+  };
+
+  return (
+    <div className="w-full flex flex-col items-center justify-start pb-24 min-h-screen">
+      
+      {/* Answer Hero Section (Edge-to-Edge Background) */}
+      <div className={`w-full ${data && data.rows.length > 0 ? 'bg-[#f4f2ee]' : 'bg-surface'} pt-12 pb-16 flex flex-col items-center border-b border-slate-200 transition-colors duration-500`}>
+        
+        {/* Compact Search Bar inside Hero */}
+        <form onSubmit={handleSearch} className="w-full max-w-3xl relative group mb-16 px-4 z-20">
+          <div className="absolute inset-y-0 left-4 pl-6 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-14 pr-8 py-4 border-2 border-slate-300 rounded-full text-lg font-bold text-primary placeholder-slate-400 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-sm bg-white"
+            placeholder="Ask another question..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="absolute inset-y-0 right-6 flex items-center">
+            <button
+              type="submit"
+              className="bg-primary hover:bg-[#1a1a1a] text-white p-2.5 rounded-full transition-all duration-300 shadow-sm"
+              disabled={isLoading}
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 min-h-[300px]">
+            <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm animate-pulse">
+              Crunching the numbers...
+            </p>
+          </div>
+        ) : data ? (
+          <div className="w-full max-w-5xl mx-auto px-6 flex flex-col items-center text-center animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out relative z-10">
+            
+            {(data.primaryImage || data.secondaryImage) && (
+              <div 
+                className="relative mb-6 group cursor-pointer inline-block" 
+                onClick={() => data.subjectId && navigate(`/${data.subjectType}s/${data.subjectId}`)}
+              >
+                {/* Statmuse-style image presentation: clean cutout style */}
+                {data.primaryImage && (
+                  <SafeImage 
+                    src={data.primaryImage} 
+                    alt={data.primaryImageAlt || 'Subject'} 
+                    className="w-40 h-40 md:w-56 md:h-56 object-contain relative z-10 drop-shadow-[0_10px_20px_rgba(0,0,0,0.15)] transition-transform duration-300 group-hover:scale-105"
+                    hideOnError
+                  />
+                )}
+                {data.secondaryImage && (
+                  <div className="absolute -bottom-2 -right-4 md:-right-6 z-20 bg-white rounded-full p-1.5 shadow-lg border-2 border-slate-100 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                    <SafeImage 
+                      src={data.secondaryImage} 
+                      alt="Team Logo" 
+                      className="w-12 h-12 md:w-16 md:h-16 object-contain"
+                      hideOnError
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-headline font-black text-[#111111] tracking-tight leading-[1.1] max-w-3xl">
+              {data.answerText.split(data.subjectName || '').map((part, i, arr) => (
+                  <React.Fragment key={i}>
+                    {part}
+                    {i < arr.length - 1 && data.subjectName && (
+                      <span 
+                        className="text-[#0051e5] hover:underline cursor-pointer px-1 relative inline-block group transition-colors"
+                        onClick={() => data.subjectId && navigate(`/${data.subjectType}s/${data.subjectId}`)}
+                      >
+                        {data.subjectName}
+                      </span>
+                    )}
+                  </React.Fragment>
+              ))}
+            </h1>
+          </div>
+        ) : (
+          <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">
+            Something went wrong. Please try asking again.
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Area (White background) */}
+      {!isLoading && data && (
+        <div className="w-full bg-white flex flex-col items-center pt-12 px-4 sm:px-6">
+          <div className="max-w-5xl w-full">
+            
+            {/* Statmuse Table Style: No outer borders, minimal lines, bold headers */}
+            {data.rows.length > 0 ? (
+              <div className="w-full overflow-x-auto mb-16">
+                <table className="w-full text-left border-collapse whitespace-nowrap">
+                  <thead>
+                    <tr className="border-b-2 border-[#111111]">
+                      {/* Add Rank Column Header */}
+                      <th className="px-4 py-3 text-xs md:text-sm font-black text-[#111111] uppercase tracking-widest whitespace-nowrap text-center w-12">
+                        #
+                      </th>
+                      {data.columns.map((col, idx) => {
+                        const isPrimary = idx === data.primaryColumnIndex;
+                        return (
+                          <th key={idx} className={`px-4 py-3 text-xs md:text-sm font-black uppercase tracking-widest whitespace-nowrap ${col === '' ? 'text-center w-8' : idx === 0 ? 'text-left' : 'text-right'} ${isPrimary ? 'text-[#111111] bg-[#f4f2ee] rounded-t-lg' : 'text-slate-400'}`}>
+                            {col}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {data.rows.map((row, rowIdx) => (
+                      <tr key={rowIdx} className="hover:bg-[#f8f9fa] transition-colors cursor-default">
+                        {/* Add Rank Column Cell */}
+                        <td className="px-4 py-3 text-sm font-black text-slate-400 text-center">
+                          {rowIdx + 1}
+                        </td>
+                        {row.map((cell, cellIdx) => {
+                          const isPrimary = cellIdx === data.primaryColumnIndex;
+                          const isHomeAway = cell === '@' || cell === 'vs';
+                          
+                          return (
+                            <td key={cellIdx} className={`px-4 py-3 text-sm md:text-base whitespace-nowrap ${
+                              isHomeAway
+                                ? 'text-center font-bold text-slate-400 text-xs uppercase'
+                                : cellIdx === 0 
+                                  ? 'font-bold text-[#0051e5] cursor-pointer hover:underline text-left' 
+                                  : isPrimary
+                                    ? 'font-black text-[#111111] text-right font-mono bg-[#f4f2ee]'
+                                    : 'font-medium text-[#111111] text-right font-mono opacity-60'
+                            }`}>
+                              {cell}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="w-full rounded-xl border-2 border-dashed border-slate-200 p-12 text-center mb-16">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">No tabular data to display</p>
+              </div>
+            )}
+
+            {/* Related Queries (Statmuse style: list of links under the table) */}
+            {data.relatedQueries && data.relatedQueries.length > 0 && (
+              <div className="w-full mt-4 pb-12 border-t border-slate-200 pt-8">
+                <h3 className="text-lg font-black text-[#111111] mb-4">
+                  Related Searches
+                </h3>
+                <div className="flex flex-col gap-3">
+                  {data.relatedQueries.map((rq, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSuggestionClick(rq)}
+                      className="text-left text-[#0051e5] font-bold text-base md:text-lg hover:underline decoration-2 underline-offset-4 transition-all w-fit"
+                    >
+                      {rq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
