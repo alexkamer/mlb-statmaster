@@ -329,7 +329,7 @@ export const StatmasterResultPage = () => {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
