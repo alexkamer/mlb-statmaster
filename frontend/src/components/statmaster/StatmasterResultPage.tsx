@@ -14,6 +14,7 @@ interface StatmasterResponse {
   subjectId?: number;
   columns: string[];
   rows: any[][];
+  rowLinks?: string[];
   relatedQueries?: string[];
   primaryColumnIndex?: number;
 }
@@ -186,17 +187,22 @@ export const StatmasterResultPage = () => {
                         {row.map((cell, cellIdx) => {
                           const isPrimary = cellIdx === data.primaryColumnIndex;
                           const isHomeAway = cell === '@' || cell === 'vs';
+                          const cellLink = cellIdx === 0 && data.rowLinks?.[rowIdx] ? data.rowLinks[rowIdx] : null;
                           
                           return (
-                            <td key={cellIdx} className={`px-4 py-3 text-sm md:text-base whitespace-nowrap ${
-                              isHomeAway
-                                ? 'text-center font-bold text-slate-400 text-xs uppercase'
-                                : cellIdx === 0 
-                                  ? 'font-bold text-[#0051e5] cursor-pointer hover:underline text-left' 
-                                  : isPrimary
-                                    ? 'font-black text-[#111111] text-right font-mono bg-[#f4f2ee]'
-                                    : 'font-medium text-[#111111] text-right font-mono opacity-60'
-                            }`}>
+                            <td 
+                              key={cellIdx} 
+                              onClick={() => cellLink && navigate(cellLink)}
+                              className={`px-4 py-3 text-sm md:text-base whitespace-nowrap ${
+                                isHomeAway
+                                  ? 'text-center font-bold text-slate-400 text-xs uppercase'
+                                  : cellIdx === 0 
+                                    ? `font-bold text-[#0051e5] text-left ${cellLink ? 'cursor-pointer hover:underline' : ''}` 
+                                    : isPrimary
+                                      ? 'font-black text-[#111111] text-right font-mono bg-[#f4f2ee]'
+                                      : 'font-medium text-[#111111] text-right font-mono opacity-60'
+                              }`}
+                            >
                               {cell}
                             </td>
                           );

@@ -37,8 +37,8 @@ class StatmasterResponse(BaseModel):
     subjectId: Optional[int] = Field(description="The ID of the subject, matching the image.", default=None)
     columns: List[str] = Field(description="Array of column names for the data table.")
     rows: List[List[Any]] = Field(description="Array of arrays containing the row data matching the columns.")
-    relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)
-    primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
+    rowLinks: Optional[List[Optional[str]]] = Field(description="Optional array of URLs for each row, if the row should be clickable.", default=None)
+    relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)    primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
 
 # --- Define the Database Schema Context ---
 DB_SCHEMA = """
@@ -159,7 +159,7 @@ Rules:
 8. Important: event_boxscores_pitching 'ip' is a string like '6.1'. If asked for total innings: SUM(CAST(SPLIT_PART(ip, '.', 1) AS INTEGER) * 3 + COALESCE(CAST(NULLIF(SPLIT_PART(ip, '.', 2), '') AS INTEGER), 0)) / 3.0
 9. If the user asks for a category leader (e.g. 'most strikeouts', 'most home runs', 'most RBI'), your query MUST group by the player, sum the stats (e.g. `SUM(COALESCE(b.rbi, 0))`), sort the results in descending order by that sum, and use `LIMIT 25` to return the top 25 players in that category.
 10. CRITICAL FOR TABLES: When asked for a batting leaderboard, your SELECT MUST include not just the requested stat, but also their other major context stats for that season: `SUM(b.ab) as ab`, `SUM(b.r) as r`, `SUM(b.h) as h`, `SUM(b.hr) as hr`, `SUM(b.rbi) as rbi`, `SUM(b.sb) as sb`. When asked for a pitching leaderboard, include: `SUM(p.h) as h`, `SUM(p.er) as er`, `SUM(p.bb) as bb`, `SUM(p.k) as k`. This ensures the table has rich data like Statmuse.
-11. CRITICAL FOR GAMELOGS: If the user asks for a player's "gamelog", game-by-game stats, or recent games, your query MUST return a row for each game. You MUST include exactly these columns with these exact aliases: `a.athlete_id` (by joining `athletes` a on `b.athlete_id = a.athlete_id`), `e.date` AS date, the player's team abbreviation AS `team_abbr` (by joining `season_teams` t_player on `b.team_id = t_player.team_id AND e.season_year = t_player.season_year`), whether the player was home/away AS `home_away` (by checking `c_player.home_away` from `event_competitors` c_player joined on `b.event_id = c_player.event_id AND b.team_id = c_player.team_id`), and the opponent's abbreviation AS `opponent_abbr` (by joining `event_competitors` c_opp on `b.event_id = c_opp.event_id AND b.team_id != c_opp.team_id` and then joining `season_teams` t_opp on `c_opp.team_id = t_opp.team_id AND e.season_year = t_opp.season_year`). ALSO include their core stats for that game: e.g., `b.ab`, `b.r`, `b.h`, `b.hr`, `b.rbi`, `b.bb`, `b.k`, `b.sb` for batters. Sort by `e.date DESC` to get the most recent games.
+11. CRITICAL FOR GAMELOGS: If the user asks for a player's "gamelog", game-by-game stats, or recent games, your query MUST return a row for each game. You MUST include exactly these columns with these exact aliases: `e.event_id`, `a.athlete_id` (by joining `athletes` a on `b.athlete_id = a.athlete_id`), `e.date` AS date, the player's team abbreviation AS `team_abbr` (by joining `season_teams` t_player on `b.team_id = t_player.team_id AND e.season_year = t_player.season_year`), whether the player was home/away AS `home_away` (by checking `c_player.home_away` from `event_competitors` c_player joined on `b.event_id = c_player.event_id AND b.team_id = c_player.team_id`), and the opponent's abbreviation AS `opponent_abbr` (by joining `event_competitors` c_opp on `b.event_id = c_opp.event_id AND b.team_id != c_opp.team_id` and then joining `season_teams` t_opp on `c_opp.team_id = t_opp.team_id AND e.season_year = t_opp.season_year`). ALSO include their core stats for that game: e.g., `b.ab`, `b.r`, `b.h`, `b.hr`, `b.rbi`, `b.bb`, `b.k`, `b.sb` for batters. Sort by `e.date DESC` to get the most recent games.
 12. CRITICAL FOR ALL QUERIES: You must ALWAYS add `LIMIT 25` to the end of every single query (e.g. gamelogs, team stats, historical records) unless the user explicitly asks for more. Returning hundreds of rows will crash the frontend.
 13. Example: "most RBI this season" -> SELECT a.athlete_id, a.display_name, SUM(b.rbi) as rbi, SUM(b.ab) as ab, SUM(b.r) as r, SUM(b.h) as h, SUM(b.hr) as hr, SUM(b.sb) as sb FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id JOIN athletes a ON b.athlete_id = a.athlete_id JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date WHERE e.season_year = {current_season} AND st.type_id = 2 GROUP BY a.athlete_id, a.display_name ORDER BY rbi DESC LIMIT 25;
 
@@ -231,10 +231,11 @@ User Question: "{q}"
     columns = list(raw_rows[0].keys())
     
     # Hide internal IDs and repetitive names from the UI table
-    visible_columns = [col for col in columns if col not in ['athlete_id', 'team_id', 'full_name', 'display_name']]
+    visible_columns = [col for col in columns if col not in ['athlete_id', 'team_id', 'full_name', 'display_name', 'event_id']]
     
     # Process rows to match Statmuse gamelog format (TEAM, @/vs, OPP)
     formatted_rows = []
+    row_links = []
     
     # Determine if this looks like a gamelog by checking for our specific column names
     is_gamelog = all(k in columns for k in ['team_abbr', 'opponent_abbr', 'home_away'])
@@ -254,6 +255,7 @@ User Question: "{q}"
                 
         # Reorder and format rows
         for row in raw_rows:
+            row_links.append(f"/games/{row['event_id']}" if 'event_id' in row and row['event_id'] else None)
             formatted_row = []
             for col in visible_columns:
                 val = row[col]
@@ -285,6 +287,7 @@ User Question: "{q}"
     else:
         # Default behavior
         for row in raw_rows:
+            row_links.append(f"/games/{row['event_id']}" if 'event_id' in row and row['event_id'] else None)
             formatted_row = [str(row[col]) if row[col] is not None else "0" for col in visible_columns]
             formatted_rows.append(formatted_row)
         
@@ -348,6 +351,7 @@ User Question: "{q}"
         "subjectId": primary_id,
         "columns": upper_columns,
         "rows": formatted_rows,
+        "rowLinks": row_links,
         "relatedQueries": ["Show me more stats like this."],
         "primaryColumnIndex": primary_col_index
     }
