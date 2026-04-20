@@ -38,7 +38,8 @@ class StatmasterResponse(BaseModel):
     columns: List[str] = Field(description="Array of column names for the data table.")
     rows: List[List[Any]] = Field(description="Array of arrays containing the row data matching the columns.")
     rowLinks: Optional[List[Optional[str]]] = Field(description="Optional array of URLs for each row, if the row should be clickable.", default=None)
-    relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)    primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
+    relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)
+    primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
 
 # --- Define the Database Schema Context ---
 DB_SCHEMA = """
