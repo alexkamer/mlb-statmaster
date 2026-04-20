@@ -41,6 +41,7 @@ class StatmasterResponse(BaseModel):
     relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)
     primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
     heroStats: Optional[List[dict]] = Field(description="Array of up to 4 key stats to highlight as badges.", default=None)
+    recentGames: Optional[dict] = Field(description="A secondary table containing recent gamelogs.", default=None)
 
 # --- Define the Database Schema Context ---
 DB_SCHEMA = """
@@ -328,6 +329,7 @@ User Question: "{q}"
     subject_name = None
     primary_id = None
     subject_type = None
+    recent_games = None
 
     # If the SQL grabbed an athlete_id for the first row, use that!
     if 'athlete_id' in raw_rows[0] and raw_rows[0]['athlete_id'] is not None:
@@ -341,6 +343,77 @@ User Question: "{q}"
         if primary_id:
             primary_image = f"https://a.espncdn.com/i/headshots/mlb/players/full/{primary_id}.png"
             
+            # Fetch recent games if we are on an aggregate row
+            if hero_stats and not is_gamelog:
+                try:
+                    # Guess if pitcher or batter based on what was returned in the aggregate
+                    is_pitcher_agg = any(col in columns for col in ['ip', 'p_k', 'p_bb', 'sv', 'era'])
+                    
+                    if is_pitcher_agg:
+                        rg_query = f"""
+                            SELECT e.event_id, e.date AS date, t_player.abbreviation AS team_abbr, c_player.home_away, t_opp.abbreviation AS opponent_abbr, p.ip, p.h, p.r, p.er, p.bb, p.k
+                            FROM event_boxscores_pitching p 
+                            JOIN events e ON p.event_id = e.event_id 
+                            JOIN season_teams t_player ON p.team_id = t_player.team_id AND e.season_year = t_player.season_year 
+                            JOIN event_competitors c_player ON p.event_id = c_player.event_id AND p.team_id = c_player.team_id 
+                            JOIN event_competitors c_opp ON p.event_id = c_opp.event_id AND p.team_id != c_opp.team_id 
+                            JOIN season_teams t_opp ON c_opp.team_id = t_opp.team_id AND e.season_year = t_opp.season_year 
+                            WHERE p.athlete_id = {primary_id}
+                            ORDER BY e.date DESC LIMIT 5;
+                        """
+                        rg_cols_ui = ["DATE", "TEAM", "", "OPP", "IP", "H", "R", "ER", "BB", "K"]
+                        rg_cols_db = ["date", "team_abbr", "home_away", "opponent_abbr", "ip", "h", "r", "er", "bb", "k"]
+                    else:
+                        rg_query = f"""
+                            SELECT e.event_id, e.date AS date, t_player.abbreviation AS team_abbr, c_player.home_away, t_opp.abbreviation AS opponent_abbr, b.ab, b.r, b.h, b.hr, b.rbi, b.bb, b.k, b.sb 
+                            FROM event_boxscores_batting b 
+                            JOIN events e ON b.event_id = e.event_id 
+                            JOIN season_teams t_player ON b.team_id = t_player.team_id AND e.season_year = t_player.season_year 
+                            JOIN event_competitors c_player ON b.event_id = c_player.event_id AND b.team_id = c_player.team_id 
+                            JOIN event_competitors c_opp ON b.event_id = c_opp.event_id AND b.team_id != c_opp.team_id 
+                            JOIN season_teams t_opp ON c_opp.team_id = t_opp.team_id AND e.season_year = t_opp.season_year 
+                            WHERE b.athlete_id = {primary_id}
+                            ORDER BY e.date DESC LIMIT 5;
+                        """
+                        rg_cols_ui = ["DATE", "TEAM", "", "OPP", "AB", "R", "H", "HR", "RBI", "BB", "K", "SB"]
+                        rg_cols_db = ["date", "team_abbr", "home_away", "opponent_abbr", "ab", "r", "h", "hr", "rbi", "bb", "k", "sb"]
+                        
+                    rg_results = await database.fetch_all(query=rg_query)
+                    
+                    if rg_results:
+                        rg_rows = []
+                        rg_links = []
+                        import datetime
+                        
+                        for row in rg_results:
+                            r_dict = dict(row)
+                            rg_links.append(f"/games/{r_dict['event_id']}")
+                            formatted_r = []
+                            for col in rg_cols_db:
+                                val = r_dict.get(col)
+                                if col == 'home_away':
+                                    formatted_r.append('vs' if str(val).lower() == 'home' else '@')
+                                elif col == 'date' and val:
+                                    try:
+                                        if isinstance(val, str):
+                                            dt = datetime.datetime.fromisoformat(val.replace('Z', '+00:00'))
+                                            formatted_r.append(dt.strftime('%m/%d/%Y'))
+                                        else:
+                                            formatted_r.append(val.strftime('%m/%d/%Y'))
+                                    except Exception:
+                                        formatted_r.append(str(val))
+                                else:
+                                    formatted_r.append(str(val) if val is not None else "0")
+                            rg_rows.append(formatted_r)
+                            
+                        recent_games = {
+                            "columns": rg_cols_ui,
+                            "rows": rg_rows,
+                            "rowLinks": rg_links
+                        }
+                except Exception as e:
+                    logger.error(f"Failed to fetch recent games for {primary_id}: {e}")
+                    
         if 'team_abbr' in raw_rows[0] and raw_rows[0]['team_abbr']:
             secondary_image = f"https://a.espncdn.com/i/teamlogos/mlb/500/{str(raw_rows[0]['team_abbr']).lower()}.png"
         elif 'team_id' in raw_rows[0] and raw_rows[0]['team_id']:
@@ -383,6 +456,7 @@ User Question: "{q}"
         "rowLinks": row_links,
         "relatedQueries": ["Show me more stats like this."],
         "primaryColumnIndex": primary_col_index,
-        "heroStats": hero_stats
+        "heroStats": hero_stats,
+        "recentGames": recent_games
     }
 
