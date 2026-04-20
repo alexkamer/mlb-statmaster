@@ -19,18 +19,29 @@ interface StatmasterResponse {
   primaryColumnIndex?: number;
 }
 
+// Simple in-memory cache to persist results when navigating away and hitting "back"
+const statmasterCache = new Map<string, StatmasterResponse>();
+
 export const StatmasterResultPage = () => {
   const [searchParams] = useSearchParams();
   const rawQuery = searchParams.get('q')?.replace(/-/g, ' ') || '';
   const [query, setQuery] = useState(rawQuery);
-  const [isLoading, setIsLoading] = useState(true);
-  const [data, setData] = useState<StatmasterResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(!statmasterCache.has(rawQuery));
+  const [data, setData] = useState<StatmasterResponse | null>(statmasterCache.get(rawQuery) || null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!rawQuery) return;
     
     setQuery(rawQuery);
+    
+    // Check if we already have the answer cached
+    if (statmasterCache.has(rawQuery)) {
+      setData(statmasterCache.get(rawQuery)!);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     
     const fetchData = async () => {
@@ -40,6 +51,10 @@ export const StatmasterResultPage = () => {
           throw new Error('Failed to fetch data');
         }
         const jsonData = await res.json();
+        
+        // Save to cache
+        statmasterCache.set(rawQuery, jsonData);
+        
         setData(jsonData);
       } catch (error) {
         console.error('Error fetching statmaster data:', error);
