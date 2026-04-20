@@ -17,6 +17,7 @@ interface StatmasterResponse {
   rowLinks?: string[];
   relatedQueries?: string[];
   primaryColumnIndex?: number;
+  heroStats?: { label: string; value: string }[];
 }
 
 // Simple in-memory cache to persist results when navigating away and hitting "back"
@@ -159,6 +160,22 @@ export const StatmasterResultPage = () => {
                   </React.Fragment>
               ))}
             </h1>
+
+            {/* HERO STAT BADGES */}
+            {data.heroStats && data.heroStats.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-8 md:gap-16 mt-10 w-full animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 fill-mode-both">
+                {data.heroStats.map((stat, idx) => (
+                  <div key={idx} className="flex flex-col items-center">
+                    <span className="text-4xl md:text-6xl font-black text-[#111111] font-mono tracking-tighter">
+                      {stat.value}
+                    </span>
+                    <span className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {stat.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest">

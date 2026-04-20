@@ -40,6 +40,7 @@ class StatmasterResponse(BaseModel):
     rowLinks: Optional[List[Optional[str]]] = Field(description="Optional array of URLs for each row, if the row should be clickable.", default=None)
     relatedQueries: Optional[List[str]] = Field(description="2-3 related follow-up questions the user might ask.", default=None)
     primaryColumnIndex: Optional[int] = Field(description="The zero-based index of the column that represents the primary stat requested.", default=None)
+    heroStats: Optional[List[dict]] = Field(description="Array of up to 4 key stats to highlight as badges.", default=None)
 
 # --- Define the Database Schema Context ---
 DB_SCHEMA = """
@@ -297,6 +298,31 @@ User Question: "{q}"
         # Make columns uppercase for the UI
         upper_columns = [col.upper().replace('_', ' ') for col in visible_columns]
         primary_col_index = 1 if len(upper_columns) > 1 else 0
+        
+    # Attempt to extract Hero Stats for beautiful badge display
+    hero_stats = None
+    if len(formatted_rows) == 1 and not is_gamelog:
+        # If it's a single aggregate row (career or season totals), extract the top counting stats
+        hero_stats = []
+        row_dict = dict(zip(upper_columns, formatted_rows[0]))
+        
+        # Priority stats to grab
+        priority = ['HR', 'RBI', 'H', 'R', 'SB', 'W', 'SO', 'K', 'SV', 'IP', 'AB', 'BB']
+        
+        for stat in priority:
+            if stat in row_dict and str(row_dict[stat]).strip() not in ["0", "0.0", "None", ""]:
+                hero_stats.append({"label": stat, "value": str(row_dict[stat])})
+                if len(hero_stats) == 4:
+                    break
+                    
+        # Fallback if no priority stats are found
+        if not hero_stats:
+            for col, val in row_dict.items():
+                if col not in ['PLAYER', 'TEAM', 'SEASON', 'DATE', 'OPP', ''] and str(val).replace('.','',1).isdigit():
+                    hero_stats.append({"label": col, "value": str(val)})
+                    if len(hero_stats) == 4:
+                        break
+
     primary_image = None
     secondary_image = None
     subject_name = None
@@ -356,6 +382,7 @@ User Question: "{q}"
         "rows": formatted_rows,
         "rowLinks": row_links,
         "relatedQueries": ["Show me more stats like this."],
-        "primaryColumnIndex": primary_col_index
+        "primaryColumnIndex": primary_col_index,
+        "heroStats": hero_stats
     }
 
