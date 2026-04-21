@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData, Table
 from sqlalchemy.dialects.postgresql import insert
 import logging
 from logging.handlers import RotatingFileHandler
@@ -284,6 +284,30 @@ async def scrape_day(client, target_date, semaphore, existing_events, all_athlet
     # --- 6. INSERT TO POSTGRES ---
     if global_events:
         with engine.connect() as conn:
+            metadata = MetaData()
+            
+            # Helper to execute native PostgreSQL UPSERT (ON CONFLICT DO NOTHING)
+            def bulk_upsert(table_name, df, conflict_column):
+                if df.empty: return
+                raw_dicts = df.to_dict(orient='records')
+                data_dicts = [{k: (None if pd.isna(v) else v) for k, v in record.items()} for record in raw_dicts]
+                
+                table = Table(table_name, metadata, autoload_with=engine)
+                stmt = insert(table).values(data_dicts)
+                stmt = stmt.on_conflict_do_nothing(index_elements=[conflict_column])
+                conn.execute(stmt)
+                
+            # Helper for multi-column conflicts (Win Probabilities)
+            def bulk_upsert_multi(table_name, df, conflict_columns):
+                if df.empty: return
+                raw_dicts = df.to_dict(orient='records')
+                data_dicts = [{k: (None if pd.isna(v) else v) for k, v in record.items()} for record in raw_dicts]
+                
+                table = Table(table_name, metadata, autoload_with=engine)
+                stmt = insert(table).values(data_dicts)
+                stmt = stmt.on_conflict_do_nothing(index_elements=conflict_columns)
+                conn.execute(stmt)
+
             # 6a. ATHLETES (Upsert minimal stubs if missing)
             if new_athlete_records:
                 # Remove duplicates in new_athlete_records
@@ -294,39 +318,32 @@ async def scrape_day(client, target_date, semaphore, existing_events, all_athlet
                         seen_aids.add(a['athlete_id'])
                         unique_athletes.append(a)
                 
-                athlete_df = pd.DataFrame(unique_athletes)
-                athlete_df.to_sql('athletes', conn, if_exists='append', index=False)
+                bulk_upsert('athletes', pd.DataFrame(unique_athletes), 'athlete_id')
                 
             # 6b. EVENTS
-            pd.DataFrame(global_events).to_sql('events', conn, if_exists='append', index=False)
+            bulk_upsert('events', pd.DataFrame(global_events), 'event_id')
             
             # 6c. COMPETITORS
             if global_competitors:
-                pd.DataFrame(global_competitors).to_sql('event_competitors', conn, if_exists='append', index=False)
+                bulk_upsert('event_competitors', pd.DataFrame(global_competitors), 'event_competitor_id')
                 
             # 6d. BATTING
             if global_batting:
-                pd.DataFrame(global_batting).to_sql('event_boxscores_batting', conn, if_exists='append', index=False)
+                bulk_upsert('event_boxscores_batting', pd.DataFrame(global_batting), 'event_batting_id')
                 
             # 6e. PITCHING
             if global_pitching:
-                pd.DataFrame(global_pitching).to_sql('event_boxscores_pitching', conn, if_exists='append', index=False)
+                bulk_upsert('event_boxscores_pitching', pd.DataFrame(global_pitching), 'event_pitching_id')
                 
             # 6f. PLAYS (Deduplicate play_ids first)
             if global_plays:
                 df_plays = pd.DataFrame(global_plays).drop_duplicates(subset=['play_id'])
-                try:
-                    df_plays.to_sql('plays', conn, if_exists='append', index=False)
-                except Exception as e:
-                    logger.error(f"Plays insert failed (probably duplicate play_id): {e}")
+                bulk_upsert('plays', df_plays, 'play_id')
                     
             # 6g. WIN PROBABILITY (Deduplicate)
             if global_wp:
                 df_wp = pd.DataFrame(global_wp).drop_duplicates(subset=['event_id', 'play_id'])
-                try:
-                    df_wp.to_sql('win_probabilities', conn, if_exists='append', index=False)
-                except Exception as e:
-                    logger.error(f"Win Probability insert failed: {e}")
+                bulk_upsert_multi('win_probabilities', df_wp, ['event_id', 'play_id'])
 
             conn.commit()
             
