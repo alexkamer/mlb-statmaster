@@ -115,7 +115,16 @@ async def get_league_stats(year: int = 2024, type: str = "batting", season_type:
 
     try:
         stats = await database.fetch_all(query=query, values={"year": year, "limit": limit})
-        return [dict(s) for s in stats]
+        
+        import math
+        def clean_dict(d):
+            new_d = dict(d)
+            for k, v in new_d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    new_d[k] = None
+            return new_d
+            
+        return [clean_dict(s) for s in stats]
     except Exception as e:
         print(f"Error fetching league stats: {e}")
         return []

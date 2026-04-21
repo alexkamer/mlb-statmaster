@@ -108,9 +108,17 @@ async def get_player_profile(player_id: int):
     
     historical_stats = await database.fetch_all(query=stats_query, values={"player_id": player_id})
     
+    import math
+    def clean_dict(d):
+        new_d = dict(d)
+        for k, v in new_d.items():
+            if isinstance(v, float) and math.isnan(v):
+                new_d[k] = None
+        return new_d
+
     return {
         "bio": dict(player_bio),
-        "stats": [dict(s) for s in historical_stats],
+        "stats": [clean_dict(s) for s in historical_stats],
         "team_history": team_history
     }
 
@@ -266,13 +274,21 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                 result_map[sp['athlete_id']]['season_pitching'] = dict(sp)
         
         
+        import math
+        def clean_dict(d):
+            new_d = dict(d)
+            for k, v in new_d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    new_d[k] = None
+            return new_d
+
         for b in batting_logs:
-            d = dict(b)
+            d = clean_dict(b)
             d.pop('rn', None)
             result_map[d['athlete_id']]["batting"].append(d)
             
         for p in pitching_logs:
-            d = dict(p)
+            d = clean_dict(p)
             d.pop('rn', None)
             result_map[d['athlete_id']]["pitching"].append(d)
             
@@ -384,8 +400,16 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
         batting_logs = await database.fetch_all(query=batting_query, values={k: v for k, v in query_params.items() if k != 'inning'})
         pitching_logs = await database.fetch_all(query=pitching_query, values=query_params)
         
-        bat_list = [dict(b) for b in batting_logs]
-        pit_list = [dict(p) for p in pitching_logs]
+        import math
+        def clean_dict(d):
+            new_d = dict(d)
+            for k, v in new_d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    new_d[k] = None
+            return new_d
+
+        bat_list = [clean_dict(b) for b in batting_logs]
+        pit_list = [clean_dict(p) for p in pitching_logs]
         
         return {
             "batting": bat_list,

@@ -219,7 +219,16 @@ async def get_recent_games(team_id: int, limit: int = 5, year: int = 2024, seaso
             LIMIT :limit
         """
         results = await database.fetch_all(query=query, values=query_params)
-        return [dict(r) for r in results]
+        
+        import math
+        def clean_dict(d):
+            new_d = dict(d)
+            for k, v in new_d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    new_d[k] = None
+            return new_d
+            
+        return [clean_dict(r) for r in results]
     except Exception as e:
         print(f"Error in get_recent_games: {e}")
         raise HTTPException(status_code=500, detail=str(e))

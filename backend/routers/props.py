@@ -55,8 +55,16 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
             LEFT JOIN events e ON pp.event_id = e.event_id
             WHERE {where_clause}
         """
+        import math
+        def clean_dict(d):
+            new_d = dict(d)
+            for k, v in new_d.items():
+                if isinstance(v, float) and math.isnan(v):
+                    new_d[k] = None
+            return new_d
+            
         props = await database.fetch_all(query=query, values=values)
-        return [dict(p) for p in props]
+        return [clean_dict(p) for p in props]
     except Exception as e:
         print(f"Error fetching props: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch props")
