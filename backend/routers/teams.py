@@ -249,19 +249,19 @@ async def get_team_games_paginated(team_id: int, year: int = 2024, page: int = 1
             e.date,
             e.name as matchup,
             e.short_name,
+            e.game_note,
             COALESCE(st.name, 'Game') as season_type_name,
             c1.score as team_score,
             c2.score as opponent_score,
             c2.team_id as opponent_id,
-            t2.display_name as opponent_name,
-            t2.abbreviation as opponent_abbreviation,
+            (SELECT display_name FROM season_teams WHERE team_id = c2.team_id LIMIT 1) as opponent_name,
+            (SELECT abbreviation FROM season_teams WHERE team_id = c2.team_id LIMIT 1) as opponent_abbreviation,
             c1.winner,
             c1.home_away as location
         FROM events e
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
         JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
         JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
-        LEFT JOIN season_teams t2 ON c2.season_team_id = t2.season_team_id
         WHERE e.season_year = :year{type_filter}
         ORDER BY e.date DESC
         LIMIT :limit OFFSET :offset

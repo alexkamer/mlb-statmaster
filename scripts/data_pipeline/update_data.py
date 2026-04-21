@@ -287,11 +287,12 @@ async def update_game_data(client):
         if status_name not in ['STATUS_FINAL', 'STATUS_POSTPONED', 'STATUS_CANCELED']:
             continue
             
-        global_events.append({
+        events_records.append({
             'event_id': event_id,
             'date': pd.to_datetime(game_date, utc=True).replace(tzinfo=None),
             'name': data.get('header', {}).get('name'),
             'short_name': data.get('header', {}).get('competitions', [{}])[0].get('shortName'),
+            'game_note': data.get('header', {}).get('gameNote'),
             'season_year': season_year,
             'type_id': safe_int(data.get('header', {}).get('season', {}).get('type')),
             'attendance': data.get('gameInfo', {}).get('attendance'),

@@ -76,6 +76,17 @@ export const PlayerPage = () => {
             setActiveCategory("batting");
           }
         }
+        
+        // Auto-select most recent season if none provided
+        if (!searchParams.get("season")) {
+            const availableYears = Object.keys(teamHistory)
+                .filter(k => k !== "default")
+                .map(Number)
+                .sort((a, b) => b - a);
+            if (availableYears.length > 0) {
+                setActiveLogYear(availableYears[0]);
+            }
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -119,6 +130,21 @@ export const PlayerPage = () => {
     }
     loadSplits();
   }, [playerId, activeCategory]);
+
+  // Validate activeLogYear against teamHistory
+  useEffect(() => {
+      if (profile?.teamHistory) {
+          const availableYears = Object.keys(profile.teamHistory)
+              .filter(k => k !== "default")
+              .map(Number)
+              .sort((a, b) => b - a);
+          
+          if (availableYears.length > 0 && !availableYears.includes(activeLogYear)) {
+              // Only auto-correct if we have data and the current year is definitely invalid
+              setActiveLogYear(availableYears[0]);
+          }
+      }
+  }, [profile?.teamHistory, activeLogYear]);
 
   // Synchronize state changes to URL
   useEffect(() => {
@@ -503,21 +529,24 @@ export const PlayerPage = () => {
                             <tr key={`recent-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
                               <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
                               <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">
-                                  <div className="flex items-center gap-2">
-                                      <span>{oppPrefix}</span>
-                                      {log.opponent_id && log.opponent_abbrev ? (
-                                          <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
-                                              <SafeImage 
-                                                src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
-                                                className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
-                                                alt={log.opponent_abbrev} 
-                                                hideOnError
-                                              />
-                                              <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
-                                          </Link>
-                                      ) : (
-                                          <span>{log.opponent_abbrev || "TBD"}</span>
-                                      )}
+                                  <div className="flex flex-col">
+                                      <div className="flex items-center gap-2">
+                                          <span>{oppPrefix}</span>
+                                          {log.opponent_id && log.opponent_abbrev ? (
+                                              <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
+                                                  <SafeImage 
+                                                    src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
+                                                    className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
+                                                    alt={log.opponent_abbrev} 
+                                                    hideOnError
+                                                  />
+                                                  <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
+                                              </Link>
+                                          ) : (
+                                              <span>{log.opponent_abbrev || "TBD"}</span>
+                                          )}
+                                      </div>
+                                      {log.game_note && <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-1">{log.game_note}</span>}
                                   </div>
                               </td>
                               <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
@@ -713,11 +742,12 @@ export const PlayerPage = () => {
                     onChange={(e) => setActiveLogYear(Number(e.target.value))}
                     className="border border-slate-300 rounded px-4 py-2 font-bold text-sm text-primary focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer bg-white"
                  >
-                    {/* Render a dropdown for the last 10 years */}
-                    {[...Array(10)].map((_, i) => {
-                        const year = new Date().getFullYear() - i;
-                        return <option key={year} value={year}>{year}</option>;
-                    })}
+                    {(Object.keys(profile?.teamHistory || {}).filter(k => k !== "default").length > 0 
+                        ? Object.keys(profile.teamHistory).filter(k => k !== "default").map(Number).sort((a,b) => b - a)
+                        : [new Date().getFullYear()]
+                    ).map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                    ))}
                  </select>
               </div>
             </div>
@@ -771,23 +801,25 @@ export const PlayerPage = () => {
                                         <tr key={`bat-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
                                           <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
                                           <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <span>{oppPrefix}</span>
-                                                {log.opponent_id && log.opponent_abbrev ? (
-                                                    <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
-                                                        <SafeImage 
-                                                          src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
-                                                          className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
-                                                          alt={log.opponent_abbrev} 
-                                                          hideOnError
-                                                        />
-                                                        <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
-                                                    </Link>
-                                                ) : (
-                                                    <span>{log.opponent_abbrev || "TBD"}</span>
-                                                )}
-                                            </div>
-                                          </td>
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{oppPrefix}</span>
+                                                    {log.opponent_id && log.opponent_abbrev ? (
+                                                        <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
+                                                            <SafeImage 
+                                                              src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
+                                                              className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
+                                                              alt={log.opponent_abbrev} 
+                                                              hideOnError
+                                                            />
+                                                            <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
+                                                        </Link>
+                                                    ) : (
+                                                        <span>{log.opponent_abbrev || "TBD"}</span>
+                                                    )}
+                                                </div>
+                                                {log.game_note && <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-1">{log.game_note}</span>}
+                                            </div>                                          </td>
                                           <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
                                             <Link to={`/games/${log.event_id}`} className="hover:underline hover:text-primary transition-colors">
                                               <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
@@ -863,23 +895,25 @@ export const PlayerPage = () => {
                                         <tr key={`pitch-${log.event_id}-${idx}`} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
                                           <td className="px-6 py-3 font-bold" style={{ color: `#${bio.team_color}` }}>{formattedDate}</td>
                                           <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <span>{oppPrefix}</span>
-                                                {log.opponent_id && log.opponent_abbrev ? (
-                                                    <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
-                                                        <SafeImage 
-                                                          src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
-                                                          className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
-                                                          alt={log.opponent_abbrev} 
-                                                          hideOnError
-                                                        />
-                                                        <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
-                                                    </Link>
-                                                ) : (
-                                                    <span>{log.opponent_abbrev || "TBD"}</span>
-                                                )}
-                                            </div>
-                                          </td>
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{oppPrefix}</span>
+                                                    {log.opponent_id && log.opponent_abbrev ? (
+                                                        <Link to={`/teams/${log.opponent_id}`} className="flex items-center gap-2 hover:bg-slate-100 px-2 py-1 -ml-2 rounded transition-colors group">
+                                                            <SafeImage 
+                                                              src={`https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/${log.opponent_abbrev.toLowerCase()}.png`} 
+                                                              className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" 
+                                                              alt={log.opponent_abbrev} 
+                                                              hideOnError
+                                                            />
+                                                            <span className="font-bold group-hover:text-primary transition-colors" style={{ color: `#${bio.team_color}` }}>{log.opponent_abbrev}</span>
+                                                        </Link>
+                                                    ) : (
+                                                        <span>{log.opponent_abbrev || "TBD"}</span>
+                                                    )}
+                                                </div>
+                                                {log.game_note && <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-1">{log.game_note}</span>}
+                                            </div>                                          </td>
                                           <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">
                                             <Link to={`/games/${log.event_id}`} className="hover:underline hover:text-primary transition-colors">
                                               <span className={`mr-2 font-black ${log.is_win ? "text-emerald-600" : "text-rose-600"}`}>{resultPrefix}</span>
