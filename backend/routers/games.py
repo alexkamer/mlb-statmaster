@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 import httpx
-from datetime import datetime, timezone
 import asyncio
 from database import database
 
@@ -158,3 +156,81 @@ async def get_game_odds(game_id: int):
         "awayTeamOdds": {"moneyLine": odds_dict["away_money_line"], "spreadOdds": odds_dict["spreadOdds"]},
         "homeTeamOdds": {"moneyLine": odds_dict["home_money_line"], "spreadOdds": odds_dict["spreadOdds"]}
     }
+
+@router.get("/api/games/{game_id}/race_to_x")
+async def get_race_to_x_history(game_id: int, target: int = 3):
+    """Calculate historical Race to X performance for both teams in the matchup."""
+    # 1. Fetch matchup context
+    query_context = """
+        SELECT e.date, c_away.team_id as away_team_id, c_home.team_id as home_team_id
+        FROM events e
+        JOIN event_competitors c_away ON e.event_id = c_away.event_id AND c_away.home_away = 'away'
+        JOIN event_competitors c_home ON e.event_id = c_home.event_id AND c_home.home_away = 'home'
+        WHERE e.event_id = :game_id
+    """
+    context = await database.fetch_one(query=query_context, values={"game_id": game_id})
+    if not context:
+        raise HTTPException(status_code=404, detail="Game context not found.")
+
+    game_date = context["date"]
+    away_team_id = context["away_team_id"]
+    home_team_id = context["home_team_id"]
+
+    # 2. Build the race_to_x history query
+    history_query = """
+        SELECT
+            e.event_id,
+            e.date,
+            c1.home_away as team_location,
+            c2.team_id as opp_team_id,
+            c1.score as final_team_score,
+            c2.score as final_opp_score,
+            (
+                SELECT
+                    CASE
+                        WHEN ep.away_score >= :target_runs AND ep.home_score < :target_runs THEN 'away'
+                        WHEN ep.home_score >= :target_runs AND ep.away_score < :target_runs THEN 'home'
+                        WHEN ep.away_score >= :target_runs AND ep.home_score >= :target_runs THEN 'tie'
+                        ELSE NULL
+                    END
+                FROM event_plays ep
+                WHERE ep.event_id = e.event_id
+                  AND (ep.away_score >= :target_runs OR ep.home_score >= :target_runs)
+                ORDER BY ep.play_id ASC
+                LIMIT 1
+            ) as first_to_x_winner_location
+        FROM events e
+        JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
+        JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
+        WHERE e.date < :game_date AND c1.score IS NOT NULL
+        ORDER BY e.date DESC
+        LIMIT 10
+    """
+
+    away_history = await database.fetch_all(query=history_query, values={"team_id": away_team_id, "game_date": game_date, "target_runs": target})
+    home_history = await database.fetch_all(query=history_query, values={"team_id": home_team_id, "game_date": game_date, "target_runs": target})
+
+    def process_history(history_records):
+        results = []
+        for r in history_records:
+            d = dict(r)
+            winner_loc = d["first_to_x_winner_location"]
+            if winner_loc is None:
+                d["race_result"] = "push"
+            elif winner_loc == "tie":
+                d["race_result"] = "push"
+            elif winner_loc == d["team_location"]:
+                d["race_result"] = "win"
+            else:
+                d["race_result"] = "loss"
+            results.append(d)
+        return results
+
+    return {
+        "away_team_id": away_team_id,
+        "home_team_id": home_team_id,
+        "target": target,
+        "away_history": process_history(away_history),
+        "home_history": process_history(home_history)
+    }
+

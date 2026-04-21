@@ -57,34 +57,66 @@ export const SearchBar = () => {
         }
     };
 
+    const handleAskStatmaster = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsOpen(false);
+        navigate(`/ask?q=${encodeURIComponent(query.trim().replace(/\s+/g, '-'))}`);
+        setQuery('');
+    };
+
     return (
         <div ref={wrapperRef} className="relative w-full max-w-md ml-4 z-[100]">
             <div className="relative flex items-center">
-                <input 
-                    type="text"
-                    value={query}
-                    onChange={(e) => {
-                        setQuery(e.target.value);
-                        setIsOpen(true);
-                    }}
-                    onFocus={() => { if (query.length >= 2) setIsOpen(true); }}
-                    placeholder="Search players or teams..."
-                    className="bg-[#002d62] border-none text-white text-xs pl-4 pr-10 py-2 rounded-lg w-64 focus:ring-1 focus:ring-secondary transition-all outline-none placeholder:text-slate-400"
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    {isLoading ? (
-                        <Loader2 className="w-4 h-4 text-secondary animate-spin" />
-                    ) : (
-                        <Search className="w-4 h-4 text-slate-400" />
-                    )}
-                </div>
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if(query.trim()) {
+                      navigate(`/ask?q=${encodeURIComponent(query.trim().replace(/\s+/g, '-'))}`);
+                      setIsOpen(false);
+                      setQuery('');
+                    }
+                  }}
+                  className="w-full flex items-center relative"
+                >
+                  <input 
+                      type="text"
+                      value={query}
+                      onChange={(e) => {
+                          setQuery(e.target.value);
+                          setIsOpen(true);
+                      }}
+                      onFocus={() => { if (query.length >= 2) setIsOpen(true); }}
+                      placeholder="Search or ask Statmaster..."
+                      className="bg-[#002d62] border-none text-white text-xs pl-4 pr-10 py-2 rounded-lg w-64 focus:ring-1 focus:ring-secondary transition-all outline-none placeholder:text-slate-400"
+                  />
+                  <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 hover:text-secondary transition-colors text-slate-400">
+                      {isLoading ? (
+                          <Loader2 className="w-4 h-4 text-secondary animate-spin" />
+                      ) : (
+                          <Search className="w-4 h-4" />
+                      )}
+                  </button>
+                </form>
             </div>
 
-            {isOpen && (query.length >= 2) && (
+            {isOpen && (query.length > 0) && (
                 <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden max-h-[400px] overflow-y-auto">
-                    {results.teams.length === 0 && results.players.length === 0 && !isLoading && (
+                    <button
+                        onClick={handleAskStatmaster}
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 group"
+                    >
+                        <div className="bg-primary/10 p-2 rounded-full text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                            <Search className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Ask Statmaster</p>
+                            <p className="text-sm font-bold text-primary truncate">"{query}"</p>
+                        </div>
+                    </button>
+
+                    {results.teams.length === 0 && results.players.length === 0 && !isLoading && query.length >= 2 && (
                         <div className="p-4 text-center text-sm font-bold text-slate-400 uppercase tracking-widest">
-                            No results found
+                            No exact matches found
                         </div>
                     )}
 

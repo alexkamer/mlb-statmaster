@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 import httpx
 from datetime import datetime, timezone
-import asyncio
 from database import database
 
 router = APIRouter()
@@ -251,19 +249,19 @@ async def get_team_games_paginated(team_id: int, year: int = 2024, page: int = 1
             e.date,
             e.name as matchup,
             e.short_name,
+            e.game_note,
             COALESCE(st.name, 'Game') as season_type_name,
             c1.score as team_score,
             c2.score as opponent_score,
             c2.team_id as opponent_id,
-            t2.display_name as opponent_name,
-            t2.abbreviation as opponent_abbreviation,
+            (SELECT display_name FROM season_teams WHERE team_id = c2.team_id LIMIT 1) as opponent_name,
+            (SELECT abbreviation FROM season_teams WHERE team_id = c2.team_id LIMIT 1) as opponent_abbreviation,
             c1.winner,
             c1.home_away as location
         FROM events e
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
         JOIN event_competitors c1 ON e.event_id = c1.event_id AND c1.team_id = :team_id
         JOIN event_competitors c2 ON e.event_id = c2.event_id AND c2.team_id != :team_id
-        LEFT JOIN season_teams t2 ON c2.season_team_id = t2.season_team_id
         WHERE e.season_year = :year{type_filter}
         ORDER BY e.date DESC
         LIMIT :limit OFFSET :offset
@@ -286,7 +284,6 @@ async def get_team_games_paginated(team_id: int, year: int = 2024, page: int = 1
 @router.get("/api/teams/{team_id}/live_roster")
 async def get_live_team_roster(team_id: int):
     """Fetch the live 40-man roster directly from ESPN."""
-    import httpx
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster"
     
     async with httpx.AsyncClient() as client:
@@ -465,7 +462,6 @@ async def get_team_batting_splits_by_outs(team_id: int, outs: int = 15, year: in
 @router.get("/api/teams/{team_id}/espn_data")
 async def get_team_espn_data(team_id: int):
     """Fetch the team's next scheduled game, records, and standing summary directly from ESPN."""
-    import httpx
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}"
     
     async with httpx.AsyncClient() as client:
@@ -528,10 +524,8 @@ async def get_team_espn_data(team_id: int):
 @router.get("/api/teams/{team_id}/depthchart")
 async def get_team_depthchart(team_id: int):
     """Fetch the team's current depth chart to populate the Diamond Architecture."""
-    import httpx
     
     # We query the current UTC year to ensure we get the live depth chart
-    from datetime import datetime, timezone
     year = datetime.now(timezone.utc).year
     
     url = f"https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/{year}/teams/{team_id}/depthcharts"
@@ -591,7 +585,6 @@ async def get_team_depthchart(team_id: int):
 @router.get("/api/teams/{team_id}/leaders")
 async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "Regular Season"):
     """Fetch official team leaders directly from ESPN and map to our database."""
-    import httpx
     
     # Map our readable string back to ESPN's internal type IDs
     type_id = "2"
@@ -661,7 +654,6 @@ async def get_team_leaders(team_id: int, year: int = 2024, season_type: str = "R
 @router.get("/api/teams/{team_id}/standing")
 async def get_team_standing(team_id: int, year: int = 2024):
     """Fetch the team's official win/loss record and division rank using the Core API."""
-    import httpx
     
     # First, we need to look up the team's Division ID and Name from our DB
     group_query = """

@@ -1,7 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
-import httpx
-from datetime import datetime, timezone
 import asyncio
 from database import database
 
@@ -123,7 +120,6 @@ async def get_league_stats(year: int = 2024, type: str = "batting", season_type:
         print(f"Error fetching league stats: {e}")
         return []
 
-from typing import Optional
 
 
 @router.get("/api/predictions/context")

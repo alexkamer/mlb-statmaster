@@ -1,8 +1,5 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-import httpx
-from datetime import datetime, timezone
-import asyncio
 from database import database
 
 router = APIRouter()
@@ -41,18 +38,17 @@ async def get_daily_props(date: str, event_ids: Optional[str] = None):
                         LIMIT 1
                     ),
                     (
-                        SELECT st.abbreviation
+                        SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1)
                         FROM season_rosters sr
-                        JOIN season_teams st ON sr.season_team_id = st.season_team_id
                         WHERE sr.athlete_id = pp.athlete_id
                         ORDER BY sr.season_year DESC
                         LIMIT 1
                     ),
                     'UNK'
                 ) as team_abbrev,
-                (SELECT t2.abbreviation FROM event_competitors c1 JOIN season_teams t2 ON c1.season_team_id = t2.season_team_id WHERE c1.event_id = pp.event_id AND c1.home_away = 'away' LIMIT 1) as _awayTeam,
+                (SELECT t2.abbreviation FROM event_competitors c1 JOIN season_teams t2 ON c1.team_id = t2.team_id WHERE c1.event_id = pp.event_id AND c1.home_away = 'away' LIMIT 1) as _awayTeam,
                 (SELECT c1.team_id FROM event_competitors c1 WHERE c1.event_id = pp.event_id AND c1.home_away = 'away' LIMIT 1) as _awayTeamId,
-                (SELECT t2.abbreviation FROM event_competitors c2 JOIN season_teams t2 ON c2.season_team_id = t2.season_team_id WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeam,
+                (SELECT t2.abbreviation FROM event_competitors c2 JOIN season_teams t2 ON c2.team_id = t2.team_id WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeam,
                 (SELECT c2.team_id FROM event_competitors c2 WHERE c2.event_id = pp.event_id AND c2.home_away = 'home' LIMIT 1) as _homeTeamId
             FROM player_props pp
             JOIN athletes a ON pp.athlete_id = a.athlete_id

@@ -1,8 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
-import httpx
-from datetime import datetime, timezone
-import asyncio
 from database import database
 
 router = APIRouter()
@@ -28,24 +24,24 @@ async def get_player_profile(player_id: int):
             p.abbreviation as position_abbreviation,
             'https://a.espncdn.com/i/headshots/mlb/players/full/' || a.athlete_id || '.png' as headshot,
             COALESCE(
-                (SELECT st.display_name FROM season_rosters sr JOIN season_teams st ON sr.season_team_id = st.season_team_id WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
-                (SELECT st.display_name FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id JOIN season_teams st ON b.team_id = st.team_id AND e.season_year = st.season_year WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
-                (SELECT st.display_name FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id JOIN season_teams st ON pt.team_id = st.team_id AND e.season_year = st.season_year WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
+                (SELECT (SELECT st.display_name FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1) FROM season_rosters sr WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
+                (SELECT (SELECT st.display_name FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
+                (SELECT (SELECT st.display_name FROM season_teams st WHERE st.team_id = pt.team_id LIMIT 1) FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
             ) as team_name,
             COALESCE(
-                (SELECT st.abbreviation FROM season_rosters sr JOIN season_teams st ON sr.season_team_id = st.season_team_id WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
-                (SELECT st.abbreviation FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id JOIN season_teams st ON b.team_id = st.team_id AND e.season_year = st.season_year WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
-                (SELECT st.abbreviation FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id JOIN season_teams st ON pt.team_id = st.team_id AND e.season_year = st.season_year WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
+                (SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1) FROM season_rosters sr WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
+                (SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
+                (SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = pt.team_id LIMIT 1) FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
             ) as team_abbreviation,
             COALESCE(
-                (SELECT st.color FROM season_rosters sr JOIN season_teams st ON sr.season_team_id = st.season_team_id WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
-                (SELECT st.color FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id JOIN season_teams st ON b.team_id = st.team_id AND e.season_year = st.season_year WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
-                (SELECT st.color FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id JOIN season_teams st ON pt.team_id = st.team_id AND e.season_year = st.season_year WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
+                (SELECT (SELECT st.color FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1) FROM season_rosters sr WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
+                (SELECT (SELECT st.color FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
+                (SELECT (SELECT st.color FROM season_teams st WHERE st.team_id = pt.team_id LIMIT 1) FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
             ) as team_color,
             COALESCE(
-                (SELECT st.alternate_color FROM season_rosters sr JOIN season_teams st ON sr.season_team_id = st.season_team_id WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
-                (SELECT st.alternate_color FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id JOIN season_teams st ON b.team_id = st.team_id AND e.season_year = st.season_year WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
-                (SELECT st.alternate_color FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id JOIN season_teams st ON pt.team_id = st.team_id AND e.season_year = st.season_year WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
+                (SELECT (SELECT st.alternate_color FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1) FROM season_rosters sr WHERE sr.athlete_id = a.athlete_id ORDER BY sr.season_year DESC LIMIT 1),
+                (SELECT (SELECT st.alternate_color FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) FROM event_boxscores_batting b JOIN events e ON b.event_id = e.event_id WHERE b.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1),
+                (SELECT (SELECT st.alternate_color FROM season_teams st WHERE st.team_id = pt.team_id LIMIT 1) FROM event_boxscores_pitching pt JOIN events e ON pt.event_id = e.event_id WHERE pt.athlete_id = a.athlete_id ORDER BY e.date DESC LIMIT 1)
             ) as team_alternate_color
         FROM athletes a
         LEFT JOIN positions p ON a.position_id = p.position_id
@@ -64,20 +60,19 @@ async def get_player_profile(player_id: int):
         FROM (
             SELECT DISTINCT
                 e.season_year,
-                t.abbreviation as team_abbreviation
+                (SELECT abbreviation FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) as team_abbreviation
             FROM event_boxscores_batting b
             JOIN events e ON b.event_id = e.event_id
-            JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
-            WHERE b.athlete_id = :player_id AND t.abbreviation IS NOT NULL
+            WHERE b.athlete_id = :player_id AND b.team_id NOT IN (31, 32)
             UNION
             SELECT DISTINCT
                 e.season_year,
-                t.abbreviation as team_abbreviation
+                (SELECT abbreviation FROM season_teams st WHERE st.team_id = p.team_id LIMIT 1) as team_abbreviation
             FROM event_boxscores_pitching p
             JOIN events e ON p.event_id = e.event_id
-            JOIN season_teams t ON p.team_id = t.team_id AND e.season_year = t.season_year
-            WHERE p.athlete_id = :player_id AND t.abbreviation IS NOT NULL
+            WHERE p.athlete_id = :player_id AND p.team_id NOT IN (31, 32)
         ) as sub
+        WHERE team_abbreviation IS NOT NULL
         GROUP BY season_year
     """
     historical_teams = await database.fetch_all(query=teams_query, values={"player_id": player_id})
@@ -87,7 +82,7 @@ async def get_player_profile(player_id: int):
     stats_query = """
         SELECT 
             e.season_year,
-            t.abbreviation as team_abbreviation,
+            (SELECT abbreviation FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1) as team_abbreviation,
             COUNT(DISTINCT b.event_id) as g,
             SUM(b.ab) as ab,
             SUM(b.r) as r,
@@ -106,9 +101,8 @@ async def get_player_profile(player_id: int):
         FROM event_boxscores_batting b
         JOIN events e ON b.event_id = e.event_id
         LEFT JOIN season_types st ON e.season_year = st.season_year AND e.date >= st.start_date AND e.date <= st.end_date
-        LEFT JOIN season_teams t ON b.team_id = t.team_id AND e.season_year = t.season_year
-        WHERE b.athlete_id = :player_id AND st.type_id = 2
-        GROUP BY e.season_year, t.abbreviation
+        WHERE b.athlete_id = :player_id AND st.type_id = 2 AND b.team_id NOT IN (31, 32)
+        GROUP BY e.season_year, b.team_id
         ORDER BY e.season_year DESC
     """
     
@@ -144,6 +138,7 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     b.athlete_id,
                     e.event_id,
                     e.date,
+                    e.game_note,
                     b.team_id,
                     b.ab, b.r, b.h, b.hr, b.rbi, b.bb, b.k, b.sb, 
                     COALESCE(b.d, 0) as d, COALESCE(b.t, 0) as t,
@@ -164,11 +159,12 @@ async def get_batch_player_gamelogs(player_ids: str, year: int = None, limit: in
                     p.athlete_id,
                     e.event_id,
                     e.date,
+                    e.game_note,
                     p.team_id,
                     p.ip, p.h, p.r, p.er, p.hr, p.bb, p.k, p.pitches,
                     COALESCE(p.recorded_win, false) as recorded_win,
                     (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
-                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
+                    (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.team_id = t.team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id LIMIT 1) as opponent_abbrev,
                     (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
                     (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
                     (
@@ -304,6 +300,7 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
             e.event_id,
             e.date,
             e.short_name,
+            e.game_note,
             b.team_id,
             b.starter,
             b.ab,
@@ -321,7 +318,7 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as team_score,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_score,
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as is_win,
-            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_abbrev,
+            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.team_id = t.team_id WHERE c.event_id = e.event_id AND c.team_id != b.team_id LIMIT 1) as opponent_abbrev,
             (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != b.team_id) as opponent_id,
             (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = b.team_id) as home_away,
             (SELECT
@@ -345,6 +342,7 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
             e.event_id,
             e.date,
             e.short_name,
+            e.game_note,
             p.team_id,
             p.starter,
             p.ip,
@@ -359,7 +357,7 @@ async def get_player_gamelog(player_id: int, year: int = None, limit: int = 15, 
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as team_score,
             (SELECT c.score FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_score,
             (SELECT c.winner FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as is_win,
-            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.season_team_id = t.season_team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_abbrev,
+            (SELECT t.abbreviation FROM event_competitors c JOIN season_teams t ON c.team_id = t.team_id WHERE c.event_id = e.event_id AND c.team_id != p.team_id LIMIT 1) as opponent_abbrev,
             (SELECT c.team_id FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id != p.team_id) as opponent_id,
             (SELECT c.home_away FROM event_competitors c WHERE c.event_id = e.event_id AND c.team_id = p.team_id) as home_away,
             (SELECT

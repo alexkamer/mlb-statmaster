@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException
-from typing import Optional
+from fastapi import APIRouter
 from database import database
 import datetime
 from datetime import timezone
@@ -33,27 +32,24 @@ async def global_search(q: str):
             p.abbreviation as position_abbrev,
             COALESCE(
                 (
-                    SELECT st.abbreviation
+                    SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = sr.team_id LIMIT 1)
                     FROM season_rosters sr
-                    JOIN season_teams st ON sr.season_team_id = st.season_team_id
                     WHERE sr.athlete_id = a.athlete_id
                     ORDER BY sr.season_year DESC
                     LIMIT 1
                 ),
                 (
-                    SELECT st.abbreviation
+                    SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = b.team_id LIMIT 1)
                     FROM event_boxscores_batting b
                     JOIN events e ON b.event_id = e.event_id
-                    JOIN season_teams st ON b.team_id = st.team_id AND e.season_year = st.season_year
                     WHERE b.athlete_id = a.athlete_id
                     ORDER BY e.date DESC
                     LIMIT 1
                 ),
                 (
-                    SELECT st.abbreviation
+                    SELECT (SELECT st.abbreviation FROM season_teams st WHERE st.team_id = pt.team_id LIMIT 1)
                     FROM event_boxscores_pitching pt
                     JOIN events e ON pt.event_id = e.event_id
-                    JOIN season_teams st ON pt.team_id = st.team_id AND e.season_year = st.season_year
                     WHERE pt.athlete_id = a.athlete_id
                     ORDER BY e.date DESC
                     LIMIT 1
