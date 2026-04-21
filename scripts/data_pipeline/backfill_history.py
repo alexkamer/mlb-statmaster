@@ -110,17 +110,34 @@ async def scrape_day(client, target_date, semaphore, existing_events, all_athlet
             if not season_year:
                 continue
                 
-            game_date = data['header']['competitions'][0]['date']
-            status_name = data['header']['competitions'][0]['status']['type']['name']
-            
-            if status_name not in ['STATUS_FINAL', 'STATUS_POSTPONED', 'STATUS_CANCELED']:
+            try:
+                competitions = data.get('header', {}).get('competitions', [{}])
+                if not competitions:
+                    continue
+                game_date = competitions[0].get('date')
+                status_name = competitions[0].get('status', {}).get('type', {}).get('name')
+            except Exception:
+                continue
+                
+            if not game_date or status_name not in ['STATUS_FINAL', 'STATUS_POSTPONED', 'STATUS_CANCELED']:
                 # If a historical game somehow isn't final or canceled, skip it
                 continue
                 
+            # Construct a fallback name if 'name' is missing from the header (happens in older ESPN game endpoints)
+            name = data.get('header', {}).get('name')
+            if not name:
+                competitors = data.get('header', {}).get('competitions', [{}])[0].get('competitors', [])
+                if len(competitors) == 2:
+                    away = competitors[1].get('team', {}).get('displayName', 'Away')
+                    home = competitors[0].get('team', {}).get('displayName', 'Home')
+                    name = f"{away} at {home}"
+                else:
+                    name = "Unknown Matchup"
+                    
             global_events.append({
                 'event_id': eid,
                 'date': game_date,
-                'name': data['header']['name'],
+                'name': name,
                 'season_year': season_year
             })
             
